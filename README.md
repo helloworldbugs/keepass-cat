@@ -1,6 +1,6 @@
 # 🐘 Tusk — KeePass Browser Extension
 
-> 🔒 只读 KeePass 密码数据库浏览器集成 · Chrome & Firefox 双平台支持
+> 🔒 KeePass 密码数据库浏览器集成（支持编辑保存）· Chrome & Firefox 双平台支持
 
 [![Version](https://img.shields.io/badge/version-3.4.5-blue)](https://github.com/helloworldbugs/Tusk/releases)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -35,14 +35,14 @@ Fork 自 [subdavis/Tusk](https://github.com/subdavis/Tusk)，在原始项目基�
 | 🔢 **徽章计数** | 扩展图标右上角实时显示当前页面匹配的密码条目数量 |
 | ⚡ **一键填充** | 点击条目或按回车键即可自动填充用户名和密码 |
 | 🧠 **分级匹配** | 独创的 4 级 URL 匹配算法，精准排序最佳匹配条目 |
-| ✏️ **编辑保存** | 直接在弹窗中编辑标题、用户名、密码、URL、备注，保存回 KDBX 文件 |
+| ✏️ **编辑保存** | 直接在弹窗中编辑标题、用户名、密码、URL、备注、TOTP，保存回 WebDAV 上的 KDBX 文件 |
 | 🔗 **外部链接** | 每个条目都有一键打开 URL 按钮，新标签页直达网站 |
 | 🪟 **Iframe 填充** | 支持跨域 iframe 登录表单（如阿里云、银行等） |
-| 🔐 **TOTP 双因素** | 实时显示 TOTP 动态验证码，带倒计时进度条 |
+| 🔐 **TOTP 双因素** | 实时显示 TOTP 动态验证码 + 一键复制，支持编辑保存（`otpauth://`） |
 | 🌍 **中文国际化** | 完整的中文界面翻译，自动检测浏览器语言 |
 | 🔑 **随机密码生成** | 新建/编辑条目时一键生成高强度随机密码 |
 | 🗝️ **密钥文件支持** | 支持 KeePass Keyfile（XML/32 字节/十六进制/哈希），可与密码组合或单独使用 |
-| 🔄 **WebDAV 同步** | 支持 WebDAV 云端同步，覆盖主流云服务和私有部署 |
+| 🔄 **WebDAV 同步** | 支持 WebDAV 云端同步（坚果云 / Nextcloud 等私有部署），编辑后自动写回 |
 | 📂 **分组管理** | 创建、重命名、删除分组，条目在分组间自由移动 |
 | 🕐 **遗忘定时器** | 可配置密码记忆时长：30 分钟 → 永久，到期自动清除 |
 | 🛡️ **Manifest V3** | 完整兼容 Chrome MV3，同时支持 Firefox MV2 |
@@ -100,13 +100,12 @@ regex:192\.168\.\d+\.\d+:8080  →  匹配特定网段和端口
 
 ## ⚡ 自动填充引擎
 
-### 三种触发方式
+### 两种触发方式
 
 | 方式 | 操作 | 适用场景 |
 |------|------|----------|
 | 🖱️ **弹窗点击** | 打开 Tusk 弹窗，点击条目 | 最常用，可浏览选择 |
 | ⌨️ **快捷键** | `Ctrl+Shift+X` | 快速填充，无需鼠标 |
-| 🎯 **字段级填充** | `Ctrl+Shift+1/2/3`（需手动绑定） | 只填充用户名/密码/备注 |
 
 ### 字段检测算法
 
@@ -201,7 +200,7 @@ PasswordFileStoreRegistry (注册中心)
 
 - 🔒 主密码只在内存中解密，**不持久化明文**
 - 🚫 不在控制台输出敏感信息
-- ✅ 只读模式，不修改原始 KDBX 文件（除非用户主动编辑保存）
+- ✅ 默认只读展示，仅在用户主动编辑保存时才写回 KDBX 文件
 - 🛡️ 来源检查：填充前验证 frame 与目标页面的 hostname 一致性
 
 ### 密钥文件 (Keyfile)
@@ -256,10 +255,10 @@ PasswordFileStoreRegistry (注册中心)
 ```
 
 - 支持 `otpauth://` 标准格式
-- 兼容 KeePassXC 的 `tOTPSeed` + `tOTPSettings` 格式
 - 支持 SHA1 / SHA256 / SHA512 算法
 - 6-8 位验证码，含 Steam 格式
 - 每秒自动刷新，绿色进度条可视化倒计时
+- 列表项一键复制验证码，编辑页可新增 / 修改 TOTP
 
 ---
 
@@ -269,11 +268,8 @@ PasswordFileStoreRegistry (注册中心)
 |--------|------|------|
 | `Ctrl+Shift+Space` | 打开弹窗 | 打开 Tusk 弹窗 |
 | `Ctrl+Shift+X` | 最佳匹配填充 | 自动填充当前页面最佳匹配条目 |
-| `Ctrl+Shift+1`（需手动绑定） | 填充用户名 | 仅填充用户名到当前焦点输入框 |
-| `Ctrl+Shift+2`（需手动绑定） | 填充密码 | 仅填充密码到当前焦点输入框 |
-| `Ctrl+Shift+3`（需手动绑定） | 填充备注 | 仅填充备注到当前焦点输入框 |
 
-> 快捷键可在 Chrome 扩展管理页面 `chrome://extensions/shortcuts` 自定义。其中 `Ctrl+Shift+1/2/3` 默认未绑定，需手动设置。
+> 快捷键可在 Chrome 扩展管理页面 `chrome://extensions/shortcuts` 自定义。
 
 ---
 
