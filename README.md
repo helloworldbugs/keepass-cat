@@ -42,7 +42,7 @@ Fork 自 [subdavis/Tusk](https://github.com/subdavis/Tusk)，在原始项目基�
 | 🌍 **中文国际化** | 完整的中文界面翻译，自动检测浏览器语言 |
 | 🔑 **随机密码生成** | 新建/编辑条目时一键生成高强度随机密码 |
 | 🗝️ **密钥文件支持** | 支持 KeePass Keyfile（XML/32 字节/十六进制/哈希），可与密码组合或单独使用 |
-| 🔄 **多云端同步** | 支持 8 种存储后端，覆盖主流云服务和私有部署 |
+| 🔄 **WebDAV 同步** | 支持 WebDAV 云端同步，覆盖主流云服务和私有部署 |
 | 📂 **分组管理** | 创建、重命名、删除分组，条目在分组间自由移动 |
 | 🕐 **遗忘定时器** | 可配置密码记忆时长：30 分钟 → 永久，到期自动清除 |
 | 🛡️ **Manifest V3** | 完整兼容 Chrome MV3，同时支持 Firefox MV2 |
@@ -147,33 +147,17 @@ Tusk 使用**双方法检测**来定位页面上的用户名和密码输入框�
 
 ## ☁️ 云端存储支持
 
-Tusk 支持 **8 种存储后端**，覆盖所有主流场景：
+Tusk 通过 **WebDAV** 协议同步 KeePass 数据库：
 
 | 存储后端 | 类型 | 说明 |
 |----------|------|------|
 | 🔗 **WebDAV** | 私有部署 | 支持坚果云等 WebDAV 服务，扫描目录自动发现 `.kdbx` 文件，支持上传保存 |
-| 📁 **本地文件** | 浏览器存储 | 上传 `.kdbx` 文件到浏览器本地存储，Base64 编码持久化 |
-| 🔗 **共享链接** | 直链访问 | 通过 HTTP/HTTPS 直接链接访问数据库文件 |
-| 📦 **示例数据库** | 演示 | 内置示例数据库（密码 `123`），无需配置即可体验 |
-| ☁️ **Google Drive** | OAuth | 搜索 `.kdbx` 文件，支持文件选择器或直接搜索 |
-| 🗂️ **Dropbox** | OAuth | 搜索 `.kdbx` 文件，支持直接下载 |
-| 💼 **OneDrive** | OAuth | 搜索 `.kdbx` 文件，完整路径显示 |
-| 🌐 **pCloud** | OAuth | 递归搜索所有文件夹，支持直接下载链接 |
-
-> 除以上 8 种后端外，`OauthManager` 通用框架可让你轻松接入任意 OAuth2 服务，实现自定义云端后端。
 
 ### 存储后端架构
 
 ```
 PasswordFileStoreRegistry (注册中心)
-    ├── LocalChromePasswordFileManager   (本地文件)
-    ├── GoogleDrivePasswordFileManager   (Google Drive)
-    ├── DropboxFileManager               (Dropbox)
-    ├── OneDriveFileManager              (OneDrive)
-    ├── PCloudFileManager                (pCloud)
-    ├── SharedUrlFileManager             (共享链接)
-    ├── SampleDatabaseFileManager        (示例数据库)
-    └── WebdavFileManager                (WebDAV)
+    └── WebdavFileManager (WebDAV)
 ```
 
 所有后端统一实现 `FileManager` 接口，通过 `PasswordFileStoreRegistry` 注册和调度。
@@ -383,7 +367,7 @@ npm run build:background
 │                    Services                           │
 │  ┌──────────┐ ┌────────────┐ ┌──────────────────┐  │
 │  │ Keepass  │ │ Keepass    │ │ PasswordFileStore│  │
-│  │ Service  │ │ Reference  │ │ Registry (8后端) │  │
+│  │ Service  │ │ Reference  │ │ Registry (1后端) │  │
 │  └──────────┘ └────────────┘ └──────────────────┘  │
 └─────────────────────────────────────────────────────┘
 ```

@@ -1,6 +1,6 @@
 <!-- 
-	SharedLinkProvider:
-	Simple http provider that can also handle Dropbox Shared Links
+	WebdavProvider:
+	WebDAV file server provider
 -->
 <script>
 import * as Base64 from 'base64-arraybuffer';

@@ -6,7 +6,6 @@ function Links() {
     openOptions: openOptions,
     openWebstore: openWebstore,
     openHomepage: openHomepage,
-    openOptionsReauth: openOptionsReauth,
     openOptionsKeyfiles: openOptionsKeyfiles,
     openOptionsDatabases: openOptionsDatabases,
     open: openGeneric,
@@ -42,10 +41,6 @@ function Links() {
 
   function openOptionsKeyfiles() {
     openOptionsPath('/dist/options.html#/manage/keyfiles');
-  }
-
-  function openOptionsReauth(reauth_id) {
-    openOptionsPath('/dist/options.html#/reauthorize/' + reauth_id);
   }
 
   function openWebstore() {

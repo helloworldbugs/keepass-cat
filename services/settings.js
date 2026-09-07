@@ -1,9 +1,7 @@
 import * as Base64 from 'base64-arraybuffer';
 import { ChromePromiseApi } from '@/lib/chrome-api-promise.js';
-import { Links } from '$services/links.js';
 import { toRaw } from 'vue';
 const chromePromise = ChromePromiseApi();
-const links = new Links();
 
 function Settings(secureCache) {
   'use strict';
@@ -22,14 +20,7 @@ function Settings(secureCache) {
   };
 
   exports.handleProviderError = function (err, provider) {
-    exports.getCurrentDatabaseChoice().then((info) => {
-      let providerKey = provider === undefined ? info.providerKey : provider.key;
-      let errmsg = err.message || '';
-      if (errmsg.indexOf('interact') >= 0) {
-        /* There was an error with reauthorizing google drive... */
-        links.openOptionsReauth(providerKey);
-      }
-    });
+    // Only WebDAV remains; there are no OAuth providers to reauthorize.
   };
 
   exports.getKeyFiles = function () {
@@ -276,10 +267,6 @@ function Settings(secureCache) {
 
   exports.getSetClipboardExpireInterval = function (interval) {
     return keyGetSetter('expireInterval', interval, 2, 'number');
-  };
-
-  exports.getSetAccessToken = function (type, accessToken) {
-    return keyGetSetter(type + 'AccessToken', accessToken, null, 'string');
   };
 
   exports.getSetDatabaseUsages = function (usages) {

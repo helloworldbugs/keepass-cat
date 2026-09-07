@@ -98,11 +98,10 @@ const zhCN: Record<string, string> = {
   'Getting Started': '快速入门',
   'Manage Databases': '管理数据库',
   'Advanced': '高级设置',
-  'Reauthorize': '重新授权',
 
   // ===== Options: Getting Started =====
   'Getting Started with Tusk': 'Tusk 快速入门',
-  'Tusk helps you keep track of all your accounts by storing your passwords in an encrypted file called a Keepass Database. You choose where this file is stored - most people keep them in a cloud storage provider like Dropbox or Google Drive for easy access and syncing between laptops, desktops, and phones. To use Tusk, you should first enable one of the storage providers below.': 'Tusk 帮助你将所有密码存储在一个加密的文件中（即 KeePass 数据库）。你可以选择文件的存储位置——大多数人会选择 Dropbox 或 Google Drive 等云存储，以便在笔记本、台式机和手机之间同步。要使用 Tusk，你需要先启用以下任一云存储提供程序。',
+  'Tusk helps you keep track of all your accounts by storing your passwords in an encrypted file called a Keepass Database. You choose where this file is stored - most people keep them on a WebDAV server for easy access and syncing between laptops, desktops, and phones. To use Tusk, you should first enable the WebDAV provider below.': 'Tusk 帮助你将所有密码存储在一个加密的文件中（即 KeePass 数据库）。你可以选择文件的存储位置——大多数人会将文件放在 WebDAV 服务器上，以便在笔记本、台式机和手机之间同步。要使用 Tusk，你需要先启用下方的 WebDAV 提供程序。',
   'Optionally, you may also import any required keyfiles. A keyfile can be used together with a password to provide even better security, or even used instead of one.': '你还可以导入所需的密钥文件。密钥文件可与密码一起使用以增强安全性，也可以替代密码。',
   'That\'s it! Tusk will automatically discover any Keepass databases that your have in your cloud storage, and allow you to switch between databases from the browser popup.': '就这样！Tusk 会自动在云存储中发现你的 KeePass 数据库，并允许从浏览器弹窗中切换数据库。',
   'If you are a new Keepass user, you will be prompted to create a new database from the popup window after you enable a cloud storage provider. Most people keep all their passwords in a single database, so you will only need to do this once.': '如果你是新用户，启用云存储后，将提示你从弹窗创建新数据库。大多数人将所有密码保存在一个数据库中，因此只需要执行一次。',
@@ -147,15 +146,6 @@ const zhCN: Record<string, string> = {
   'Strict Matching': '严格匹配',
   'Stored Data': '已存储数据',
   'The following objects represent the current data cached in local storage. This data is only available to Tusk, and is never sent over any network connection.': '以下对象代表当前在本地存储中缓存的数据。这些数据仅供 Tusk 使用，绝不会通过网络发送。',
-
-  // ===== Options: Reauthorize =====
-  'Reauthorize {0}': '重新授权 {0}',
-  'The authorization token for {0} has expired and Tusk was unable to refresh it. Please reauthorize below to continue to use Tusk with your database from {0}.': '{0} 的授权令牌已过期且 Tusk 无法刷新。请在下方重新授权以继续使用。',
-  'Authorize {0}': '授权 {0}',
-  'Success': '成功',
-  'You can close this page and continue to use Tusk by clicking on the popup icon.': '你可以关闭此页面，点击弹窗图标继续使用 Tusk。',
-  'Error': '错误',
-  'It looks like something went wrong during the re-authorization process. Please try again.': '重新授权过程中似乎出了点问题，请重试。',
 
   // ===== Providers: Shared Link =====
   'Shared Link URL': '共享链接 URL',
@@ -307,10 +297,7 @@ const zhCN: Record<string, string> = {
   'If enabled, only entries whose origins match exactly will be suggested for input. Titles and other tab information will not be considered in matching. For example': '启用后，仅匹配完全相同的域名才会被建议填充。标题和其他标签页信息不会被用于匹配。例如',
   ' will not match ': ' 不会匹配 ',
 
-  // ===== Reauthorize & Support fragments =====
-  'You can ': '你可以 ',
-  'close this page': '关闭此页面',
-  ' and continue to use Tusk by clicking on the popup icon.': '，然后点击弹窗图标继续使用 Tusk。',
+  // ===== Support fragments =====
   'If you like Tusk, please consider ': '如果你喜欢 Tusk，请考虑在 ',
   ' so we can make Tusk better.': '，以便我们改进 Tusk。',
   '. If you find a problem or are dissatisfied, please instead open an issue on the ': '。如果你遇到问题或不满意，请在 ',

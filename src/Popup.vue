@@ -52,13 +52,6 @@ import { PasswordFileStoreRegistry } from '$services/passwordFileStore.js';
 import { Links } from '$services/links.js';
 import { Notifications } from '$services/notifications.js';
 // File Managers
-import { LocalChromePasswordFileManager } from '$services/localChromePasswordFileManager.js';
-import { GoogleDrivePasswordFileManager } from '$services/googleDrivePasswordFileManager.js';
-import { DropboxFileManager } from '$services/dropboxFileManager.js';
-import { OneDriveFileManager } from '$services/oneDriveFileManager.js';
-import { PCloudFileManager } from '$services/pCloudFileManager.js';
-import { SharedUrlFileManager } from '$services/sharedUrlFileManager.js';
-import { SampleDatabaseFileManager } from '$services/sampleDatabaseFileManager.js';
 import { WebdavFileManager } from '$services/webdavFileManager.js';
 // Components
 import Unlock from '@/components/Unlock.vue';
@@ -78,23 +71,9 @@ const keepassReference = new KeepassReference();
 const notifications = new Notifications(settings);
 
 // File Managers
-const localChromePasswordFileManager = new LocalChromePasswordFileManager(settings);
-const dropboxFileManager = new DropboxFileManager(settings);
-const googleDrivePasswordFileManager = new GoogleDrivePasswordFileManager(settings);
-const sharedUrlFileManager = new SharedUrlFileManager();
-const oneDriveFileManager = new OneDriveFileManager(settings);
-const pCloudFileManager = new PCloudFileManager(settings);
-const sampleDatabaseFileManager = new SampleDatabaseFileManager();
 const webdavFileManager = new WebdavFileManager(settings);
 
 const passwordFileStoreRegistry = new PasswordFileStoreRegistry(
-  localChromePasswordFileManager,
-  dropboxFileManager,
-  googleDrivePasswordFileManager,
-  sharedUrlFileManager,
-  sampleDatabaseFileManager,
-  oneDriveFileManager,
-  pCloudFileManager,
   webdavFileManager
 );
 const keepassService = new KeepassService(

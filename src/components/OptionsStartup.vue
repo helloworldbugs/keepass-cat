@@ -13,7 +13,7 @@ export default {
       </div>
 
       <p>
-        {{ $t('Tusk helps you keep track of all your accounts by storing your passwords in an encrypted file called a Keepass Database. You choose where this file is stored - most people keep them in a cloud storage provider like Dropbox or Google Drive for easy access and syncing between laptops, desktops, and phones. To use Tusk, you should first enable one of the storage providers below.') }}
+        {{ $t('Tusk helps you keep track of all your accounts by storing your passwords in an encrypted file called a Keepass Database. You choose where this file is stored - most people keep them on a WebDAV server for easy access and syncing between laptops, desktops, and phones. To use Tusk, you should first enable the WebDAV provider below.') }}
       </p>
 
       <a class="waves-effect waves-light btn" @click="$router.route('/manage/databases')"

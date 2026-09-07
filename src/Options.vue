@@ -9,13 +9,6 @@
         <manage-databases
           v-if="show.manageDatabases.visible"
           id="/manage/databases"
-          :dropbox-file-manager="services.dropboxFileManager"
-          :google-drive-manager="services.googleDrivePasswordFileManager"
-          :local-file-manager="services.localChromePasswordFileManager"
-          :onedrive-manager="services.oneDriveFileManager"
-          :p-cloud-file-manager="services.pCloudFileManager"
-          :sample-manager="services.sampleDatabaseFileManager"
-          :shared-url-manager="services.sharedUrlFileManager"
           :webdav-manager="services.webdavFileManager"
           :settings="services.settings"
         />
@@ -31,17 +24,6 @@
           :settings="services.settings"
           :secure-cache-memory="services.secureCacheMemory"
         />
-        <reauthorize
-          v-if="show.reauthorize.visible"
-          id="/reauthorize"
-          :settings="services.settings"
-          :providers="[
-            services.dropboxFileManager,
-            services.googleDrivePasswordFileManager,
-            services.oneDriveFileManager,
-            services.pCloudFileManager,
-          ]"
-        />
       </div>
     </div>
   </div>
@@ -56,13 +38,6 @@ import { SecureCacheMemory } from '$services/secureCacheMemory.js';
 import { PasswordFileStoreRegistry } from '$services/passwordFileStore.js';
 import { KeyFileParser } from '$services/keyFileParser.js';
 // File Managers
-import { LocalChromePasswordFileManager } from '$services/localChromePasswordFileManager.js';
-import { GoogleDrivePasswordFileManager } from '$services/googleDrivePasswordFileManager.js';
-import { DropboxFileManager } from '$services/dropboxFileManager.js';
-import { OneDriveFileManager } from '$services/oneDriveFileManager.js';
-import { SharedUrlFileManager } from '$services/sharedUrlFileManager.js';
-import { PCloudFileManager } from '$services/pCloudFileManager.js';
-import { SampleDatabaseFileManager } from '$services/sampleDatabaseFileManager.js';
 import { WebdavFileManager } from '$services/webdavFileManager.js';
 // Components
 import OptionsNavbar from '@/components/Navbar.vue';
@@ -71,7 +46,6 @@ import ManageDatabases from '@/components/ManageDatabases.vue';
 import ManageKeyfiles from '@/components/ManageKeyfiles.vue';
 import AdvancedSettings from '@/components/AdvancedSettings.vue';
 import SvgDefs from '@/components/SvgDefs.vue';
-import Reauthorize from '@/components/Reauthorize.vue';
 
 const protectedMemory = new ProtectedMemory();
 const secureCacheMemory = new SecureCacheMemory(protectedMemory);
@@ -79,24 +53,8 @@ const settings = new Settings(secureCacheMemory);
 const keyFileParser = new KeyFileParser();
 
 // File Managers
-const localChromePasswordFileManager = new LocalChromePasswordFileManager(settings);
-const dropboxFileManager = new DropboxFileManager(settings);
-const googleDrivePasswordFileManager = new GoogleDrivePasswordFileManager(settings);
-const sharedUrlFileManager = new SharedUrlFileManager();
-const oneDriveFileManager = new OneDriveFileManager(settings);
-const pCloudFileManager = new PCloudFileManager(settings);
-const sampleDatabaseFileManager = new SampleDatabaseFileManager();
 const webdavFileManager = new WebdavFileManager(settings);
 
-// const passwordFileStoreRegistry = new PasswordFileStoreRegistry(
-// 	localChromePasswordFileManager,
-// 	dropboxFileManager,
-// 	googleDrivePasswordFileManager,
-// 	sharedUrlFileManager,
-// 	sampleDatabaseFileManager,
-// 	oneDriveFileManager,
-// 	pCloudFileManager
-// );
 /* beautify preserve:end */
 
 export default {
@@ -108,7 +66,6 @@ export default {
     ManageKeyfiles,
     AdvancedSettings,
     SvgDefs,
-    Reauthorize,
   },
   data() {
     return {
@@ -116,13 +73,6 @@ export default {
       initialTab: '/', // The tab to start on.
       services: {
         settings,
-        dropboxFileManager,
-        googleDrivePasswordFileManager,
-        localChromePasswordFileManager,
-        oneDriveFileManager,
-        pCloudFileManager,
-        sampleDatabaseFileManager,
-        sharedUrlFileManager,
         keyFileParser,
         secureCacheMemory,
         webdavFileManager,
@@ -139,9 +89,6 @@ export default {
         },
         advanced: {
           visble: false,
-        },
-        reauthorize: {
-          visible: false,
         },
       },
     };
@@ -168,12 +115,6 @@ export default {
         route: '/advanced',
         name: 'Advanced',
         var: this.show.advanced,
-      },
-      {
-        route: '/reauthorize/:provider',
-        name: 'Reauthorize',
-        var: this.show.reauthorize,
-        hidden_from_navbar: true,
       },
     ]);
     this.routes = this.$router.routes; // HACK since Vue doesn't notice changes in

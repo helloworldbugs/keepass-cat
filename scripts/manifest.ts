@@ -29,7 +29,6 @@ const permissions = [
   'scripting',
   'storage',
   'clipboardWrite',
-  'identity',
   'alarms',
   'notifications',
 ];
@@ -49,23 +48,6 @@ const baseManifest: Manifest.WebExtensionManifest = {
     page: './dist/options.html',
     open_in_tab: true,
   },
-
-  // @ts-expect-error This is additional manifest data
-  static_data: {
-    dropbox: {
-      client_id: 'lau0eigo4cfthqz',
-    },
-    onedrive: {
-      client_id: 'f4c55645-3f43-4f8e-a7d2-ec167b416f1d',
-    },
-    gdrive: {
-      // The Web Client ID for general use
-      client_id: '876467817034-rlas0hnb5jc9dt1qmp11l6g4724ktoqn.apps.googleusercontent.com',
-    },
-    pcloud: {
-      client_id: '1NklWhTApYR',
-    },
-  },
 };
 
 /**
@@ -75,11 +57,6 @@ function chromeManifestV3(): Manifest.WebExtensionManifest {
   return Object.assign({}, baseManifest, {
     manifest_version: 3,
     minimum_chrome_version: '102',
-    oauth2: {
-      // The Chrome identity client ID for Chrome ONLY
-      client_id: '876467817034-al13p9m2bphgregs0rij76n1tumakcqr.apps.googleusercontent.com',
-      scopes: ['https://www.googleapis.com/auth/drive.file'],
-    },
     permissions,
     content_security_policy: {
       extension_pages: isDev
@@ -136,8 +113,6 @@ function firefoxManifestV2(): Manifest.WebExtensionManifest {
 
 export async function writeManifest(target: 'chrome' | 'firefox' = 'chrome') {
   const manifest = target === 'chrome' ? chromeManifestV3() : firefoxManifestV2();
-  // @ts-expect-error static_data is used at runtime for OAuth client IDs
-  // (Chrome ignores unknown manifest keys)
   await fs.writeJSON(r('extension/manifest.json'), manifest, { spaces: 2 });
   log('PRE', 'write manifest.json ' + target);
 }
