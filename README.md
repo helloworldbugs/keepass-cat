@@ -2,7 +2,7 @@
 
 > 🔒 只读 KeePass 密码数据库浏览器集成 · Chrome & Firefox 双平台支持
 
-[![Version](https://img.shields.io/badge/version-3.4.1-blue)](https://github.com/helloworldbugs/Tusk/releases)
+[![Version](https://img.shields.io/badge/version-3.4.3-blue)](https://github.com/helloworldbugs/Tusk/releases)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![CI](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/helloworldbugs/Tusk/actions)
 
@@ -41,7 +41,8 @@ Fork 自 [subdavis/Tusk](https://github.com/subdavis/Tusk)，在原始项目基�
 | 🔐 **TOTP 双因素** | 实时显示 TOTP 动态验证码，带倒计时进度条 |
 | 🌍 **中文国际化** | 完整的中文界面翻译，自动检测浏览器语言 |
 | 🔑 **随机密码生成** | 新建/编辑条目时一键生成高强度随机密码 |
-| 🔄 **多云端同步** | 支持 9 种存储后端，覆盖主流云服务和私有部署 |
+| 🗝️ **密钥文件支持** | 支持 KeePass Keyfile（XML/32 字节/十六进制/哈希），可与密码组合或单独使用 |
+| 🔄 **多云端同步** | 支持 8 种存储后端，覆盖主流云服务和私有部署 |
 | 📂 **分组管理** | 创建、重命名、删除分组，条目在分组间自由移动 |
 | 🕐 **遗忘定时器** | 可配置密码记忆时长：30 分钟 → 永久，到期自动清除 |
 | 🛡️ **Manifest V3** | 完整兼容 Chrome MV3，同时支持 Firefox MV2 |
@@ -105,7 +106,7 @@ regex:192\.168\.\d+\.\d+:8080  →  匹配特定网段和端口
 |------|------|----------|
 | 🖱️ **弹窗点击** | 打开 Tusk 弹窗，点击条目 | 最常用，可浏览选择 |
 | ⌨️ **快捷键** | `Ctrl+Shift+X` | 快速填充，无需鼠标 |
-| 🎯 **字段级填充** | `Ctrl+Shift+1/2/3` | 只填充用户名/密码/备注 |
+| 🎯 **字段级填充** | `Ctrl+Shift+1/2/3`（需手动绑定） | 只填充用户名/密码/备注 |
 
 ### 字段检测算法
 
@@ -146,7 +147,7 @@ Tusk 使用**双方法检测**来定位页面上的用户名和密码输入框�
 
 ## ☁️ 云端存储支持
 
-Tusk 支持 **9 种存储后端**，覆盖所有主流场景：
+Tusk 支持 **8 种存储后端**，覆盖所有主流场景：
 
 | 存储后端 | 类型 | 说明 |
 |----------|------|------|
@@ -158,7 +159,8 @@ Tusk 支持 **9 种存储后端**，覆盖所有主流场景：
 | 🗂️ **Dropbox** | OAuth | 搜索 `.kdbx` 文件，支持直接下载 |
 | 💼 **OneDrive** | OAuth | 搜索 `.kdbx` 文件，完整路径显示 |
 | 🌐 **pCloud** | OAuth | 递归搜索所有文件夹，支持直接下载链接 |
-| 🔐 **自建 OAuth** | 可扩展 | 通过 `OauthManager` 通用框架，可轻松接入任何 OAuth2 服务 |
+
+> 除以上 8 种后端外，`OauthManager` 通用框架可让你轻松接入任意 OAuth2 服务，实现自定义云端后端。
 
 ### 存储后端架构
 
@@ -217,6 +219,12 @@ PasswordFileStoreRegistry (注册中心)
 - 🚫 不在控制台输出敏感信息
 - ✅ 只读模式，不修改原始 KDBX 文件（除非用户主动编辑保存）
 - 🛡️ 来源检查：填充前验证 frame 与目标页面的 hostname 一致性
+
+### 密钥文件 (Keyfile)
+
+- 支持 KeePass 全部四种 Keyfile 格式：XML（推荐）、32 字节、十六进制、哈希
+- 密钥文件可与主密码组合使用，也可单独作为认证方式
+- 密钥文件存储在浏览器本地存储中，网站与其他扩展无法访问
 
 ---
 
@@ -277,11 +285,11 @@ PasswordFileStoreRegistry (注册中心)
 |--------|------|------|
 | `Ctrl+Shift+Space` | 打开弹窗 | 打开 Tusk 弹窗 |
 | `Ctrl+Shift+X` | 最佳匹配填充 | 自动填充当前页面最佳匹配条目 |
-| `Ctrl+Shift+1` | 填充用户名 | 仅填充用户名到当前焦点输入框 |
-| `Ctrl+Shift+2` | 填充密码 | 仅填充密码到当前焦点输入框 |
-| `Ctrl+Shift+3` | 填充备注 | 仅填充备注到当前焦点输入框 |
+| `Ctrl+Shift+1`（需手动绑定） | 填充用户名 | 仅填充用户名到当前焦点输入框 |
+| `Ctrl+Shift+2`（需手动绑定） | 填充密码 | 仅填充密码到当前焦点输入框 |
+| `Ctrl+Shift+3`（需手动绑定） | 填充备注 | 仅填充备注到当前焦点输入框 |
 
-> 快捷键可在 Chrome 扩展管理页面 `chrome://extensions/shortcuts` 自定义。
+> 快捷键可在 Chrome 扩展管理页面 `chrome://extensions/shortcuts` 自定义。其中 `Ctrl+Shift+1/2/3` 默认未绑定，需手动设置。
 
 ---
 
@@ -336,7 +344,6 @@ npm run build:background
 | [kdbxweb](https://github.com/keeweb/kdbxweb) | KeePass 数据库解析 |
 | [Argon2](https://github.com/antelle/argon2-browser) | KDF 密钥派生 |
 | [webdav](https://github.com/perry-mitchell/webdav-client) | WebDAV 客户端 |
-| [Mocha](https://mochajs.org/) + [should.js](https://shouldjs.github.io/) | 测试框架 |
 | [Chrome Extensions API](https://developer.chrome.com/docs/extensions/reference/) | 浏览器扩展 API |
 | GitHub Actions | CI/CD 自动构建 |
 
@@ -376,7 +383,7 @@ npm run build:background
 │                    Services                           │
 │  ┌──────────┐ ┌────────────┐ ┌──────────────────┐  │
 │  │ Keepass  │ │ Keepass    │ │ PasswordFileStore│  │
-│  │ Service  │ │ Reference  │ │ Registry (9后端) │  │
+│  │ Service  │ │ Reference  │ │ Registry (8后端) │  │
 │  └──────────┘ └────────────┘ └──────────────────┘  │
 └─────────────────────────────────────────────────────┘
 ```
@@ -411,22 +418,7 @@ Background: autofill 消息
 
 ## 🧪 测试
 
-```bash
-npm test
-```
-
-测试覆盖：
-
-| 测试模块 | 内容 |
-|----------|------|
-| `keepassReference` | KeePass 字段引用解析（`{REF:...}` 跨条目引用） |
-| `protectedMemory` | AES-CBC 序列化/反序列化/清除 |
-| `secureCache` | 加密缓存读写，Mock Chrome API |
-| `settings` | 遗忘定时器、剪贴板过期、配置读写 |
-| `oneDriveFileManager` | OneDrive 文件列表过滤 |
-| `unlock.vue` | Vue 解锁组件状态测试 |
-
-测试资产包含多种登录表单 HTML（简单表单、注册表单、iframe、隐藏字段等），用于覆盖所有自动填充场景。
+> ⚠️ 当前 `tests/` 目录下的测试为原 AngularJS 代码库遗留，尚未迁移到现有 Vue 3 + Vite 技术栈，且 `package.json` 未配置 `test` 脚本，暂无法通过 `npm test` 运行。测试基础设施有待完善（计划接入 Vitest）。
 
 ---
 
