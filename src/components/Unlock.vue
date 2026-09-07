@@ -357,6 +357,7 @@ export default defineComponent({
     checkPendingAutofill(allEntries) {
       chrome.storage.local.get('pendingAutofill', (items) => {
         var pa = items.pendingAutofill;
+        console.log('[checkPendingAutofill] pa=', pa ? ('fillMode=' + pa.fillMode + ' tabId=' + pa.tabId + ' title=' + pa.title) : 'null');
         if (!pa) return;
         chrome.storage.local.remove('pendingAutofill');
         var entry = allEntries.find(e =>
@@ -382,7 +383,7 @@ export default defineComponent({
                 let url = this.unlockedState.getDecryptedAttribute(entry, 'otp');
                 let otpobj = Otp.parseUrl(url);
                 otpobj.next((_, code) => {
-                  if (code) this.directFill(pa.tabId, code);
+                  if (code) this.fillOtp(pa.tabId, code);
                   close();
                 });
               } catch (e) {
@@ -399,13 +400,8 @@ export default defineComponent({
       if (!tabId) return;
       console.log('[directFill] tabId=', tabId, 'valueLen=', (value || '').length);
       executeScriptInline(tabId, function(val) {
-        // Prefer the element captured before the popup stole focus; fall back to activeElement.
-        var el = document.querySelector('[data-tusk-target]');
-        if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) {
-          el = document.activeElement;
-        }
+        var el = document.activeElement;
         if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
-          el.removeAttribute('data-tusk-target');
           el.focus();
           el.value = val;
           var events = ['input', 'keydown', 'keyup', 'change'];
@@ -422,6 +418,49 @@ export default defineComponent({
           });
         }
       }, [value]);
+    },
+    fillOtp(tabId, code) {
+      if (!tabId) return;
+      console.log('[fillOtp] tabId=', tabId, 'codeLen=', (code || '').length);
+      executeScriptInline(tabId, function(val) {
+        function isEditable(el) {
+          return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && el.type !== 'hidden' && el.type !== 'password';
+        }
+        var el = document.querySelector('input[autocomplete="one-time-code"]');
+        if (!isEditable(el)) {
+          var inputs = document.querySelectorAll('input');
+          for (var i = 0; i < inputs.length; i++) {
+            var c = inputs[i];
+            var s = ((c.name || '') + ' ' + (c.id || '') + ' ' + (c.getAttribute('autocomplete') || '') + ' ' + (c.getAttribute('placeholder') || '')).toLowerCase();
+            if (/otp|totp|2fa|two.?factor|verification|one.?time|verify|code|验证码|动态码/.test(s)) { el = c; break; }
+          }
+        }
+        if (!isEditable(el)) {
+          var inputs = document.querySelectorAll('input');
+          for (var i = 0; i < inputs.length; i++) {
+            var c = inputs[i];
+            var ml = parseInt(c.getAttribute('maxlength'), 10);
+            if (ml >= 6 && ml <= 8 && c.type !== 'hidden' && c.type !== 'password') { el = c; break; }
+          }
+        }
+        if (!isEditable(el)) el = document.activeElement;
+        if (isEditable(el)) {
+          el.focus();
+          el.value = val;
+          var events = ['input', 'keydown', 'keyup', 'change'];
+          window.setTimeout(function () {
+            for (var i = 0; i < events.length; i++) {
+              try {
+                var evt = document.createEvent(
+                  events[i] === 'keydown' || events[i] === 'keyup' ? 'KeyboardEvent' : 'Event'
+                );
+                evt.initEvent(events[i], true, true);
+                el.dispatchEvent(evt);
+              } catch (e) {}
+            }
+          });
+        }
+      }, [code]);
     },
     clickUnlock(event) {
       event.preventDefault();

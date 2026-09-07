@@ -191,25 +191,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
           });
         };
 
-        // Field fills (username/password/notes/TOTP): capture the focused element
-        // BEFORE opening the popup, since the popup steals page focus.
-        if (cmd === 'fill_1_username' || cmd === 'fill_2_password' || cmd === 'fill_3_notes' || cmd === 'fill_otp') {
-          if (tab && tab.id) {
-            console.log('[shortcut] capturing focused element in tab', tab.id);
-            executeScriptInline(tab.id, function () {
-              var prev = document.querySelector('[data-tusk-target]');
-              if (prev) prev.removeAttribute('data-tusk-target');
-              var el = document.activeElement;
-              if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
-                el.setAttribute('data-tusk-target', '1');
-              }
-            }).then(openPendingFill).catch(openPendingFill);
-          } else {
-            openPendingFill();
-          }
-        } else {
-          openPendingFill();
-        }
+        openPendingFill();
       });
     });
   });
