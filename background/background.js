@@ -15,6 +15,7 @@ import { openPopup, setBadgeText, setBadgeBackgroundColor, executeScriptInline }
 
 function Background(protectedMemory, localMemory, settings, notifications) {
   console.log('Background worker registered.');
+  var pendingFill = null;
   chrome.runtime.onInstalled.addListener(settings.upgrade);
   chrome.runtime.onStartup.addListener(forgetStuff);
 
@@ -54,6 +55,12 @@ function Background(protectedMemory, localMemory, settings, notifications) {
 
   function handleMessage(message, sender, sendResponse) {
     if (!message || !message.m) return; //message format unrecognized
+
+    if (message.m == 'getPendingFill') {
+      sendResponse({ pendingAutofill: pendingFill });
+      pendingFill = null;
+      return;
+    }
 
     if (message.m == 'showMessage') {
       const expire = typeof message.expire !== 'undefined' ? message.expire * 1000 : 60000;
@@ -164,6 +171,11 @@ function Background(protectedMemory, localMemory, settings, notifications) {
         for (var i = 0; i < entries.length; i++) {
           var e = entries[i];
           if (!e.url) continue;
+          // fill_otp only matches entries that actually have TOTP enabled
+          if (cmd === 'fill_otp') {
+            var hasTotp = e.protectedData && 'otp' in e.protectedData && e.tuskTotpEnabled !== 'false';
+            if (!hasTotp) continue;
+          }
           var rank = 0;
           try {
             var tu = new URL(url), eu = new URL(e.url.indexOf('://') >= 0 ? e.url : 'http://' + e.url);
@@ -179,13 +191,14 @@ function Background(protectedMemory, localMemory, settings, notifications) {
         if (!bestMatch || (cmd === 'autofill_best_match' && bestCount > 1)) { openPopup(); return; }
 
         var openPendingFill = function () {
-          chrome.storage.local.set({pendingAutofill: {
+          pendingFill = {
             title: bestMatch.title,
             userName: bestMatch.userName,
             url: bestMatch.url,
             tabId: tab && tab.id,
             fillMode: (cmd === 'fill_1_username' ? 'user' : cmd === 'fill_2_password' ? 'pw' : cmd === 'fill_3_notes' ? 'notes' : cmd === 'fill_otp' ? 'otp' : 'both')
-          }}, function() {
+          };
+          chrome.storage.local.set({ pendingAutofill: pendingFill }, function () {
             console.log('[shortcut] opening popup, mode:', cmd, 'tabId:', tab && tab.id);
             openPopup();
           });
