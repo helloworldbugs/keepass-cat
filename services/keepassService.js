@@ -312,11 +312,17 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
       let protectedFields = ['password', 'otp', 'tOTPSeed'];
       
       for (let key in updatedFields) {
+        let value = updatedFields[key];
+        if (value === null || value === undefined) {
+          // null/undefined means delete the field (used by TOTP toggle-off with cleared URL)
+          kdbxEntry.fields.delete(key);
+          continue;
+        }
         if (protectedFields.includes(key)) {
-          let pv = kdbxweb.ProtectedValue.fromString(updatedFields[key]);
+          let pv = kdbxweb.ProtectedValue.fromString(value);
           kdbxEntry.fields.set(key, pv);
         } else {
-          kdbxEntry.fields.set(key, updatedFields[key]);
+          kdbxEntry.fields.set(key, value);
         }
       }
 
@@ -420,6 +426,8 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
       if (fields.url) entry.fields.set('URL', fields.url);
       if (fields.notes) entry.fields.set('Notes', fields.notes);
       if (fields.password) entry.fields.set('Password', kdbxweb.ProtectedValue.fromString(fields.password));
+      if (fields.otp) entry.fields.set('otp', kdbxweb.ProtectedValue.fromString(fields.otp));
+      if (fields.tuskTotpEnabled) entry.fields.set('tuskTotpEnabled', fields.tuskTotpEnabled);
       return _db.save();
     });
   };

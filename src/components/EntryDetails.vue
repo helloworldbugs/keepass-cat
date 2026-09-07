@@ -53,8 +53,10 @@ export default {
     });
     for (var protectedKey in this.entry.protectedData) {
       if (protectedKey === 'otp') {
-        let url = this.unlockedState.getDecryptedAttribute(this.entry, protectedKey);
-        this.setupOTP(url);
+        if (this.entry['tuskTotpEnabled'] !== 'false') {
+          let url = this.unlockedState.getDecryptedAttribute(this.entry, protectedKey);
+          this.setupOTP(url);
+        }
       } else {
         this.attributes.push({
           key: protectedKey,
@@ -112,6 +114,19 @@ export default {
       console.debug('copy');
       this.unlockedState.copyPassword(this.entry);
     },
+    copyOtp() {
+      if (!this.otp_value) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(this.otp_value).catch(() => {});
+      } else {
+        let ta = document.createElement('textarea');
+        ta.value = this.otp_value;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+    },
   },
 };
 </script>
@@ -124,6 +139,7 @@ export default {
         <span class="attribute-title">{{ $t('One Time Password') }}</span>
         <br />
         <span class="attribute-value">{{ otp_value }}</span>
+        <i class="fa fa-clipboard copy-otp" @click="copyOtp" :title="$t('Copy code')" />
         <div class="progress">
           <div
             :key="otp_value"
@@ -216,6 +232,13 @@ export default {
     outline: $light-gray solid 2px;
     outline-offset: 1px;
   }
+}
+
+.copy-otp {
+  margin-left: 8px;
+  cursor: pointer;
+  color: var(--tusk-text-subtle);
+  &:hover { opacity: 0.7; }
 }
 
 .button-box {

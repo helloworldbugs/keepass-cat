@@ -314,6 +314,11 @@ const zhCN: Record<string, string> = {
   'If you like Tusk, please consider ': '如果你喜欢 Tusk，请考虑在 ',
   ' so we can make Tusk better.': '，以便我们改进 Tusk。',
   '. If you find a problem or are dissatisfied, please instead open an issue on the ': '。如果你遇到问题或不满意，请在 ',
+
+  // ===== TOTP =====
+  'Enable TOTP (One-Time Password)': '启用 TOTP（一次性密码）',
+  'Invalid otpauth URL': '无效的 otpauth URL',
+  'Copy code': '复制验证码',
 };
 
 export default zhCN;

@@ -1,5 +1,6 @@
 <script>
 import GoBack from '@/components/GoBack.vue';
+import { Otp } from '@/lib/otp.js';
 
 export default {
   components: { GoBack },
@@ -15,6 +16,7 @@ export default {
       entry: null,
       isNew: false,
       editFields: {},
+      totpEnabled: false,
       groups: [],
       selectedGroup: '',
       saving: false,
@@ -48,7 +50,8 @@ export default {
         userName: '',
         url: queryUrl || '',
         notes: '',
-        password: ''
+        password: '',
+        otp: ''
       };
     } else {
       this.entry = this.unlockedState.cacheGet('allEntries').filter((entry) => {
@@ -63,6 +66,10 @@ export default {
             this.editFields[key] = this.entry[key] || '';
           }
         }
+        // TOTP
+        let otpUrl = this.unlockedState.getDecryptedAttribute(this.entry, 'otp') || '';
+        this.editFields.otp = otpUrl;
+        this.totpEnabled = !!otpUrl && this.entry['tuskTotpEnabled'] !== 'false';
       }
     }
     // Load sorted groups from cached entries + keepassService
@@ -101,6 +108,25 @@ export default {
     async save() {
       this.saving = true;
       this.message = this.$t('Saving...');
+
+      // Prepare TOTP fields
+      let otpUrl = (this.editFields.otp || '').trim();
+      if (otpUrl) {
+        try {
+          Otp.parseUrl(otpUrl);
+        } catch (e) {
+          this.message = this.$t('Invalid otpauth URL');
+          this.saving = false;
+          return;
+        }
+        this.editFields.otp = otpUrl;
+        this.editFields.tuskTotpEnabled = this.totpEnabled ? 'true' : 'false';
+      } else {
+        // empty URL → remove TOTP (only manual clear triggers delete)
+        this.editFields.otp = null;
+        this.editFields.tuskTotpEnabled = null;
+      }
+
       try {
         let newBuffer;
         if (this.isNew) {
@@ -227,6 +253,18 @@ export default {
         <label>{{ $t('Notes') }}</label>
         <textarea v-model="editFields.notes" rows="4"></textarea>
       </div>
+      <div class="edit-field">
+        <label class="totp-toggle">
+          <input type="checkbox" v-model="totpEnabled" />
+          <span>{{ $t('Enable TOTP (One-Time Password)') }}</span>
+        </label>
+        <input
+          v-if="totpEnabled"
+          v-model="editFields.otp"
+          type="text"
+          placeholder="otpauth://totp/...?secret=..."
+        />
+      </div>
       <div class="edit-actions">
         <button class="action-button" :disabled="saving" @click="save">
           {{ saving ? $t('Saving...') : $t('Save') }}
@@ -319,4 +357,15 @@ export default {
 }
 
 .error { color: red; }
+
+.totp-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  input[type='checkbox'] {
+    width: auto;
+    cursor: pointer;
+  }
+}
 </style>
