@@ -314,9 +314,14 @@ export default defineComponent({
             var siteUrl = parseUrl(self.unlockedState.fullUrl || self.unlockedState.url);
             self.keepassService.rankEntries(fresh, siteUrl);
             if (!self.entriesEqual(fresh, cachedEntries)) {
-              // showResults re-ranks, updates in-memory cache and badge
-              self.showResults(fresh, true);
-              // showResults skips persisting on fromCache, so persist explicitly
+              // Update cache in place WITHOUT re-running showResults, which would
+              // call checkPendingAutofill and steal a pending fill from a fresh shortcut popup.
+              self.unlockedState.cacheSet('allEntries', fresh);
+              var priority = fresh.filter(function (e) { return e.matchRank === 100; });
+              if (!priority.length) priority = fresh.filter(function (e) { return e.matchRank === 75; });
+              if (!priority.length) priority = fresh.filter(function (e) { return e.matchRank === 50; });
+              if (!priority.length) priority = fresh.filter(function (e) { return e.matchRank === 25; });
+              self.unlockedState.cacheSet('priorityEntries', priority);
               self.secureCache.save('secureCache.entries', fresh);
               self.settings.getSetDefaultRememberPeriod().then(function (period) {
                 if (period === -2) {
@@ -453,29 +458,17 @@ export default defineComponent({
       console.log('[fillOtp] tabId=', tabId, 'codeLen=', (code || '').length);
       executeScriptInline(tabId, function(val) {
         function isEditable(el) {
-          return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && el.type !== 'hidden' && el.type !== 'password';
+          if (!el || !el.tagName) return false;
+          var tag = el.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA') return el.type !== 'password';
+          var ce = el.getAttribute && el.getAttribute('contenteditable');
+          return ce === 'true' || ce === '';
         }
-        var el = document.querySelector('input[autocomplete="one-time-code"]');
-        if (!isEditable(el)) {
-          var inputs = document.querySelectorAll('input');
-          for (var i = 0; i < inputs.length; i++) {
-            var c = inputs[i];
-            var s = ((c.name || '') + ' ' + (c.id || '') + ' ' + (c.getAttribute('autocomplete') || '') + ' ' + (c.getAttribute('placeholder') || '')).toLowerCase();
-            if (/otp|totp|2fa|two.?factor|verification|one.?time|verify|code|验证码|动态码/.test(s)) { el = c; break; }
-          }
-        }
-        if (!isEditable(el)) {
-          var inputs = document.querySelectorAll('input');
-          for (var i = 0; i < inputs.length; i++) {
-            var c = inputs[i];
-            var ml = parseInt(c.getAttribute('maxlength'), 10);
-            if (ml >= 6 && ml <= 8 && c.type !== 'hidden' && c.type !== 'password') { el = c; break; }
-          }
-        }
-        if (!isEditable(el)) el = document.activeElement;
-        if (isEditable(el)) {
-          el.focus();
-          el.value = val;
+        function fill(el) {
+          if (!el) return;
+          if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') el.value = val;
+          else el.textContent = val;
+          try { el.focus(); } catch (e) {}
           var events = ['input', 'keydown', 'keyup', 'change'];
           window.setTimeout(function () {
             for (var i = 0; i < events.length; i++) {
@@ -489,6 +482,38 @@ export default defineComponent({
             }
           });
         }
+
+        var el = document.querySelector('input[autocomplete="one-time-code"]');
+        if (!isEditable(el)) {
+          var inputs = document.querySelectorAll('input');
+          for (var i = 0; i < inputs.length; i++) {
+            var c = inputs[i];
+            var s = ((c.name || '') + ' ' + (c.id || '') + ' ' + (c.getAttribute('autocomplete') || '') + ' ' + (c.getAttribute('placeholder') || '')).toLowerCase();
+            if (/otp|totp|2fa|two.?factor|verification|one.?time|verify|code|验证码|动态码/.test(s)) { el = c; break; }
+          }
+        }
+        if (!isEditable(el)) {
+          // Custom OTP components: look inside containers whose class hints at a code/verify box.
+          var boxes = document.querySelectorAll('[class*="code"], [class*="verify"], [class*="captcha"], [class*="otp"], [class*="totp"]');
+          for (var i = 0; i < boxes.length; i++) {
+            var cand = boxes[i].querySelector('input, textarea, [contenteditable="true"], [contenteditable=""]');
+            if (isEditable(cand)) { el = cand; break; }
+            if (isEditable(boxes[i])) { el = boxes[i]; break; }
+          }
+        }
+        if (!isEditable(el)) {
+          var inputs = document.querySelectorAll('input');
+          for (var i = 0; i < inputs.length; i++) {
+            var c = inputs[i];
+            var ml = parseInt(c.getAttribute('maxlength'), 10);
+            if (ml >= 6 && ml <= 8 && c.type !== 'password') { el = c; break; }
+          }
+        }
+        if (!isEditable(el)) {
+          el = document.querySelector('[contenteditable="true"], [contenteditable=""]');
+        }
+        if (!isEditable(el)) el = document.activeElement;
+        fill(el);
       }, [code]);
     },
     clickUnlock(event) {
