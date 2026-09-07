@@ -364,6 +364,8 @@ export default defineComponent({
         );
         if (!entry) { entry = allEntries.find(e => e.title === pa.title); }
         if (entry) {
+          // Clear the pending fill now that we've matched and are about to fill.
+          chrome.runtime.sendMessage({ m: 'clearPendingFill' });
           self.silentAutofill = true;
           self.$nextTick(() => {
             var fillMode = pa.fillMode || 'both';
