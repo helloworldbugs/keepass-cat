@@ -3,17 +3,6 @@ const urlencode = function (str) {
   return encodeURIComponent(str).replace(/[!'()*]/g, escape);
 };
 
-const getValidTokens = (tokenString) => {
-  if (!tokenString) return [];
-  else
-    return tokenString
-      .toLowerCase()
-      .split(/\.|\s|\//)
-      .filter((t) => {
-        return t && t !== 'com' && t !== 'www' && t.length > 1;
-      });
-};
-
 /**
  * parseUrl creates an anchor element from a url string
  * @param {String} url
@@ -106,4 +95,4 @@ const matchLevel = (pageUrl, entry) => {
   return 0;
 };
 
-export { matchLevel, getValidTokens, parseUrl, urlencode, guid, isVisible, isFirefox };
+export { matchLevel, parseUrl, urlencode, guid, isVisible, isFirefox };

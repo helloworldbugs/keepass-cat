@@ -154,17 +154,4 @@ Otp.parseUrl = function (url) {
   return new Otp(url, params);
 };
 
-Otp.isSecret = function (str) {
-  return !!Otp.fromBase32(str);
-};
-
-Otp.makeUrl = function (secret, period, digits) {
-  return (
-    'otpauth://totp/default?secret=' +
-    secret +
-    (period ? '&period=' + period : '') +
-    (digits ? '&digits=' + digits : '')
-  );
-};
-
 export { Otp };

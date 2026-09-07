@@ -44,10 +44,6 @@ export default {
     clearInterval(this.otpLoop);
   },
   methods: {
-    details(e) {
-      e.stopPropagation();
-      this.$router.route('/entry-details/' + this.entry.id);
-    },
     autofill(e) {
       e.stopPropagation();
       this.unlockedState.autofill(this.entry);

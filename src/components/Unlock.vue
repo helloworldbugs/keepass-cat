@@ -1,8 +1,7 @@
 <script>
-import { parseUrl, getValidTokens } from '@/lib/utils.js';
+import { parseUrl } from '@/lib/utils.js';
 import { setBadgeText, setBadgeBackgroundColor } from '@/lib/browser.js';
 
-import InfoCluster from '@/components/InfoCluster.vue';
 import EntryList from '@/components/EntryList.vue';
 import BrowseEntries from '@/components/BrowseEntries.vue';
 import Spinner from 'vue-simple-spinner';
@@ -11,7 +10,6 @@ import { defineComponent } from 'vue';
 
 export default defineComponent({
   components: {
-    InfoCluster,
     EntryList,
     BrowseEntries,
     Spinner,

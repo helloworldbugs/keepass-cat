@@ -148,9 +148,6 @@ function UnlockedState(keepassReference, settings, notifications) {
     copyEntry = entry;
     document.execCommand('copy');
   };
-  // my.gotoDetails = function (entry) {
-  // 	$router.route('/entry-details/' + entry.id);
-  // }
 
   my.getDecryptedAttribute = function (entry, attributeName) {
     return keepassReference.getFieldValue(entry, attributeName, my.cache.allEntries);

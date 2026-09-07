@@ -25,13 +25,6 @@
       :settings="settings"
       :keepass-service="keepassService"
     />
-    <entry-details
-      v-if="show.entryDetails.visible"
-      id="/entry-details/:entryId"
-      :unlocked-state="unlockedState"
-      :links="links"
-      :settings="settings"
-    />
     <entry-edit
       v-if="show.entryEdit.visible"
       id="/entry-edit/:entryId"
@@ -71,7 +64,6 @@ import { WebdavFileManager } from '$services/webdavFileManager.js';
 import Unlock from '@/components/Unlock.vue';
 import Startup from '@/components/Startup.vue';
 import FilePicker from '@/components/FilePicker.vue';
-import EntryDetails from '@/components/EntryDetails.vue';
 import EntryEdit from '@/components/EntryEdit.vue';
 import SvgDefs from '@/components/SvgDefs.vue';
 import { reactive } from 'vue';
@@ -124,9 +116,6 @@ const show = reactive({
   filePicker: {
     visible: false,
   },
-  entryDetails: {
-    visible: false,
-  },
   entryEdit: {
     visible: false,
   },
@@ -145,10 +134,6 @@ $router.registerRoutes([
   {
     route: '/unlock/:provider/:title',
     var: show.unlock,
-  },
-  {
-    route: '/entry-details/:entryId',
-    var: show.entryDetails,
   },
   {
     route: '/entry-edit/:entryId',
