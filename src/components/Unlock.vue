@@ -1,7 +1,6 @@
 <script>
 import { parseUrl, getValidTokens } from '@/lib/utils.js';
 import { setBadgeText, setBadgeBackgroundColor, executeScriptInline } from '@/lib/browser.js';
-import { Otp } from '@/lib/otp.js';
 
 import InfoCluster from '@/components/InfoCluster.vue';
 import EntryList from '@/components/EntryList.vue';
@@ -385,17 +384,6 @@ export default defineComponent({
             } else if (fillMode === 'notes') {
               self.directFill(pa.tabId, entry.notes || '');
               close();
-            } else if (fillMode === 'otp') {
-              try {
-                let url = self.unlockedState.getDecryptedAttribute(entry, 'otp');
-                let otpobj = Otp.parseUrl(url);
-                otpobj.next((_, code) => {
-                  if (code) self.fillOtp(pa.tabId, code);
-                  close();
-                });
-              } catch (e) {
-                close();
-              }
             } else {
               self.unlockedState.autofill(entry);
             }
@@ -452,69 +440,6 @@ export default defineComponent({
           });
         }
       }, [value]);
-    },
-    fillOtp(tabId, code) {
-      if (!tabId) return;
-      console.log('[fillOtp] tabId=', tabId, 'codeLen=', (code || '').length);
-      executeScriptInline(tabId, function(val) {
-        function isEditable(el) {
-          if (!el || !el.tagName) return false;
-          var tag = el.tagName;
-          if (tag === 'INPUT' || tag === 'TEXTAREA') return el.type !== 'password';
-          var ce = el.getAttribute && el.getAttribute('contenteditable');
-          return ce === 'true' || ce === '';
-        }
-        function fill(el) {
-          if (!el) return;
-          if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') el.value = val;
-          else el.textContent = val;
-          try { el.focus(); } catch (e) {}
-          var events = ['input', 'keydown', 'keyup', 'change'];
-          window.setTimeout(function () {
-            for (var i = 0; i < events.length; i++) {
-              try {
-                var evt = document.createEvent(
-                  events[i] === 'keydown' || events[i] === 'keyup' ? 'KeyboardEvent' : 'Event'
-                );
-                evt.initEvent(events[i], true, true);
-                el.dispatchEvent(evt);
-              } catch (e) {}
-            }
-          });
-        }
-
-        var el = document.querySelector('input[autocomplete="one-time-code"]');
-        if (!isEditable(el)) {
-          var inputs = document.querySelectorAll('input');
-          for (var i = 0; i < inputs.length; i++) {
-            var c = inputs[i];
-            var s = ((c.name || '') + ' ' + (c.id || '') + ' ' + (c.getAttribute('autocomplete') || '') + ' ' + (c.getAttribute('placeholder') || '')).toLowerCase();
-            if (/otp|totp|2fa|two.?factor|verification|one.?time|verify|code|验证码|动态码/.test(s)) { el = c; break; }
-          }
-        }
-        if (!isEditable(el)) {
-          // Custom OTP components: look inside containers whose class hints at a code/verify box.
-          var boxes = document.querySelectorAll('[class*="code"], [class*="verify"], [class*="captcha"], [class*="otp"], [class*="totp"]');
-          for (var i = 0; i < boxes.length; i++) {
-            var cand = boxes[i].querySelector('input, textarea, [contenteditable="true"], [contenteditable=""]');
-            if (isEditable(cand)) { el = cand; break; }
-            if (isEditable(boxes[i])) { el = boxes[i]; break; }
-          }
-        }
-        if (!isEditable(el)) {
-          var inputs = document.querySelectorAll('input');
-          for (var i = 0; i < inputs.length; i++) {
-            var c = inputs[i];
-            var ml = parseInt(c.getAttribute('maxlength'), 10);
-            if (ml >= 6 && ml <= 8 && c.type !== 'password') { el = c; break; }
-          }
-        }
-        if (!isEditable(el)) {
-          el = document.querySelector('[contenteditable="true"], [contenteditable=""]');
-        }
-        if (!isEditable(el)) el = document.activeElement;
-        fill(el);
-      }, [code]);
     },
     clickUnlock(event) {
       event.preventDefault();

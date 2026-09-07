@@ -11,7 +11,7 @@ import { ProtectedMemory } from '$services/protectedMemory';
 import { Settings } from '$services/settings.js';
 import { Notifications } from '$services/notifications';
 import { i18n } from '@/services/i18n';
-import { openPopup, setBadgeText, setBadgeBackgroundColor, executeScriptInline } from '@/lib/browser.js';
+import { openPopup, setBadgeText, setBadgeBackgroundColor } from '@/lib/browser.js';
 
 function Background(protectedMemory, localMemory, settings, notifications) {
   console.log('Background worker registered.');
@@ -165,8 +165,8 @@ function Background(protectedMemory, localMemory, settings, notifications) {
 
   // Shortcut autofill: Ctrl+Shift+X
   chrome.commands.onCommand.addListener(function(cmd, tab) {
-    if (cmd !== 'autofill_best_match' && cmd !== 'fill_1_username' && cmd !== 'fill_2_password' && cmd !== 'fill_3_notes' && cmd !== 'fill_otp') return;
-    var isFieldFill = (cmd === 'fill_1_username' || cmd === 'fill_2_password' || cmd === 'fill_3_notes' || cmd === 'fill_otp');
+    if (cmd !== 'autofill_best_match' && cmd !== 'fill_1_username' && cmd !== 'fill_2_password' && cmd !== 'fill_3_notes') return;
+    var isFieldFill = (cmd === 'fill_1_username' || cmd === 'fill_2_password' || cmd === 'fill_3_notes');
     console.log('[shortcut] triggered:', cmd, 'tab:', tab?.url);
     chrome.storage.local.get('autofillShortcut', function(items) {
       if (!items.autofillShortcut) { console.log('[shortcut] disabled'); return; }
@@ -178,11 +178,6 @@ function Background(protectedMemory, localMemory, settings, notifications) {
         for (var i = 0; i < entries.length; i++) {
           var e = entries[i];
           if (!e.url) continue;
-          // fill_otp only matches entries that actually have TOTP enabled
-          if (cmd === 'fill_otp') {
-            var hasTotp = e.protectedData && 'otp' in e.protectedData && e.tuskTotpEnabled !== 'false';
-            if (!hasTotp) continue;
-          }
           var rank = 0;
           try {
             var tu = new URL(url), eu = new URL(e.url.indexOf('://') >= 0 ? e.url : 'http://' + e.url);
@@ -203,7 +198,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
             userName: bestMatch.userName,
             url: bestMatch.url,
             tabId: tab && tab.id,
-            fillMode: (cmd === 'fill_1_username' ? 'user' : cmd === 'fill_2_password' ? 'pw' : cmd === 'fill_3_notes' ? 'notes' : cmd === 'fill_otp' ? 'otp' : 'both')
+            fillMode: (cmd === 'fill_1_username' ? 'user' : cmd === 'fill_2_password' ? 'pw' : cmd === 'fill_3_notes' ? 'notes' : 'both')
           };
           console.log('[shortcut] pendingFill set:', pendingFill.fillMode, 'title:', pendingFill.title);
           chrome.storage.session.set({ pendingAutofill: pendingFill }, function () {

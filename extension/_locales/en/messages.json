@@ -10,8 +10,5 @@
   },
   "fillPassword": {
     "message": "Fill password at cursor"
-  },
-  "fillOtp": {
-    "message": "Auto-fill TOTP code"
   }
 }

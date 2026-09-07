@@ -10,8 +10,5 @@
   },
   "fillPassword": {
     "message": "在光标处填充密码"
-  },
-  "fillOtp": {
-    "message": "自动填充TOTP验证码"
   }
 }
