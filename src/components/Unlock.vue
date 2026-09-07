@@ -356,6 +356,7 @@ export default defineComponent({
     },
     checkPendingAutofill(allEntries) {
       var self = this;
+      console.log('[checkPendingAutofill] called, entries=', allEntries ? allEntries.length : 0);
       var processPa = function (pa) {
         console.log('[checkPendingAutofill] pa=', pa ? ('fillMode=' + pa.fillMode + ' tabId=' + pa.tabId + ' title=' + pa.title) : 'null');
         if (!pa) return;
@@ -400,6 +401,8 @@ export default defineComponent({
       // Primary: pull the pending fill via a message (avoids the storage.local
       // propagation race between the service worker and the popup).
       chrome.runtime.sendMessage({ m: 'getPendingFill' }, (response) => {
+        console.log('[checkPendingAutofill] msg response=', response && response.pendingAutofill ? response.pendingAutofill.fillMode : 'null',
+          'lastError=', chrome.runtime.lastError ? chrome.runtime.lastError.message : 'none');
         if (chrome.runtime.lastError) { response = null; }
         if (response && response.pendingAutofill) {
           processPa(response.pendingAutofill);

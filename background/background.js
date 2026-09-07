@@ -252,6 +252,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
   function filterAndSetBadge(entries) {
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
       console.log('[badge] tabs query returned', tabs.length, 'tabs');
+      if (!tabs || tabs.length === 0) return;
       var count = 0;
       if (tabs.length > 0 && tabs[0].url && tabs[0].url.startsWith('http')) {
         try {
