@@ -16,6 +16,7 @@ import { openPopup, setBadgeText, setBadgeBackgroundColor, executeScriptInline }
 function Background(protectedMemory, localMemory, settings, notifications) {
   console.log('Background worker registered.');
   var pendingFill = null;
+  var pendingFillTimer = null;
   chrome.runtime.onInstalled.addListener(settings.upgrade);
   chrome.runtime.onStartup.addListener(forgetStuff);
 
@@ -58,8 +59,8 @@ function Background(protectedMemory, localMemory, settings, notifications) {
 
     if (message.m == 'getPendingFill') {
       console.log('[getPendingFill] pendingFill=', pendingFill ? pendingFill.fillMode : 'null');
+      // Do NOT clear pendingFill here — multiple popups (stale + fresh) may read it.
       sendResponse({ pendingAutofill: pendingFill });
-      pendingFill = null;
       return;
     }
 
@@ -204,6 +205,12 @@ function Background(protectedMemory, localMemory, settings, notifications) {
             console.log('[shortcut] opening popup, mode:', cmd, 'tabId:', tab && tab.id);
             openPopup();
           });
+          // Auto-clear after 10s so a stale fill can't trigger on a later manual popup open.
+          if (pendingFillTimer) clearTimeout(pendingFillTimer);
+          pendingFillTimer = setTimeout(function () {
+            pendingFill = null;
+            chrome.storage.session.remove('pendingAutofill');
+          }, 10000);
         };
 
         openPendingFill();
