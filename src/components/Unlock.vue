@@ -1,6 +1,7 @@
 <script>
 import { parseUrl, getValidTokens } from '@/lib/utils.js';
 import { setBadgeText, setBadgeBackgroundColor, executeScriptInline } from '@/lib/browser.js';
+import { Otp } from '@/lib/otp.js';
 
 import InfoCluster from '@/components/InfoCluster.vue';
 import EntryList from '@/components/EntryList.vue';
@@ -366,16 +367,30 @@ export default defineComponent({
           this.silentAutofill = true;
           this.$nextTick(() => {
             var fillMode = pa.fillMode || 'both';
+            var close = () => setTimeout(() => window.close(), 500);
             if (fillMode === 'user') {
               this.directFill(entry.userName || '');
+              close();
             } else if (fillMode === 'pw') {
               this.directFill(this.unlockedState.getDecryptedAttribute(entry, 'password') || '');
+              close();
             } else if (fillMode === 'notes') {
               this.directFill(entry.notes || '');
+              close();
+            } else if (fillMode === 'otp') {
+              try {
+                let url = this.unlockedState.getDecryptedAttribute(entry, 'otp');
+                let otpobj = Otp.parseUrl(url);
+                otpobj.next((_, code) => {
+                  if (code) this.directFill(code);
+                  close();
+                });
+              } catch (e) {
+                close();
+              }
             } else {
               this.unlockedState.autofill(entry);
             }
-            setTimeout(() => window.close(), 500);
           });
         }
       });

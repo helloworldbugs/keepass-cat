@@ -139,7 +139,7 @@ export default {
         <span class="attribute-title">{{ $t('One Time Password') }}</span>
         <br />
         <span class="attribute-value">{{ otp_value }}</span>
-        <i class="fa fa-clipboard copy-otp" @click="copyOtp" :title="$t('Copy code')" />
+        <i class="fa fa-clipboard copy-otp" @click="copyOtp" :title="$t('Copy TOTP code')" />
         <div class="progress">
           <div
             :key="otp_value"

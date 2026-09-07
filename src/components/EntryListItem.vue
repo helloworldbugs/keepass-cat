@@ -126,7 +126,7 @@ export default {
     </div>
     <div class="buttons">
       <span v-if="hasTotp" class="otp-countdown">{{ otpTimeleft }}s</span>
-      <span v-if="hasTotp" class="fa-stack copy-otp" @click="copyOtp" :title="$t('Copy code')">
+      <span v-if="hasTotp" class="fa-stack copy-otp" @click="copyOtp" :title="$t('Copy TOTP code')">
         <i class="fa fa-circle fa-stack-2x" />
         <i class="fa fa-clock-o fa-stack-1x fa-inverse" />
       </span>

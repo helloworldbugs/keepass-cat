@@ -318,7 +318,7 @@ const zhCN: Record<string, string> = {
   // ===== TOTP =====
   'Enable TOTP (One-Time Password)': '启用 TOTP（一次性密码）',
   'Invalid otpauth URL': '无效的 otpauth URL',
-  'Copy code': '复制验证码',
+  'Copy TOTP code': '复制TOTP验证码',
 };
 
 export default zhCN;

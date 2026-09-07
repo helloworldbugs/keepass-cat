@@ -151,8 +151,8 @@ function Background(protectedMemory, localMemory, settings, notifications) {
 
   // Shortcut autofill: Ctrl+Shift+X
   chrome.commands.onCommand.addListener(function(cmd, tab) {
-    if (cmd !== 'autofill_best_match' && cmd !== 'fill_1_username' && cmd !== 'fill_2_password' && cmd !== 'fill_3_notes') return;
-    var isFieldFill = (cmd === 'fill_1_username' || cmd === 'fill_2_password' || cmd === 'fill_3_notes');
+    if (cmd !== 'autofill_best_match' && cmd !== 'fill_1_username' && cmd !== 'fill_2_password' && cmd !== 'fill_3_notes' && cmd !== 'fill_otp') return;
+    var isFieldFill = (cmd === 'fill_1_username' || cmd === 'fill_2_password' || cmd === 'fill_3_notes' || cmd === 'fill_otp');
     console.log('[shortcut] triggered:', cmd, 'tab:', tab?.url);
     chrome.storage.local.get('autofillShortcut', function(items) {
       if (!items.autofillShortcut) { console.log('[shortcut] disabled'); return; }
@@ -181,7 +181,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
           title: bestMatch.title,
           userName: bestMatch.userName,
           url: bestMatch.url,
-          fillMode: (cmd === 'fill_1_username' ? 'user' : cmd === 'fill_2_password' ? 'pw' : cmd === 'fill_3_notes' ? 'notes' : 'both')
+          fillMode: (cmd === 'fill_1_username' ? 'user' : cmd === 'fill_2_password' ? 'pw' : cmd === 'fill_3_notes' ? 'notes' : cmd === 'fill_otp' ? 'otp' : 'both')
         }}, function() {
           console.log('[shortcut] opening popup, mode:', cmd);
           openPopup();
