@@ -399,11 +399,16 @@ export default defineComponent({
       chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
         if (!tabs[0]) return;
         executeScriptInline(tabs[0].id, function(val) {
-          var el = document.activeElement;
+          // Prefer the element captured before the popup stole focus; fall back to activeElement.
+          var el = document.querySelector('[data-tusk-target]');
+          if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) {
+            el = document.activeElement;
+          }
           if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
             el.value = val;
             el.dispatchEvent(new Event('input', {bubbles: true}));
             el.dispatchEvent(new Event('change', {bubbles: true}));
+            el.removeAttribute('data-tusk-target');
           }
         }, [value]);
       });

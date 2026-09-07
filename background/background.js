@@ -12,8 +12,6 @@ import { Settings } from '$services/settings.js';
 import { Notifications } from '$services/notifications';
 import { i18n } from '@/services/i18n';
 import { openPopup, setBadgeText, setBadgeBackgroundColor, executeScriptInline } from '@/lib/browser.js';
-import * as kdbxweb from 'kdbxweb';
-import { Otp } from '@/lib/otp.js';
 
 function Background(protectedMemory, localMemory, settings, notifications) {
   console.log('Background worker registered.');
@@ -151,27 +149,6 @@ function Background(protectedMemory, localMemory, settings, notifications) {
   //listen for "autofill" message:
   chrome.runtime.onMessage.addListener(handleMessage);
 
-  function decryptProtected(entry, key) {
-    var pd = entry && entry.protectedData && entry.protectedData[key];
-    if (!pd) return '';
-    try {
-      return new kdbxweb.ProtectedValue(pd.value, pd.salt).getText();
-    } catch (e) {
-      return '';
-    }
-  }
-
-  function fillAtCursor(tabId, value) {
-    executeScriptInline(tabId, function (val) {
-      var el = document.activeElement;
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
-        el.value = val;
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    }, [value]);
-  }
-
   // Shortcut autofill: Ctrl+Shift+X
   chrome.commands.onCommand.addListener(function(cmd, tab) {
     if (cmd !== 'autofill_best_match' && cmd !== 'fill_1_username' && cmd !== 'fill_2_password' && cmd !== 'fill_3_notes' && cmd !== 'fill_otp') return;
@@ -201,30 +178,36 @@ function Background(protectedMemory, localMemory, settings, notifications) {
         // autofill_best_match: require exactly 1 match
         if (!bestMatch || (cmd === 'autofill_best_match' && bestCount > 1)) { openPopup(); return; }
 
-        // TOTP: fill directly at cursor (no popup, so the page keeps focus)
-        if (cmd === 'fill_otp') {
-          var otpUrl = decryptProtected(bestMatch, 'otp');
-          if (!otpUrl) { openPopup(); return; }
-          try {
-            var otpobj = Otp.parseUrl(otpUrl);
-            otpobj.next(function (_, code) {
-              if (code && tab && tab.id) fillAtCursor(tab.id, code);
-            });
-          } catch (e) {
-            console.warn('[shortcut] fill_otp failed:', e);
-          }
-          return;
-        }
+        var openPendingFill = function () {
+          chrome.storage.local.set({pendingAutofill: {
+            title: bestMatch.title,
+            userName: bestMatch.userName,
+            url: bestMatch.url,
+            fillMode: (cmd === 'fill_1_username' ? 'user' : cmd === 'fill_2_password' ? 'pw' : cmd === 'fill_3_notes' ? 'notes' : cmd === 'fill_otp' ? 'otp' : 'both')
+          }}, function() {
+            console.log('[shortcut] opening popup, mode:', cmd);
+            openPopup();
+          });
+        };
 
-        chrome.storage.local.set({pendingAutofill: {
-          title: bestMatch.title,
-          userName: bestMatch.userName,
-          url: bestMatch.url,
-          fillMode: (cmd === 'fill_1_username' ? 'user' : cmd === 'fill_2_password' ? 'pw' : cmd === 'fill_3_notes' ? 'notes' : cmd === 'fill_otp' ? 'otp' : 'both')
-        }}, function() {
-          console.log('[shortcut] opening popup, mode:', cmd);
-          openPopup();
-        });
+        // Field fills (username/password/notes/TOTP): capture the focused element
+        // BEFORE opening the popup, since the popup steals page focus.
+        if (cmd === 'fill_1_username' || cmd === 'fill_2_password' || cmd === 'fill_3_notes' || cmd === 'fill_otp') {
+          if (tab && tab.id) {
+            executeScriptInline(tab.id, function () {
+              var prev = document.querySelector('[data-tusk-target]');
+              if (prev) prev.removeAttribute('data-tusk-target');
+              var el = document.activeElement;
+              if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+                el.setAttribute('data-tusk-target', '1');
+              }
+            }).then(openPendingFill).catch(openPendingFill);
+          } else {
+            openPendingFill();
+          }
+        } else {
+          openPendingFill();
+        }
       });
     });
   });

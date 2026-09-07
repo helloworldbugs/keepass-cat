@@ -27,13 +27,18 @@ export function executeScriptInline(tabId, func, args) {
     var argStr = JSON.stringify(args || []);
     var code = '(' + func.toString() + ').apply(null, ' + argStr + ');';
     // @ts-ignore
-    chrome.tabs.executeScript(tabId, { code: code });
+    return new Promise(function (resolve, reject) {
+      chrome.tabs.executeScript(tabId, { code: code }, function () {
+        if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+        else resolve();
+      });
+    });
   } else {
-    chrome.scripting.executeScript({
+    return chrome.scripting.executeScript({
       target: { tabId: tabId },
       func: func,
       args: args || [],
-    });
+    }).catch(function () {});
   }
 }
 
