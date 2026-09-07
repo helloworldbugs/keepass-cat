@@ -183,9 +183,10 @@ function Background(protectedMemory, localMemory, settings, notifications) {
             title: bestMatch.title,
             userName: bestMatch.userName,
             url: bestMatch.url,
+            tabId: tab && tab.id,
             fillMode: (cmd === 'fill_1_username' ? 'user' : cmd === 'fill_2_password' ? 'pw' : cmd === 'fill_3_notes' ? 'notes' : cmd === 'fill_otp' ? 'otp' : 'both')
           }}, function() {
-            console.log('[shortcut] opening popup, mode:', cmd);
+            console.log('[shortcut] opening popup, mode:', cmd, 'tabId:', tab && tab.id);
             openPopup();
           });
         };
@@ -194,6 +195,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
         // BEFORE opening the popup, since the popup steals page focus.
         if (cmd === 'fill_1_username' || cmd === 'fill_2_password' || cmd === 'fill_3_notes' || cmd === 'fill_otp') {
           if (tab && tab.id) {
+            console.log('[shortcut] capturing focused element in tab', tab.id);
             executeScriptInline(tab.id, function () {
               var prev = document.querySelector('[data-tusk-target]');
               if (prev) prev.removeAttribute('data-tusk-target');

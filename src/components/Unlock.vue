@@ -369,20 +369,20 @@ export default defineComponent({
             var fillMode = pa.fillMode || 'both';
             var close = () => setTimeout(() => window.close(), 500);
             if (fillMode === 'user') {
-              this.directFill(entry.userName || '');
+              this.directFill(pa.tabId, entry.userName || '');
               close();
             } else if (fillMode === 'pw') {
-              this.directFill(this.unlockedState.getDecryptedAttribute(entry, 'password') || '');
+              this.directFill(pa.tabId, this.unlockedState.getDecryptedAttribute(entry, 'password') || '');
               close();
             } else if (fillMode === 'notes') {
-              this.directFill(entry.notes || '');
+              this.directFill(pa.tabId, entry.notes || '');
               close();
             } else if (fillMode === 'otp') {
               try {
                 let url = this.unlockedState.getDecryptedAttribute(entry, 'otp');
                 let otpobj = Otp.parseUrl(url);
                 otpobj.next((_, code) => {
-                  if (code) this.directFill(code);
+                  if (code) this.directFill(pa.tabId, code);
                   close();
                 });
               } catch (e) {
@@ -395,23 +395,33 @@ export default defineComponent({
         }
       });
     },
-    directFill(value) {
-      chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
-        if (!tabs[0]) return;
-        executeScriptInline(tabs[0].id, function(val) {
-          // Prefer the element captured before the popup stole focus; fall back to activeElement.
-          var el = document.querySelector('[data-tusk-target]');
-          if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) {
-            el = document.activeElement;
-          }
-          if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
-            el.value = val;
-            el.dispatchEvent(new Event('input', {bubbles: true}));
-            el.dispatchEvent(new Event('change', {bubbles: true}));
-            el.removeAttribute('data-tusk-target');
-          }
-        }, [value]);
-      });
+    directFill(tabId, value) {
+      if (!tabId) return;
+      console.log('[directFill] tabId=', tabId, 'valueLen=', (value || '').length);
+      executeScriptInline(tabId, function(val) {
+        // Prefer the element captured before the popup stole focus; fall back to activeElement.
+        var el = document.querySelector('[data-tusk-target]');
+        if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) {
+          el = document.activeElement;
+        }
+        if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+          el.removeAttribute('data-tusk-target');
+          el.focus();
+          el.value = val;
+          var events = ['input', 'keydown', 'keyup', 'change'];
+          window.setTimeout(function () {
+            for (var i = 0; i < events.length; i++) {
+              try {
+                var evt = document.createEvent(
+                  events[i] === 'keydown' || events[i] === 'keyup' ? 'KeyboardEvent' : 'Event'
+                );
+                evt.initEvent(events[i], true, true);
+                el.dispatchEvent(evt);
+              } catch (e) {}
+            }
+          });
+        }
+      }, [value]);
     },
     clickUnlock(event) {
       event.preventDefault();
