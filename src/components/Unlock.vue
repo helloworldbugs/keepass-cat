@@ -157,9 +157,9 @@ export default defineComponent({
         let entries = await this.secureCache.get('secureCache.entries');
         console.log('[unlock-mount] session result:', entries ? entries.length + ' entries' : 'empty');
         if (entries !== undefined && entries.length > 0) {
-          console.log('[unlock-mount] session OK, showResults + ensureDbLoaded');
+          console.log('[unlock-mount] session OK, showResults + silentRefresh');
           this.showResults(entries, true);
-          this.keepassService.ensureDbLoaded().catch(function() {});
+          this.silentRefresh(entries);
         } else {
           console.log('[unlock-mount] session empty, trying local...');
           // Session empty — try local storage for instant display
@@ -167,9 +167,9 @@ export default defineComponent({
             let localRaw = await this.secureCache.get('secureCache.entries', 'local');
             console.log('[unlock-mount] local result:', localRaw ? localRaw.length + ' entries' : 'empty');
             if (localRaw !== undefined && localRaw.length > 0) {
-              console.log('[unlock-mount] local OK, showResults + ensureDbLoaded');
+              console.log('[unlock-mount] local OK, showResults + silentRefresh');
               this.showResults(localRaw, true);
-              this.keepassService.ensureDbLoaded().catch(function() {});
+              this.silentRefresh(localRaw);
             }
           } catch (e) {
             console.error('[unlock-mount] local get failed:', e);
@@ -298,6 +298,60 @@ export default defineComponent({
 
       // Check for pending shortcut autofill
       this.checkPendingAutofill(allEntries);
+    },
+    silentRefresh(cachedEntries) {
+      // Auto-sync: after showing cached entries, quietly re-fetch from the backend
+      // and refresh the UI/cache if the database changed on another device.
+      var self = this;
+      chrome.storage.local.get('lastSync', function (items) {
+        var now = Date.now();
+        var last = items.lastSync || 0;
+        if (now - last < 30000) return; // throttled: at most once per 30s
+        self.keepassService
+          .refreshFromServer()
+          .then(function (fresh) {
+            var siteUrl = parseUrl(self.unlockedState.fullUrl || self.unlockedState.url);
+            self.keepassService.rankEntries(fresh, siteUrl);
+            if (!self.entriesEqual(fresh, cachedEntries)) {
+              // showResults re-ranks, updates in-memory cache and badge
+              self.showResults(fresh, true);
+              // showResults skips persisting on fromCache, so persist explicitly
+              self.secureCache.save('secureCache.entries', fresh);
+              self.settings.getSetDefaultRememberPeriod().then(function (period) {
+                if (period === -2) {
+                  self.secureCache.save('secureCache.entries', fresh, 'local');
+                }
+              });
+            }
+            chrome.storage.local.set({ lastSync: Date.now() });
+          })
+          .catch(function (err) {
+            // offline / session expired / auth error → keep cached data, stay silent
+            console.warn('[silentRefresh] skipped:', err && err.message);
+          });
+      });
+    },
+    entriesEqual(a, b) {
+      if (!Array.isArray(a) || !Array.isArray(b)) return a === b;
+      if (a.length !== b.length) return false;
+      // strip transient UI-derived fields before comparing
+      var canon = function (arr) {
+        return arr
+          .map(function (e) {
+            var c = {};
+            for (var k in e) {
+              if (k === 'matchRank' || k === 'filterKey' || k === 'view_is_active') continue;
+              c[k] = e[k];
+            }
+            return c;
+          })
+          .sort(function (x, y) {
+            var xk = x.id || x.title || x.userName || x.url || '';
+            var yk = y.id || y.title || y.userName || y.url || '';
+            return xk < yk ? -1 : xk > yk ? 1 : 0;
+          });
+      };
+      return JSON.stringify(canon(a)) === JSON.stringify(canon(b));
     },
     checkPendingAutofill(allEntries) {
       chrome.storage.local.get('pendingAutofill', (items) => {
