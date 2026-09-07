@@ -2,7 +2,7 @@
 
 > 🔒 只读 KeePass 密码数据库浏览器集成 · Chrome & Firefox 双平台支持
 
-[![Version](https://img.shields.io/badge/version-3.4.3-blue)](https://github.com/helloworldbugs/Tusk/releases)
+[![Version](https://img.shields.io/badge/version-3.4.4-blue)](https://github.com/helloworldbugs/Tusk/releases)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![CI](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/helloworldbugs/Tusk/actions)
 
