@@ -403,17 +403,17 @@ export default defineComponent({
           processPa(response.pendingAutofill);
           return;
         }
-        // Fallback: storage.local (poll a few times)
+        // Fallback: storage.session (poll a few times)
         var attempts = 0;
         var tryRead = function () {
-          chrome.storage.local.get('pendingAutofill', (items) => {
+          chrome.storage.session.get('pendingAutofill', (items) => {
             var pa = items.pendingAutofill;
             if (!pa) {
               attempts++;
               if (attempts < 4) setTimeout(tryRead, 200);
               return;
             }
-            chrome.storage.local.remove('pendingAutofill');
+            chrome.storage.session.remove('pendingAutofill');
             processPa(pa);
           });
         };

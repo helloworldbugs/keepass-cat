@@ -57,6 +57,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
     if (!message || !message.m) return; //message format unrecognized
 
     if (message.m == 'getPendingFill') {
+      console.log('[getPendingFill] pendingFill=', pendingFill ? pendingFill.fillMode : 'null');
       sendResponse({ pendingAutofill: pendingFill });
       pendingFill = null;
       return;
@@ -198,7 +199,8 @@ function Background(protectedMemory, localMemory, settings, notifications) {
             tabId: tab && tab.id,
             fillMode: (cmd === 'fill_1_username' ? 'user' : cmd === 'fill_2_password' ? 'pw' : cmd === 'fill_3_notes' ? 'notes' : cmd === 'fill_otp' ? 'otp' : 'both')
           };
-          chrome.storage.local.set({ pendingAutofill: pendingFill }, function () {
+          console.log('[shortcut] pendingFill set:', pendingFill.fillMode, 'title:', pendingFill.title);
+          chrome.storage.session.set({ pendingAutofill: pendingFill }, function () {
             console.log('[shortcut] opening popup, mode:', cmd, 'tabId:', tab && tab.id);
             openPopup();
           });
