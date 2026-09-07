@@ -1,14 +1,5 @@
 {
   "autofillBestMatch": {
     "message": "自动填充最佳匹配条目"
-  },
-  "fillUsername": {
-    "message": "在光标处填充用户名"
-  },
-  "fillNotes": {
-    "message": "在光标处填充备注"
-  },
-  "fillPassword": {
-    "message": "在光标处填充密码"
   }
 }

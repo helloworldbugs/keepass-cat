@@ -1,6 +1,6 @@
 <script>
 import { parseUrl, getValidTokens } from '@/lib/utils.js';
-import { setBadgeText, setBadgeBackgroundColor, executeScriptInline } from '@/lib/browser.js';
+import { setBadgeText, setBadgeBackgroundColor } from '@/lib/browser.js';
 
 import InfoCluster from '@/components/InfoCluster.vue';
 import EntryList from '@/components/EntryList.vue';
@@ -362,7 +362,7 @@ export default defineComponent({
       var self = this;
       console.log('[checkPendingAutofill] called, entries=', allEntries ? allEntries.length : 0);
       var processPa = function (pa) {
-        console.log('[checkPendingAutofill] pa=', pa ? ('fillMode=' + pa.fillMode + ' tabId=' + pa.tabId + ' title=' + pa.title) : 'null');
+        console.log('[checkPendingAutofill] pa=', pa ? ('title=' + pa.title) : 'null');
         if (!pa) return;
         var entry = allEntries.find(e =>
           e.title === pa.title && e.url === pa.url && e.userName === pa.userName
@@ -373,20 +373,7 @@ export default defineComponent({
           chrome.runtime.sendMessage({ m: 'clearPendingFill' });
           self.silentAutofill = true;
           self.$nextTick(() => {
-            var fillMode = pa.fillMode || 'both';
-            var close = () => setTimeout(() => window.close(), 500);
-            if (fillMode === 'user') {
-              self.directFill(pa.tabId, entry.userName || '');
-              close();
-            } else if (fillMode === 'pw') {
-              self.directFill(pa.tabId, self.unlockedState.getDecryptedAttribute(entry, 'password') || '');
-              close();
-            } else if (fillMode === 'notes') {
-              self.directFill(pa.tabId, entry.notes || '');
-              close();
-            } else {
-              self.unlockedState.autofill(entry);
-            }
+            self.unlockedState.autofill(entry);
           });
         }
       };
@@ -394,7 +381,7 @@ export default defineComponent({
       // Primary: pull the pending fill via a message (avoids the storage.local
       // propagation race between the service worker and the popup).
       chrome.runtime.sendMessage({ m: 'getPendingFill' }, (response) => {
-        console.log('[checkPendingAutofill] msg response=', response && response.pendingAutofill ? response.pendingAutofill.fillMode : 'null',
+        console.log('[checkPendingAutofill] msg response=', response && response.pendingAutofill ? 'set' : 'null',
           'lastError=', chrome.runtime.lastError ? chrome.runtime.lastError.message : 'none');
         if (chrome.runtime.lastError) { response = null; }
         if (response && response.pendingAutofill) {
@@ -417,29 +404,6 @@ export default defineComponent({
         };
         tryRead();
       });
-    },
-    directFill(tabId, value) {
-      if (!tabId) return;
-      console.log('[directFill] tabId=', tabId, 'valueLen=', (value || '').length);
-      executeScriptInline(tabId, function(val) {
-        var el = document.activeElement;
-        if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
-          el.focus();
-          el.value = val;
-          var events = ['input', 'keydown', 'keyup', 'change'];
-          window.setTimeout(function () {
-            for (var i = 0; i < events.length; i++) {
-              try {
-                var evt = document.createEvent(
-                  events[i] === 'keydown' || events[i] === 'keyup' ? 'KeyboardEvent' : 'Event'
-                );
-                evt.initEvent(events[i], true, true);
-                el.dispatchEvent(evt);
-              } catch (e) {}
-            }
-          });
-        }
-      }, [value]);
     },
     clickUnlock(event) {
       event.preventDefault();

@@ -57,7 +57,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
     if (!message || !message.m) return; //message format unrecognized
 
     if (message.m == 'getPendingFill') {
-      console.log('[getPendingFill] pendingFill=', pendingFill ? pendingFill.fillMode : 'null');
+      console.log('[getPendingFill] pendingFill=', pendingFill ? 'set' : 'null');
       // Do NOT clear pendingFill here — multiple popups (stale + fresh) may read it.
       sendResponse({ pendingAutofill: pendingFill });
       return;
@@ -165,8 +165,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
 
   // Shortcut autofill: Ctrl+Shift+X
   chrome.commands.onCommand.addListener(function(cmd, tab) {
-    if (cmd !== 'autofill_best_match' && cmd !== 'fill_1_username' && cmd !== 'fill_2_password' && cmd !== 'fill_3_notes') return;
-    var isFieldFill = (cmd === 'fill_1_username' || cmd === 'fill_2_password' || cmd === 'fill_3_notes');
+    if (cmd !== 'autofill_best_match') return;
     console.log('[shortcut] triggered:', cmd, 'tab:', tab?.url);
     chrome.storage.local.get('autofillShortcut', function(items) {
       if (!items.autofillShortcut) { console.log('[shortcut] disabled'); return; }
@@ -196,13 +195,11 @@ function Background(protectedMemory, localMemory, settings, notifications) {
           pendingFill = {
             title: bestMatch.title,
             userName: bestMatch.userName,
-            url: bestMatch.url,
-            tabId: tab && tab.id,
-            fillMode: (cmd === 'fill_1_username' ? 'user' : cmd === 'fill_2_password' ? 'pw' : cmd === 'fill_3_notes' ? 'notes' : 'both')
+            url: bestMatch.url
           };
-          console.log('[shortcut] pendingFill set:', pendingFill.fillMode, 'title:', pendingFill.title);
+          console.log('[shortcut] pendingFill set: title:', pendingFill.title);
           chrome.storage.session.set({ pendingAutofill: pendingFill }, function () {
-            console.log('[shortcut] opening popup, mode:', cmd, 'tabId:', tab && tab.id);
+            console.log('[shortcut] opening popup:', cmd);
             openPopup();
           });
         };
