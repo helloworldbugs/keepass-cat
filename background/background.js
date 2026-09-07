@@ -11,7 +11,9 @@ import { ProtectedMemory } from '$services/protectedMemory';
 import { Settings } from '$services/settings.js';
 import { Notifications } from '$services/notifications';
 import { i18n } from '@/services/i18n';
-import { openPopup, setBadgeText, setBadgeBackgroundColor } from '@/lib/browser.js';
+import { openPopup, setBadgeText, setBadgeBackgroundColor, executeScriptInline } from '@/lib/browser.js';
+import * as kdbxweb from 'kdbxweb';
+import { Otp } from '@/lib/otp.js';
 
 function Background(protectedMemory, localMemory, settings, notifications) {
   console.log('Background worker registered.');
@@ -149,6 +151,27 @@ function Background(protectedMemory, localMemory, settings, notifications) {
   //listen for "autofill" message:
   chrome.runtime.onMessage.addListener(handleMessage);
 
+  function decryptProtected(entry, key) {
+    var pd = entry && entry.protectedData && entry.protectedData[key];
+    if (!pd) return '';
+    try {
+      return new kdbxweb.ProtectedValue(pd.value, pd.salt).getText();
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function fillAtCursor(tabId, value) {
+    executeScriptInline(tabId, function (val) {
+      var el = document.activeElement;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+        el.value = val;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }, [value]);
+  }
+
   // Shortcut autofill: Ctrl+Shift+X
   chrome.commands.onCommand.addListener(function(cmd, tab) {
     if (cmd !== 'autofill_best_match' && cmd !== 'fill_1_username' && cmd !== 'fill_2_password' && cmd !== 'fill_3_notes' && cmd !== 'fill_otp') return;
@@ -177,6 +200,22 @@ function Background(protectedMemory, localMemory, settings, notifications) {
         // Field-specific fills: always fill at cursor, single match only
         // autofill_best_match: require exactly 1 match
         if (!bestMatch || (cmd === 'autofill_best_match' && bestCount > 1)) { openPopup(); return; }
+
+        // TOTP: fill directly at cursor (no popup, so the page keeps focus)
+        if (cmd === 'fill_otp') {
+          var otpUrl = decryptProtected(bestMatch, 'otp');
+          if (!otpUrl) { openPopup(); return; }
+          try {
+            var otpobj = Otp.parseUrl(otpUrl);
+            otpobj.next(function (_, code) {
+              if (code && tab && tab.id) fillAtCursor(tab.id, code);
+            });
+          } catch (e) {
+            console.warn('[shortcut] fill_otp failed:', e);
+          }
+          return;
+        }
+
         chrome.storage.local.set({pendingAutofill: {
           title: bestMatch.title,
           userName: bestMatch.userName,
