@@ -316,7 +316,7 @@ const zhCN: Record<string, string> = {
   '. If you find a problem or are dissatisfied, please instead open an issue on the ': '。如果你遇到问题或不满意，请在 ',
 
   // ===== TOTP =====
-  'Enable TOTP (One-Time Password)': '启用 TOTP（一次性密码）',
+  'Enable TOTP': '启用 TOTP',
   'Invalid otpauth URL': '无效的 otpauth URL',
   'Copy TOTP code': '复制TOTP验证码',
 };

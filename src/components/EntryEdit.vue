@@ -256,7 +256,7 @@ export default {
       <div class="edit-field">
         <label class="totp-toggle">
           <input type="checkbox" v-model="totpEnabled" />
-          <span>{{ $t('Enable TOTP (One-Time Password)') }}</span>
+          <span>{{ $t('Enable TOTP') }}</span>
         </label>
         <input
           v-if="totpEnabled"
