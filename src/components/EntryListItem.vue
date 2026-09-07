@@ -1,14 +1,29 @@
 <script>
 import { parseUrl } from '@/lib/utils.js';
+import { Otp } from '@/lib/otp.js';
 export default {
   props: {
     entry: Object,
     unlockedState: Object,
   },
+  data() {
+    return {
+      otpTimeleft: 0,
+      otpPeriod: 30,
+      otpLoop: undefined,
+    };
+  },
   computed: {
     header: function () {
       if (this.entry.title.length > 0) return this.entry.title;
       return this.entry.url;
+    },
+    hasTotp: function () {
+      return (
+        this.entry.protectedData !== undefined &&
+        'otp' in this.entry.protectedData &&
+        this.entry['tuskTotpEnabled'] !== 'false'
+      );
     },
   },
   watch: {
@@ -21,6 +36,12 @@ export default {
           behavior: 'smooth',
         });
     },
+  },
+  mounted() {
+    if (this.hasTotp) this.setupOtpCountdown();
+  },
+  beforeUnmount() {
+    clearInterval(this.otpLoop);
   },
   methods: {
     details(e) {
@@ -47,6 +68,44 @@ export default {
       e.stopPropagation();
       this.$router.route('/entry-edit/' + this.entry.id);
     },
+    copyOtp(e) {
+      e.stopPropagation();
+      let url = this.unlockedState.getDecryptedAttribute(this.entry, 'otp');
+      try {
+        let otpobj = Otp.parseUrl(url);
+        otpobj.next((_, code) => {
+          if (!code) return;
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(code).catch(() => {});
+          } else {
+            let ta = document.createElement('textarea');
+            ta.value = code;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+          }
+        });
+      } catch (e) {
+        console.warn('[copyOtp] failed:', e);
+      }
+    },
+    setupOtpCountdown() {
+      let period = 30;
+      try {
+        let url = this.unlockedState.getDecryptedAttribute(this.entry, 'otp');
+        period = Otp.parseUrl(url).period || 30;
+      } catch (e) {}
+      this.otpPeriod = period;
+      this.otpTimeleft = this.secondsLeft();
+      this.otpLoop = setInterval(() => {
+        this.otpTimeleft = this.secondsLeft();
+      }, 1000);
+    },
+    secondsLeft() {
+      let ms = this.otpPeriod * 1000;
+      return Math.ceil((ms - (Date.now() % ms)) / 1000);
+    },
   },
 };
 </script>
@@ -66,6 +125,11 @@ export default {
       <span v-if="entry.groupName" class="group-label">{{ entry.groupName }}</span>
     </div>
     <div class="buttons">
+      <span v-if="hasTotp" class="otp-countdown">{{ otpTimeleft }}s</span>
+      <span v-if="hasTotp" class="fa-stack copy-otp" @click="copyOtp" :title="$t('Copy code')">
+        <i class="fa fa-circle fa-stack-2x" />
+        <i class="fa fa-clock-o fa-stack-1x fa-inverse" />
+      </span>
       <span class="fa-stack url" @click="openUrl" :title="$t('Open URL')">
         <i class="fa fa-circle fa-stack-2x" />
         <i class="fa fa-external-link fa-stack-1x fa-inverse" />
@@ -117,25 +181,37 @@ export default {
   }
   .copy,
   .copy-user,
+  .copy-otp,
   .edit,
   .url {
     opacity: 0.35;
   }
   .copy:hover,
   .copy-user:hover,
+  .copy-otp:hover,
   .edit:hover,
   .url:hover {
     opacity: 0.8;
   }
+  .otp-countdown {
+    font-size: 11px;
+    color: var(--tusk-text-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 22px;
+  }
   @media (prefers-color-scheme: dark) {
     .copy,
     .copy-user,
+    .copy-otp,
     .edit,
     .url {
       opacity: 0.7;
     }
     .copy:hover,
     .copy-user:hover,
+    .copy-otp:hover,
     .edit:hover,
     .url:hover {
       opacity: 0.4;

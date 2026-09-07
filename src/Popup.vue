@@ -125,7 +125,7 @@ const show = reactive({
     visible: false,
   },
   entryDetails: {
-    visble: false,
+    visible: false,
   },
   entryEdit: {
     visible: false,
