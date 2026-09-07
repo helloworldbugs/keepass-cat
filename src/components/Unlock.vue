@@ -355,46 +355,57 @@ export default defineComponent({
       return JSON.stringify(canon(a)) === JSON.stringify(canon(b));
     },
     checkPendingAutofill(allEntries) {
-      chrome.storage.local.get('pendingAutofill', (items) => {
-        var pa = items.pendingAutofill;
-        console.log('[checkPendingAutofill] pa=', pa ? ('fillMode=' + pa.fillMode + ' tabId=' + pa.tabId + ' title=' + pa.title) : 'null');
-        if (!pa) return;
-        chrome.storage.local.remove('pendingAutofill');
-        var entry = allEntries.find(e =>
-          e.title === pa.title && e.url === pa.url && e.userName === pa.userName
-        );
-        if (!entry) { entry = allEntries.find(e => e.title === pa.title); }
-        if (entry) {
-          this.silentAutofill = true;
-          this.$nextTick(() => {
-            var fillMode = pa.fillMode || 'both';
-            var close = () => setTimeout(() => window.close(), 500);
-            if (fillMode === 'user') {
-              this.directFill(pa.tabId, entry.userName || '');
-              close();
-            } else if (fillMode === 'pw') {
-              this.directFill(pa.tabId, this.unlockedState.getDecryptedAttribute(entry, 'password') || '');
-              close();
-            } else if (fillMode === 'notes') {
-              this.directFill(pa.tabId, entry.notes || '');
-              close();
-            } else if (fillMode === 'otp') {
-              try {
-                let url = this.unlockedState.getDecryptedAttribute(entry, 'otp');
-                let otpobj = Otp.parseUrl(url);
-                otpobj.next((_, code) => {
-                  if (code) this.fillOtp(pa.tabId, code);
-                  close();
-                });
-              } catch (e) {
+      var self = this;
+      var attempts = 0;
+      var tryRead = function () {
+        chrome.storage.local.get('pendingAutofill', (items) => {
+          var pa = items.pendingAutofill;
+          console.log('[checkPendingAutofill] attempt', attempts, 'pa=', pa ? ('fillMode=' + pa.fillMode + ' tabId=' + pa.tabId + ' title=' + pa.title) : 'null');
+          if (!pa) {
+            attempts++;
+            // storage.local writes from the service worker can take a moment to
+            // propagate to the popup; retry a few times before giving up.
+            if (attempts < 8) { setTimeout(tryRead, 200); }
+            return;
+          }
+          chrome.storage.local.remove('pendingAutofill');
+          var entry = allEntries.find(e =>
+            e.title === pa.title && e.url === pa.url && e.userName === pa.userName
+          );
+          if (!entry) { entry = allEntries.find(e => e.title === pa.title); }
+          if (entry) {
+            self.silentAutofill = true;
+            self.$nextTick(() => {
+              var fillMode = pa.fillMode || 'both';
+              var close = () => setTimeout(() => window.close(), 500);
+              if (fillMode === 'user') {
+                self.directFill(pa.tabId, entry.userName || '');
                 close();
+              } else if (fillMode === 'pw') {
+                self.directFill(pa.tabId, self.unlockedState.getDecryptedAttribute(entry, 'password') || '');
+                close();
+              } else if (fillMode === 'notes') {
+                self.directFill(pa.tabId, entry.notes || '');
+                close();
+              } else if (fillMode === 'otp') {
+                try {
+                  let url = self.unlockedState.getDecryptedAttribute(entry, 'otp');
+                  let otpobj = Otp.parseUrl(url);
+                  otpobj.next((_, code) => {
+                    if (code) self.fillOtp(pa.tabId, code);
+                    close();
+                  });
+                } catch (e) {
+                  close();
+                }
+              } else {
+                self.unlockedState.autofill(entry);
               }
-            } else {
-              this.unlockedState.autofill(entry);
-            }
-          });
-        }
-      });
+            });
+          }
+        });
+      };
+      tryRead();
     },
     directFill(tabId, value) {
       if (!tabId) return;
