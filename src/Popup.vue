@@ -78,7 +78,7 @@ const keepassReference = new KeepassReference();
 const notifications = new Notifications(settings);
 
 // File Managers
-const localChromePasswordFileManager = new LocalChromePasswordFileManager();
+const localChromePasswordFileManager = new LocalChromePasswordFileManager(settings);
 const dropboxFileManager = new DropboxFileManager(settings);
 const googleDrivePasswordFileManager = new GoogleDrivePasswordFileManager(settings);
 const sharedUrlFileManager = new SharedUrlFileManager();

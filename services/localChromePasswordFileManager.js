@@ -4,13 +4,14 @@ import { ChromePromiseApi } from '@/lib/chrome-api-promise.js';
 
 const chromePromise = ChromePromiseApi();
 
-function LocalChromePasswordFileManager() {
+function LocalChromePasswordFileManager(settings) {
   var exports = {
     key: 'local',
     listDatabases: listDatabases,
     getDatabaseChoiceData: getDatabaseChoiceData,
     getChosenDatabaseFile: getChosenDatabaseFile,
     saveDatabase: saveDatabase,
+    uploadCurrentDatabase: uploadCurrentDatabase,
     deleteDatabase: deleteDatabase,
     supportedFeatures: ['incognito', 'listDatabases', 'saveDatabase', 'deleteDatabase'],
     title: 'Local Storage',
@@ -103,6 +104,17 @@ function LocalChromePasswordFileManager() {
 
     savingLocks.push(p); //ensure that a future read has to wait for the write to complete
     return p;
+  }
+
+  //write the (edited) database buffer back into local browser storage
+  function uploadCurrentDatabase(arrayBuffer) {
+    return settings.getCurrentDatabaseChoice().then(function (info) {
+      if (!info || info.providerKey !== 'local') {
+        throw new Error('Current database is not a local file');
+      }
+      var data = Base64.encode(arrayBuffer);
+      return saveDatabase({ title: info.passwordFile.title, data: data });
+    });
   }
 
   //remove the database from storage

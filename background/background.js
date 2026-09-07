@@ -135,9 +135,19 @@ function Background(protectedMemory, localMemory, settings, notifications) {
       var bytes = new Uint8Array(binary.length);
       for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
       var arrayBuffer = bytes.buffer;
-      import('$services/webdavFileManager.js').then(({ WebdavFileManager }) => {
-        const wm = new WebdavFileManager(settings);
-        return wm.uploadCurrentDatabase(arrayBuffer);
+      settings.getCurrentDatabaseChoice().then(function (info) {
+        var providerKey = info ? info.providerKey : null;
+        if (providerKey === 'webdav') {
+          return import('$services/webdavFileManager.js').then(({ WebdavFileManager }) => {
+            return new WebdavFileManager(settings).uploadCurrentDatabase(arrayBuffer);
+          });
+        } else if (providerKey === 'local') {
+          return import('$services/localChromePasswordFileManager.js').then(({ LocalChromePasswordFileManager }) => {
+            return new LocalChromePasswordFileManager(settings).uploadCurrentDatabase(arrayBuffer);
+          });
+        } else {
+          throw new Error('Saving is not supported for this storage provider');
+        }
       }).then(() => {
         sendResponse({ success: true });
       }).catch((err) => {

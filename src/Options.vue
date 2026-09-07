@@ -79,7 +79,7 @@ const settings = new Settings(secureCacheMemory);
 const keyFileParser = new KeyFileParser();
 
 // File Managers
-const localChromePasswordFileManager = new LocalChromePasswordFileManager();
+const localChromePasswordFileManager = new LocalChromePasswordFileManager(settings);
 const dropboxFileManager = new DropboxFileManager(settings);
 const googleDrivePasswordFileManager = new GoogleDrivePasswordFileManager(settings);
 const sharedUrlFileManager = new SharedUrlFileManager();
