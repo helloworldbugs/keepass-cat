@@ -34,10 +34,10 @@ const permissions = [
 ];
 
 const baseManifest: Manifest.WebExtensionManifest = {
-  name: 'Keepass Cat - WebDav',
+  name: 'Keepass Cat - WebDAV',
   short_name: 'Keepass Cat',
   version: '1.0.0',
-  description: 'Open-source KeePass browser extension: connect your WebDAV database for one-click autofill, TOTP 2FA, and editing — self-hosted and secure.',
+  description: 'Open-source KeePass extension: connect your WebDAV database for one-click autofill, TOTP 2FA, and editing — self-hosted and secure.',
   default_locale: 'en',
   icons: {
     '16': '/assets/16x16.png',
