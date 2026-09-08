@@ -12,6 +12,15 @@
 
 @import './settings.scss';
 
+// Materialize's normalize sets `line-height: 1.15` on inputs, which is tighter
+// than the font's natural line height and clips descenders (y/g/p/j). Reset to
+// normal so the full glyph is visible.
+input,
+select,
+textarea {
+  line-height: normal;
+}
+
 .selectable {
   transition: all 0.3s ease;
 

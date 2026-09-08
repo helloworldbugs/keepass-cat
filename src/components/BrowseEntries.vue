@@ -286,7 +286,7 @@ export default {
     float: right;
     width: 96%;
     border: 0px;
-    padding: 0px;
+    padding: 2px 0px;
     padding-left: 10px;
     font-size: 18px;
     color: $text-color;
