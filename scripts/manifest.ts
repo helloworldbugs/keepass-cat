@@ -36,7 +36,7 @@ const permissions = [
 const baseManifest: Manifest.WebExtensionManifest = {
   name: 'Keepass Cat - Password Access and Autofill',
   short_name: 'Keepass Cat',
-  version: '3.4.7',
+  version: '1.0.0',
   description: 'Keepass Cat - KeePass password manager and autofill for Chrome and Firefox',
   default_locale: 'en',
   icons: {
