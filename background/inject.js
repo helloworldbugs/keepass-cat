@@ -188,7 +188,15 @@ var filler = (function () {
   }
 
   function fillField(field, val) {
-    field.value = val;
+    // Use the native value setter to bypass React/Vue value trackers (which
+    // override the instance `value` property and would otherwise revert our
+    // assignment on the next re-render).
+    var nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    if (nativeSetter) {
+      nativeSetter.call(field, val);
+    } else {
+      field.value = val;
+    }
     var filled = field.value === val;
     sendKeyEvent(field);
     return filled;
@@ -197,18 +205,19 @@ var filler = (function () {
   function sendKeyEvent(field) {
     field.focus();
 
-    var eventsToFire = {
-      input: 'Event',
-      keydown: 'KeyboardEvent',
-      keyup: 'KeyboardEvent',
-      change: 'HTMLEvents',
-    };
+    var eventsToFire = ['input', 'keydown', 'keyup', 'change'];
 
     window.setTimeout(function () {
-      for (var i in eventsToFire) {
-        var evt = document.createEvent(eventsToFire[i]);
-        evt.initEvent(i, true, true);
-        field.dispatchEvent(evt);
+      for (var i = 0; i < eventsToFire.length; i++) {
+        try {
+          var evt;
+          if (eventsToFire[i] === 'keydown' || eventsToFire[i] === 'keyup') {
+            evt = new KeyboardEvent(eventsToFire[i], { bubbles: true });
+          } else {
+            evt = new Event(eventsToFire[i], { bubbles: true });
+          }
+          field.dispatchEvent(evt);
+        } catch (e) {}
       }
     });
   }
