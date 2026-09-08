@@ -12,6 +12,7 @@ import { Settings } from '$services/settings.js';
 import { Notifications } from '$services/notifications';
 import { i18n } from '@/services/i18n';
 import { openPopup, setBadgeText, setBadgeBackgroundColor } from '@/lib/browser.js';
+import { matchLevel } from '@/lib/utils.js';
 
 function Background(protectedMemory, localMemory, settings, notifications) {
   console.log('Background worker registered.');
@@ -176,13 +177,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
         for (var i = 0; i < entries.length; i++) {
           var e = entries[i];
           if (!e.url) continue;
-          var rank = 0;
-          try {
-            var tu = new URL(url), eu = new URL(e.url.indexOf('://') >= 0 ? e.url : 'http://' + e.url);
-            if (url.toLowerCase().indexOf(e.url.toLowerCase()) >= 0 || e.url.toLowerCase().indexOf(url.toLowerCase()) >= 0) rank = 100;
-            else if (tu.origin === eu.origin) rank = 75;
-            else if (tu.hostname === eu.hostname) rank = 50;
-          } catch (_) {}
+          var rank = matchLevel(url, e) * 25; // level 4/3/2/1 -> 100/75/50/25
           if (rank > bestRank) { bestRank = rank; bestMatch = e; bestCount = 1; }
           else if (rank === bestRank && rank > 0) { bestCount++; }
         }
@@ -251,7 +246,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
           // Cascade: highest matching level first
           for (var level = 4; level >= 1; level--) {
             var matched = entries.filter(function(e) {
-              return entryMatchLevel(pageUrl, e) === level;
+              return matchLevel(pageUrl, e) === level;
             });
             if (matched.length > 0) {
               count = matched.length;
@@ -270,35 +265,6 @@ function Background(protectedMemory, localMemory, settings, notifications) {
         console.log('[badge] cleared badge on tab', tabs[0].id);
       }
     });
-  }
-
-  function entryMatchLevel(pageUrl, entry) {
-    if (!pageUrl || !entry || !entry.url) return 0;
-
-    // Level 1: regex pattern (prefix "regex:")
-    if (entry.url.startsWith('regex:')) {
-      try { if (new RegExp(entry.url.slice(6)).test(pageUrl)) return 1; } catch(ex) {}
-      return 0;
-    }
-
-    var safeParse = function(raw) {
-      try {
-        if (!/^https?:\/\//i.test(raw)) raw = 'http://' + raw;
-        var u = new URL(raw);
-        return { href: u.href, origin: u.origin, hostname: u.hostname,
-          domain: u.hostname.split('.').slice(-2).join('.') };
-      } catch(e) { return null; }
-    };
-    var page = safeParse(pageUrl);
-    var e = safeParse(entry.url);
-    if (!page || !e) return 0;
-    if (page.href.indexOf(e.href) > -1) return 4;
-    if (page.origin === e.origin) return 3;
-    if (page.domain === e.domain && page.domain.indexOf('.') > -1) return 2;
-    if (entry.matchRegex) {
-      try { if (new RegExp(entry.matchRegex).test(pageUrl)) return 1; } catch(ex) {}
-    }
-    return 0;
   }
 
   chrome.tabs.onActivated.addListener(updateBadgeForTab);
