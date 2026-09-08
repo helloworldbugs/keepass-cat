@@ -502,7 +502,7 @@ export default defineComponent({
     <div v-if="!busy && !isUnlocked" id="masterPasswordGroup">
       <messenger v-show="unlockedMessages.error" :messages="unlockedMessages" />
       <div class="unlockLogo stack-item">
-        <img src="@/assets/icons/exported/128x128.png" width="256px" height="256px" />
+        <img src="@/assets/icons/exported/logo.png" width="256px" height="256px" />
           <span>{{ $t('Keepass Cat') }}</span>
       </div>
 

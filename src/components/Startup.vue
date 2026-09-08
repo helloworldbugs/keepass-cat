@@ -59,7 +59,7 @@ export default {
     <div v-else>
       <div class="box-bar plain">
         <div class="unlockLogo stack-item">
-          <img src="@/assets/icons/exported/128x128.png" />
+          <img src="@/assets/icons/exported/logo.png" />
           <span>{{ $t('Keepass Cat') }}</span>
         </div>
         <p>
