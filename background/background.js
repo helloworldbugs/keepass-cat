@@ -77,7 +77,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
         {
           type: 'basic',
           iconUrl: '/assets/48x48.png',
-          title: 'Tusk',
+          title: 'Keepass Cat',
           message: message.text,
         },
         function (notificationId) {

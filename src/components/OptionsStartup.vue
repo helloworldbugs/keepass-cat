@@ -9,11 +9,11 @@ export default {
     <div class="box-bar roomy">
       <div class="unlockLogo stack-item optionsheader">
         <img src="@/assets/icons/exported/128x128.svg" width="256px" height="256px" />
-        <span>{{ $t('Getting Started with Tusk') }}</span>
+        <span>{{ $t('Getting Started with Keepass Cat') }}</span>
       </div>
 
       <p>
-        {{ $t('Tusk helps you keep track of all your accounts by storing your passwords in an encrypted file called a Keepass Database. You choose where this file is stored - most people keep them on a WebDAV server for easy access and syncing between laptops, desktops, and phones. To use Tusk, you should first enable the WebDAV provider below.') }}
+        {{ $t('Keepass Cat helps you keep track of all your accounts by storing your passwords in an encrypted file called a Keepass Database. You choose where this file is stored - most people keep them on a WebDAV server for easy access and syncing between laptops, desktops, and phones. To use Keepass Cat, you should first enable the WebDAV provider below.') }}
       </p>
 
       <a class="waves-effect waves-light btn" @click="$router.route('/manage/databases')"
@@ -29,7 +29,7 @@ export default {
       >
 
       <p>
-        {{ $t('That\'s it! Tusk will automatically discover any Keepass databases that your have in your cloud storage, and allow you to switch between databases from the browser popup.') }}
+        {{ $t('That\'s it! Keepass Cat will automatically discover any Keepass databases that your have in your cloud storage, and allow you to switch between databases from the browser popup.') }}
       </p>
 
       <p>
@@ -38,9 +38,9 @@ export default {
     </div>
 
     <div class="box-bar roomy lighter">
-      <h4>{{ $t('Support Tusk') }}</h4>
+      <h4>{{ $t('Support Keepass Cat') }}</h4>
       <p>
-        {{ $t('If you like Tusk, please consider ') }}
+        {{ $t('If you like Keepass Cat, please consider ') }}
         <a
           href="https://chrome.google.com/webstore/detail/keepass-tusk-a-better-pas/fmhmiaejopepamlcjkncpgpdjichnecm"
           >{{ $t('leaving a review on the google web store') }}</a
@@ -51,7 +51,7 @@ export default {
         >
         {{ $t('. If you find a problem or are dissatisfied, please instead open an issue on the ') }}
         <a href="https://github.com/suBDavis/Tusk/issues">{{ $t('issue tracker') }}</a>
-        {{ $t(' so we can make Tusk better.') }}
+        {{ $t(' so we can make Keepass Cat better.') }}
       </p>
     </div>
   </div>

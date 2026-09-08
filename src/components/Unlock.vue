@@ -503,7 +503,7 @@ export default defineComponent({
       <messenger v-show="unlockedMessages.error" :messages="unlockedMessages" />
       <div class="unlockLogo stack-item">
         <img src="/assets/icons/exported/128x128.svg" width="256px" height="256px" />
-          <span>{{ $t('KeePass Tusk') }}</span>
+          <span>{{ $t('Keepass Cat') }}</span>
       </div>
 
       <form @submit="clickUnlock">
@@ -698,7 +698,7 @@ export default defineComponent({
     animate: 0.2s;
     background: $blue;
     border-radius: 1.3px;
-    border: 0.2px solid var(--tusk-text);
+    border: 0.2px solid var(--keepass-cat-text);
     margin-top: -2px;
   }
 
@@ -743,7 +743,7 @@ export default defineComponent({
   }
   &.active {
     background-color: $blue;
-    color: var(--tusk-svg-fill);
+    color: var(--keepass-cat-svg-fill);
   }
 }
 

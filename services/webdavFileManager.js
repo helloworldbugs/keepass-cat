@@ -46,7 +46,7 @@ function WebdavFileManager(settings) {
     icon: 'icon-folder',
     chooseTitle: 'WebDAV',
     chooseDescription:
-      'Choose a database from any WebDAV file server.  Tusk will always keep your database in sync with the server and automatically pull new versions.  WARNING: If you require username/password to use webdav, Tusk will store them unencrypted on disk.',
+      'Choose a database from any WebDAV file server.  Keepass Cat will always keep your database in sync with the server and automatically pull new versions.  WARNING: If you require username/password to use webdav, Keepass Cat will store them unencrypted on disk.',
     login: enable,
     logout: disable,
     isLoggedIn: isEnabled,

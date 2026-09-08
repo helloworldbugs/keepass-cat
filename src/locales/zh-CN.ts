@@ -1,6 +1,6 @@
 const zhCN: Record<string, string> = {
   // ===== Unlock Screen =====
-  'KeePass Tusk': 'KeePass Tusk',
+  'Keepass Cat': 'Keepass Cat',
   'change...': '更换...',
   '🔒 master password': '🔒 主密码',
   'No keyfile selected.  (click to change)': '未选择密钥文件（点击更换）',
@@ -89,7 +89,7 @@ const zhCN: Record<string, string> = {
   'e.g. https://site.com or regex:.*\\.domain\\.com/.*': '例如 https://site.com 或 regex:.*\\.domain\\.com/.*',
 
   // ===== Startup / Onboarding =====
-  'Tusk is an extension that uses your existing KeePass database files to autofill passwords on websites. In order to continue, you must add your KeePass database file(s).': 'Tusk 是一个使用已有 KeePass 数据库文件自动填充网站密码的扩展。要开始使用，您需要添加至少一个 KeePass 数据库文件。',
+  'Keepass Cat is an extension that uses your existing KeePass database files to autofill passwords on websites. In order to continue, you must add your KeePass database file(s).': 'Keepass Cat 是一个使用已有 KeePass 数据库文件自动填充网站密码的扩展。要开始使用，您需要添加至少一个 KeePass 数据库文件。',
   'Add a KeePass database file': '添加 KeePass 数据库文件',
   'You can return here when you\'ve enabled one of the database file providers.': '启用任一数据库文件提供程序后，你可以返回此页面。',
   'Manage Database Files': '管理数据库文件',
@@ -100,52 +100,52 @@ const zhCN: Record<string, string> = {
   'Advanced': '高级设置',
 
   // ===== Options: Getting Started =====
-  'Getting Started with Tusk': 'Tusk 快速入门',
-  'Tusk helps you keep track of all your accounts by storing your passwords in an encrypted file called a Keepass Database. You choose where this file is stored - most people keep them on a WebDAV server for easy access and syncing between laptops, desktops, and phones. To use Tusk, you should first enable the WebDAV provider below.': 'Tusk 帮助你将所有密码存储在一个加密的文件中（即 KeePass 数据库）。你可以选择文件的存储位置——大多数人会将文件放在 WebDAV 服务器上，以便在笔记本、台式机和手机之间同步。要使用 Tusk，你需要先启用下方的 WebDAV 提供程序。',
+  'Getting Started with Keepass Cat': 'Keepass Cat 快速入门',
+  'Keepass Cat helps you keep track of all your accounts by storing your passwords in an encrypted file called a Keepass Database. You choose where this file is stored - most people keep them on a WebDAV server for easy access and syncing between laptops, desktops, and phones. To use Keepass Cat, you should first enable the WebDAV provider below.': 'Keepass Cat 帮助你将所有密码存储在一个加密的文件中（即 KeePass 数据库）。你可以选择文件的存储位置——大多数人会将文件放在 WebDAV 服务器上，以便在笔记本、台式机和手机之间同步。要使用 Keepass Cat，你需要先启用下方的 WebDAV 提供程序。',
   'Optionally, you may also import any required keyfiles. A keyfile can be used together with a password to provide even better security, or even used instead of one.': '你还可以导入所需的密钥文件。密钥文件可与密码一起使用以增强安全性，也可以替代密码。',
-  'That\'s it! Tusk will automatically discover any Keepass databases that your have in your cloud storage, and allow you to switch between databases from the browser popup.': '就这样！Tusk 会自动在云存储中发现你的 KeePass 数据库，并允许从浏览器弹窗中切换数据库。',
+  'That\'s it! Keepass Cat will automatically discover any Keepass databases that your have in your cloud storage, and allow you to switch between databases from the browser popup.': '就这样！Keepass Cat 会自动在云存储中发现你的 KeePass 数据库，并允许从浏览器弹窗中切换数据库。',
   'If you are a new Keepass user, you will be prompted to create a new database from the popup window after you enable a cloud storage provider. Most people keep all their passwords in a single database, so you will only need to do this once.': '如果你是新用户，启用云存储后，将提示你从弹窗创建新数据库。大多数人将所有密码保存在一个数据库中，因此只需要执行一次。',
   '1. Cloud Storage Setup': '1. 云存储设置',
   '2. Keyfile Setup (optional)': '2. 密钥文件设置（可选）',
-  'Support Tusk': '支持 Tusk',
-  'If you like Tusk, please consider leaving a review on the google web store or firefox addon store. If you find a problem or are dissatisfied, please instead open an issue on the issue tracker so we can make Tusk better.': '如果你喜欢 Tusk，请考虑在 Chrome 网上应用店或 Firefox 附加组件商店留下评价。如果你遇到问题或不满意，请在 issue 跟踪器中提交问题，以便我们改进 Tusk。',
+  'Support Keepass Cat': '支持 Keepass Cat',
+  'If you like Keepass Cat, please consider leaving a review on the google web store or firefox addon store. If you find a problem or are dissatisfied, please instead open an issue on the issue tracker so we can make Keepass Cat better.': '如果你喜欢 Keepass Cat，请考虑在 Chrome 网上应用店或 Firefox 附加组件商店留下评价。如果你遇到问题或不满意，请在 issue 跟踪器中提交问题，以便我们改进 Keepass Cat。',
 
   // ===== Options: Manage Databases =====
-  'Tusk requires that you enable at least one of these cloud storage providers to sync your keepass database with. Once the files appear below, they will be available to unlock within the popup window. If you have problems, please read the troubleshooting guide or open an issue.': 'Tusk 需要你启用至少一个云存储提供程序来同步 KeePass 数据库。文件显示在下方后，即可在弹窗中解锁。如有问题，请阅读故障排除指南或提交 issue。',
+  'Keepass Cat requires that you enable at least one of these cloud storage providers to sync your keepass database with. Once the files appear below, they will be available to unlock within the popup window. If you have problems, please read the troubleshooting guide or open an issue.': 'Keepass Cat 需要你启用至少一个云存储提供程序来同步 KeePass 数据库。文件显示在下方后，即可在弹窗中解锁。如有问题，请阅读故障排除指南或提交 issue。',
   'Help me choose': '帮我选择',
   'I don\'t have a KeePass Database': '我没有 KeePass 数据库',
   'If you\'re unsure which to pick, I recommend Dropbox. It is easy to use and widely supported by other Keepass apps like KeePassXC and KeePassDX.': '如不确定，推荐 Dropbox。它简单易用，且被 KeePassXC、KeePassDX 等其他应用广泛支持。',
-  'If you\'ve never used keepass before, you will need to create a new keepass database from another application like KeePassXC or KeePassDX. Tusk is not a full-featured database manager, but can act as a simple read-only password access tool. For now, you can create a sample database to test Tusk\'s features.': '如果你从未使用过 KeePass，需要从 KeePassXC 或 KeePassDX 等其他应用创建新的数据库。Tusk 不是全功能数据库管理器，但可作为简单的只读密码访问工具。现在，你可以创建一个示例数据库来测试 Tusk 的功能。',
+  'If you\'ve never used keepass before, you will need to create a new keepass database from another application like KeePassXC or KeePassDX. Keepass Cat is not a full-featured database manager, but can act as a simple read-only password access tool. For now, you can create a sample database to test Keepass Cat\'s features.': '如果你从未使用过 KeePass，需要从 KeePassXC 或 KeePassDX 等其他应用创建新的数据库。Keepass Cat 不是全功能数据库管理器，但可作为简单的只读密码访问工具。现在，你可以创建一个示例数据库来测试 Keepass Cat 的功能。',
 
   // ===== Options: Manage Keyfiles =====
   'Key files are an optional authentication method. More info on key files is available on the KeePass site': '密钥文件是可选的认证方式。更多信息请参考 KeePass 官方文档',
-  'Tusk can store your key files locally in your browser\'s storage, and apply them when opening your password database. Websites and other browser extensions do not have access to these files. However, they are stored unencrypted in your local browser profile and someone with access to your device could read them.': 'Tusk 可以将你的密钥文件存储在浏览器本地，在打开数据库时使用。网站和其他浏览器扩展无法访问这些文件，但它们以未加密形式存储在你的浏览器本地配置文件中，有设备访问权限的人可以读取。',
+  'Keepass Cat can store your key files locally in your browser\'s storage, and apply them when opening your password database. Websites and other browser extensions do not have access to these files. However, they are stored unencrypted in your local browser profile and someone with access to your device could read them.': 'Keepass Cat 可以将你的密钥文件存储在浏览器本地，在打开数据库时使用。网站和其他浏览器扩展无法访问这些文件，但它们以未加密形式存储在你的浏览器本地配置文件中，有设备访问权限的人可以读取。',
   'Add Key File': '添加密钥文件',
 
   // ===== Options: Advanced Settings =====
   'Clipboard Expiration Time': '剪贴板过期时间',
-  'When you copy a value to the clipboard, Tusk will set a timeout to automatically clear it again. You can choose how long this timeout will last.': '复制内容到剪贴板后，Tusk 会设置一个定时器，到期自动清除。你可以选择保留时长。',
+  'When you copy a value to the clipboard, Keepass Cat will set a timeout to automatically clear it again. You can choose how long this timeout will last.': '复制内容到剪贴板后，Keepass Cat 会设置一个定时器，到期自动清除。你可以选择保留时长。',
   '1 minute': '1 分钟',
   '2 minutes': '2 分钟',
   '3 minutes': '3 分钟',
   '5 minutes': '5 分钟',
   '8 minutes': '8 分钟',
   'Enable Hotkey Navigation': '启用快捷键导航',
-  'If enabled, you will be able to use [TAB] and [ENTER] to navigate and autofill your passwords when the tusk UI is open. By default, [CTRL]+[SHIFT]+[SPACE] will open the Tusk popup': '启用后，在 Tusk 弹窗中可使用 [Tab] 和 [Enter] 键导航并自动填充密码。默认快捷键 [Ctrl]+[Shift]+[Space] 可打开 Tusk 弹窗。',
+  'If enabled, you will be able to use [TAB] and [ENTER] to navigate and autofill your passwords when the Keepass Cat UI is open. By default, [CTRL]+[SHIFT]+[SPACE] will open the Keepass Cat popup': '启用后，在 Keepass Cat 弹窗中可使用 [Tab] 和 [Enter] 键导航并自动填充密码。默认快捷键 [Ctrl]+[Shift]+[Space] 可打开 Keepass Cat 弹窗。',
   'Hotkey Navigation': '快捷键导航',
   'Grant Permission on All Websites': '授予所有网站权限',
   'Only proceed if you know what you\'re doing.': '仅在了解后果的前提下继续。',
-  'If enabled, the extension prompts once for permission to access and change data on all websites which disables the permissions popup on each new website. This has serious security implications. Only applies to Chrome. Because of a Chrome bug, it is currently impossible to revoke this permission again after it is enabled. If you turn this ON, Tusk must be reinstalled to reset.': '启用后，扩展将一次性请求所有网站的访问和修改权限，不会在每个新网站上弹出权限提示。但这有严重安全隐患。仅适用于 Chrome。由于 Chrome 的一个 bug，启用后无法撤销，需要重新安装 Tusk 才能重置。',
+  'If enabled, the extension prompts once for permission to access and change data on all websites which disables the permissions popup on each new website. This has serious security implications. Only applies to Chrome. Because of a Chrome bug, it is currently impossible to revoke this permission again after it is enabled. If you turn this ON, Keepass Cat must be reinstalled to reset.': '启用后，扩展将一次性请求所有网站的访问和修改权限，不会在每个新网站上弹出权限提示。但这有严重安全隐患。仅适用于 Chrome。由于 Chrome 的一个 bug，启用后无法撤销，需要重新安装 Keepass Cat 才能重置。',
   'Grant All Permissions': '授予所有权限',
   'Notification': '通知',
-  'Choose which type of notification do you want to receive from Tusk.': '选择你希望从 Tusk 收到的通知类型。',
+  'Choose which type of notification do you want to receive from Keepass Cat.': '选择你希望从 Keepass Cat 收到的通知类型。',
   'Password expiration': '密码过期通知',
   'Clipboard events': '剪贴板事件通知',
   'Enable Strict Matching': '启用严格匹配',
   'If enabled, only entries whose origins match exactly will be suggested for input. Titles and other tab information will not be considered in matching.': '启用后，仅匹配完全相同的域名才会被建议填充。标题和其他标签页信息不会被用于匹配。',
   'Strict Matching': '严格匹配',
   'Stored Data': '已存储数据',
-  'The following objects represent the current data cached in local storage. This data is only available to Tusk, and is never sent over any network connection.': '以下对象代表当前在本地存储中缓存的数据。这些数据仅供 Tusk 使用，绝不会通过网络发送。',
+  'The following objects represent the current data cached in local storage. This data is only available to Keepass Cat, and is never sent over any network connection.': '以下对象代表当前在本地存储中缓存的数据。这些数据仅供 Keepass Cat 使用，绝不会通过网络发送。',
 
   // ===== Providers: Shared Link =====
   'Shared Link URL': '共享链接 URL',
@@ -162,7 +162,7 @@ const zhCN: Record<string, string> = {
 
   // ===== Providers: Local File =====
   'Select Local File': '选择本地文件',
-  'Tusk cannot keep your local database file up to date. If you change it, you\'ll have to import it into Tusk again.': 'Tusk 无法同步本地数据库文件。如果你修改了文件，需要重新导入。',
+  'Keepass Cat cannot keep your local database file up to date. If you change it, you\'ll have to import it into Keepass Cat again.': 'Keepass Cat 无法同步本地数据库文件。如果你修改了文件，需要重新导入。',
   ' is not a valid KeePass v2+ file. ': ' 不是有效的 KeePass v2+ 文件。',
 
   // ===== Providers: WebDAV =====
@@ -180,7 +180,7 @@ const zhCN: Record<string, string> = {
   'Add server': '添加服务器',
 
   // ===== Providers: Google Drive =====
-  'Google Drive support has updated! You can now grant Tusk access to each keepass file. Having problems? Read the troubleshooting guide.': 'Google Drive 支持已更新！现在可以为每个 KeePass 文件单独授权。遇到问题？请阅读故障排除指南。',
+  'Google Drive support has updated! You can now grant Keepass Cat access to each keepass file. Having problems? Read the troubleshooting guide.': 'Google Drive 支持已更新！现在可以为每个 KeePass 文件单独授权。遇到问题？请阅读故障排除指南。',
   'Choose database file': '选择数据库文件',
 
   // ===== Provider Metadata =====
@@ -198,7 +198,7 @@ const zhCN: Record<string, string> = {
   'Shared Link': '共享链接',
   'Rather than granting full access to your cloud storage provider, get a shared link and paste it in. Any direct HTTP link will do, and Dropbox and Google Drive are supported.': '无需授予云存储的全部权限，获取共享链接并粘贴即可。支持任何直接 HTTP 链接，以及 Dropbox 和 Google Drive。',
   'WebDAV': 'WebDAV',
-  'Choose a database from any WebDAV file server. Tusk will always keep your database in sync with the server and automatically pull new versions. WARNING: If you require username/password to use webdav, Tusk will store them unencrypted on disk.': '从任意 WebDAV 文件服务器选择数据库。Tusk 将始终保持数据库与服务器同步，自动拉取最新版本。警告：如需用户名/密码访问 WebDAV，Tusk 会以未加密形式存储到磁盘。',
+  'Choose a database from any WebDAV file server. Keepass Cat will always keep your database in sync with the server and automatically pull new versions. WARNING: If you require username/password to use webdav, Keepass Cat will store them unencrypted on disk.': '从任意 WebDAV 文件服务器选择数据库。Keepass Cat 将始终保持数据库与服务器同步，自动拉取最新版本。警告：如需用户名/密码访问 WebDAV，Keepass Cat 会以未加密形式存储到磁盘。',
   'Sample': '示例',
   'Sample Database': '示例数据库',
   'Sample database that you can use to try out the functionality. The master password is 123.': '用于体验功能的示例数据库，主密码为 123。',
@@ -224,7 +224,7 @@ const zhCN: Record<string, string> = {
   'Unable to determine tab details': '无法获取标签页详情',
 
   // ===== Notifications =====
-  'Tusk': 'Tusk',
+  'Keepass Cat': 'Keepass Cat',
   'Clipboard cleared': '剪贴板已清除',
   'Remember password expired': '记住密码已过期',
   ' copied to clipboard. Clipboard will clear in {0} minute(s).': ' 已复制到剪贴板，将在 {0} 分钟后清除。',
@@ -243,7 +243,7 @@ const zhCN: Record<string, string> = {
 
   // ===== Providers: Google Drive extras =====
   'Google Drive support has updated!': 'Google Drive 支持已更新！',
-  'You can now grant Tusk access to each keepass file.': '现在可以为每个 KeePass 文件单独授权。',
+  'You can now grant Keepass Cat access to each keepass file.': '现在可以为每个 KeePass 文件单独授权。',
   'Having problems?': '遇到问题？',
   'Read the troubleshooting guide.': '阅读故障排除指南。',
   'Choose database file': '选择数据库文件',
@@ -270,7 +270,7 @@ const zhCN: Record<string, string> = {
   'Press Ctrl+Shift+X to autofill the best matching entry on the current page. If no match is found or the database is locked, the popup will open instead.': '按下 Ctrl+Shift+X 可自动填充当前页面的最佳匹配条目。若无匹配或数据库已锁定，将打开弹窗。',
 
   // ===== Manage Databases paragraph fragments =====
-  'Tusk ': 'Tusk ',
+  'Keepass Cat ': 'Keepass Cat ',
   'requires': '需要你',
   ' that you enable at least one of these cloud storage providers to sync your keepass database with. Once the files appear below, they will be available to unlock within the popup window. If you have problems, please read ': ' 启用至少一个云存储提供程序来同步 KeePass 数据库。文件显示在下方后，即可在弹窗中解锁。如有问题，请阅读',
   ' or ': ' 或 ',
@@ -287,19 +287,19 @@ const zhCN: Record<string, string> = {
   // ===== Manage Keyfiles paragraph fragments =====
   'Key files are an ': '密钥文件是一种 ',
   '. More info on key files is available on the ': '。更多信息请参考 ',
-  'Tusk can store your key files locally in your browser\'s storage, and apply them when opening your password database. Websites and other browser extensions do not have access to these files. However, they are ': 'Tusk 可以将密钥文件存储在浏览器本地，在打开数据库时使用。网站和其他扩展无法访问这些文件，但它们会 ',
+  'Keepass Cat can store your key files locally in your browser\'s storage, and apply them when opening your password database. Websites and other browser extensions do not have access to these files. However, they are ': 'Keepass Cat 可以将密钥文件存储在浏览器本地，在打开数据库时使用。网站和其他扩展无法访问这些文件，但它们会 ',
   ' in your local browser profile and someone with access to your device could read them.': ' 在你的浏览器本地配置文件中，有设备访问权限的人可以读取。',
 
   // ===== Advanced Settings paragraph fragments =====
   'Only proceed if you know what you\'re doing.': '仅在了解后果的前提下继续。',
   ' If enabled, the extension prompts once for permission to access and change data on all websites which disables the permissions popup on each new website. This has ': ' 启用后，扩展将一次性请求所有网站的访问和修改权限，不会在每个新网站上弹出权限提示。这有',
-  '. Only applies to Chrome. Because of a Chrome bug, it is currently impossible to revoke this permission again after it is enabled. If you turn this ON, Tusk must be reinstalled to reset.': '。仅适用于 Chrome。由于 Chrome 的一个 bug，启用后无法撤销，需要重新安装 Tusk 才能重置。',
+  '. Only applies to Chrome. Because of a Chrome bug, it is currently impossible to revoke this permission again after it is enabled. If you turn this ON, Keepass Cat must be reinstalled to reset.': '。仅适用于 Chrome。由于 Chrome 的一个 bug，启用后无法撤销，需要重新安装 Keepass Cat 才能重置。',
   'If enabled, only entries whose origins match exactly will be suggested for input. Titles and other tab information will not be considered in matching. For example': '启用后，仅匹配完全相同的域名才会被建议填充。标题和其他标签页信息不会被用于匹配。例如',
   ' will not match ': ' 不会匹配 ',
 
   // ===== Support fragments =====
-  'If you like Tusk, please consider ': '如果你喜欢 Tusk，请考虑在 ',
-  ' so we can make Tusk better.': '，以便我们改进 Tusk。',
+  'If you like Keepass Cat, please consider ': '如果你喜欢 Keepass Cat，请考虑在 ',
+  ' so we can make Keepass Cat better.': '，以便我们改进 Keepass Cat。',
   '. If you find a problem or are dissatisfied, please instead open an issue on the ': '。如果你遇到问题或不满意，请在 ',
 
   // ===== TOTP =====

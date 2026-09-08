@@ -22,7 +22,7 @@ export default {
       return (
         this.entry.protectedData !== undefined &&
         'otp' in this.entry.protectedData &&
-        this.entry['tuskTotpEnabled'] !== 'false'
+        this.entry['keepassCatTotpEnabled'] !== 'false'
       );
     },
   },
@@ -165,7 +165,7 @@ export default {
   .group-label {
     display: block;
     font-size: 10px;
-    color: var(--tusk-text-muted);
+    color: var(--keepass-cat-text-muted);
     margin-top: 1px;
   }
   .buttons {
@@ -191,7 +191,7 @@ export default {
   }
   .otp-countdown {
     font-size: 11px;
-    color: var(--tusk-text-subtle);
+    color: var(--keepass-cat-text-subtle);
     display: flex;
     align-items: center;
     justify-content: flex-end;

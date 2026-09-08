@@ -181,8 +181,8 @@ export default {
 .no-match-msg {
   padding: 10px $wall-padding;
   font-size: 12px;
-  color: var(--tusk-text-subtle);
-  background: var(--tusk-highlight-bg);
+  color: var(--keepass-cat-text-subtle);
+  background: var(--keepass-cat-highlight-bg);
   border-bottom: 1px solid $light-gray;
 }
 

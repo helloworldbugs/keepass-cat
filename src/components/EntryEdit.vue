@@ -69,7 +69,7 @@ export default {
         // TOTP
         let otpUrl = this.unlockedState.getDecryptedAttribute(this.entry, 'otp') || '';
         this.editFields.otp = otpUrl;
-        this.totpEnabled = !!otpUrl && this.entry['tuskTotpEnabled'] !== 'false';
+        this.totpEnabled = !!otpUrl && this.entry['keepassCatTotpEnabled'] !== 'false';
       }
     }
     // Load sorted groups from cached entries + keepassService
@@ -120,11 +120,11 @@ export default {
           return;
         }
         this.editFields.otp = otpUrl;
-        this.editFields.tuskTotpEnabled = this.totpEnabled ? 'true' : 'false';
+        this.editFields.keepassCatTotpEnabled = this.totpEnabled ? 'true' : 'false';
       } else {
         // empty URL → remove TOTP (only manual clear triggers delete)
         this.editFields.otp = null;
-        this.editFields.tuskTotpEnabled = null;
+        this.editFields.keepassCatTotpEnabled = null;
       }
 
       try {
@@ -284,13 +284,13 @@ export default {
 }
 
 .delete-btn {
-  color: var(--tusk-red);
+  color: var(--keepass-cat-red);
   font-size: 13px;
   cursor: pointer;
   user-select: none;
   &:hover { opacity: 0.7; }
   .confirm-text {
-    color: var(--tusk-red);
+    color: var(--keepass-cat-red);
     font-weight: 700;
   }
 }
@@ -302,7 +302,7 @@ export default {
     font-size: 12px;
     font-weight: 700;
     margin-bottom: 4px;
-    color: var(--tusk-text-subtle);
+    color: var(--keepass-cat-text-subtle);
   }
   input, textarea, select {
     width: 100%;
@@ -344,8 +344,8 @@ export default {
     cursor: pointer;
     &:disabled { opacity: 0.5; }
   }
-  .action-button { background: $blue; color: var(--tusk-svg-fill); }
-  .cancel { background: $light-gray; color: var(--tusk-text); }
+  .action-button { background: $blue; color: var(--keepass-cat-svg-fill); }
+  .cancel { background: $light-gray; color: var(--keepass-cat-text); }
 }
 
 .message {

@@ -5,7 +5,7 @@ import { isDev, log, port, r } from './utils';
 const action = {
   default_icon: '/assets/38x38.png',
   default_popup: './dist/popup.html',
-  default_title: 'KeePass Tusk',
+  default_title: 'Keepass Cat',
 };
 
 const backgroundScript = './dist/background/index.mjs';
@@ -34,14 +34,15 @@ const permissions = [
 ];
 
 const baseManifest: Manifest.WebExtensionManifest = {
-  name: 'KeePass Tusk - Password Access and Autofill',
-  short_name: 'KeePass Tusk',
+  name: 'Keepass Cat - Password Access and Autofill',
+  short_name: 'Keepass Cat',
   version: '3.4.7',
-  description: 'Readonly KeePass password database integration for Chrome and Firefox',
+  description: 'Keepass Cat - KeePass password manager and autofill for Chrome and Firefox',
   default_locale: 'en',
   icons: {
     '16': '/assets/16x16.png',
     '48': '/assets/48x48.png',
+    '128': '/assets/128x128.png',
   },
 
   options_ui: {
@@ -72,7 +73,6 @@ function chromeManifestV3(): Manifest.WebExtensionManifest {
         description: '__MSG_autofillBestMatch__',
       },
     },
-    key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAhoF/A6nYIxSHW2AekTQRJga9QodwEJBTeAA5r0tW9djrTHY3Ei0FdnUE1FrH2Hx03tsj4RjXMWDHtsqMg4REJdFNzndsRKWvliGomXtxE8XByawJf/NGx0/imAtVBrHc846D/Bn4q1dRaRauqkPMKgpcHoPeg+uLTBIfAn5qPgLlvLLqNSKRg6zGYkm0iBYFiyLd1cqWjsDrVhant90W5rE7qmGQPXZudkc2ejtijuMJL4CF9BeQXOVv/9a0XzAwNbArSr+zHnNOicZPyeEnT7mujFDvLRzXvi7OPW+8mdEsm3AeagKZ6bGUuqyzwxs8XlysWqJsXBoX6tjZCGGVpQIDAQAB',
     background: {
       service_worker: backgroundScript,
     },
@@ -102,7 +102,7 @@ function firefoxManifestV2(): Manifest.WebExtensionManifest {
     permissions: [
       ...permissions,
       // Firefox implements user initiated flag improperly and canot prompt for site access
-      // so we just have to give Tusk everything from the start.
+      // so we just have to give Keepass Cat everything from the start.
       ...hostPermissions,
     ],
     background: {

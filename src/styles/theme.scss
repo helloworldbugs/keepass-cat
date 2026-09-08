@@ -1,47 +1,47 @@
-/* ── Tusk Color Theme — popup only ── */
+/* ── Keepass Cat Color Theme — popup only ── */
 
 :root {
-  --tusk-blue: #0089ec;
-  --tusk-green: #4caf50;
-  --tusk-red: #e74c3c;
-  --tusk-warn-yellow: #f8dd6b;
-  --tusk-bg: #f7f9fa;
-  --tusk-bg-light: #fff;
-  --tusk-bg-dark: #d1d3d5;
-  --tusk-text: #2c3e50;
-  --tusk-text-muted: #999;
-  --tusk-text-subtle: #666;
-  --tusk-border: #e7e8ea;
-  --tusk-border-light: #eff0f1;
-  --tusk-highlight: #fff1c0;
-  --tusk-highlight-bg: #fff8e1;
-  --tusk-bar-hover: #c4c6c8;
-  --tusk-bg-hover: #eef0f2;
-  --tusk-icon-muted: #888;
-  --tusk-delete-hover: #c00;
-  --tusk-svg-fill: #fff;
-  --tusk-light-red: #e19e97;
-  --tusk-light-green: #79ac93;
-  --tusk-footer-active-bg: var(--tusk-blue);
-  --tusk-footer-active-text: #fff;
+  --keepass-cat-blue: #0089ec;
+  --keepass-cat-green: #4caf50;
+  --keepass-cat-red: #e74c3c;
+  --keepass-cat-warn-yellow: #f8dd6b;
+  --keepass-cat-bg: #f7f9fa;
+  --keepass-cat-bg-light: #fff;
+  --keepass-cat-bg-dark: #d1d3d5;
+  --keepass-cat-text: #2c3e50;
+  --keepass-cat-text-muted: #999;
+  --keepass-cat-text-subtle: #666;
+  --keepass-cat-border: #e7e8ea;
+  --keepass-cat-border-light: #eff0f1;
+  --keepass-cat-highlight: #fff1c0;
+  --keepass-cat-highlight-bg: #fff8e1;
+  --keepass-cat-bar-hover: #c4c6c8;
+  --keepass-cat-bg-hover: #eef0f2;
+  --keepass-cat-icon-muted: #888;
+  --keepass-cat-delete-hover: #c00;
+  --keepass-cat-svg-fill: #fff;
+  --keepass-cat-light-red: #e19e97;
+  --keepass-cat-light-green: #79ac93;
+  --keepass-cat-footer-active-bg: var(--keepass-cat-blue);
+  --keepass-cat-footer-active-text: #fff;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --tusk-bg: #1e1e1e;
-    --tusk-bg-light: #2d2d2d;
-    --tusk-bg-dark: #3a3a3a;
-    --tusk-text: #e0e0e0;
-    --tusk-text-muted: #888;
-    --tusk-text-subtle: #999;
-    --tusk-border: #404040;
-    --tusk-border-light: #353535;
-    --tusk-highlight: #5a4a00;
-    --tusk-highlight-bg: #3a2a00;
-    --tusk-light-red: #5c2a26;
-    --tusk-light-green: #2a4a3a;
-    --tusk-bar-hover: #4a4a4a;
-    --tusk-bg-hover: #353535;
-    --tusk-icon-muted: #777;
+    --keepass-cat-bg: #1e1e1e;
+    --keepass-cat-bg-light: #2d2d2d;
+    --keepass-cat-bg-dark: #3a3a3a;
+    --keepass-cat-text: #e0e0e0;
+    --keepass-cat-text-muted: #888;
+    --keepass-cat-text-subtle: #999;
+    --keepass-cat-border: #404040;
+    --keepass-cat-border-light: #353535;
+    --keepass-cat-highlight: #5a4a00;
+    --keepass-cat-highlight-bg: #3a2a00;
+    --keepass-cat-light-red: #5c2a26;
+    --keepass-cat-light-green: #2a4a3a;
+    --keepass-cat-bar-hover: #4a4a4a;
+    --keepass-cat-bg-hover: #353535;
+    --keepass-cat-icon-muted: #777;
   }
 }

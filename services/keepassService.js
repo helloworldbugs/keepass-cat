@@ -109,9 +109,9 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
   my.rankEntries = (entries, siteUrl) => {
     entries.forEach(function (entry) {
       var level = matchLevel(siteUrl.href, entry);
-      // Also check tuskUrls field for additional URL matches
-      if (level === 0 && entry.keys && entry.keys.indexOf('tuskUrls') >= 0) {
-        var urls = entry.tuskUrls.split(',');
+      // Also check keepassCatUrls field for additional URL matches
+      if (level === 0 && entry.keys && entry.keys.indexOf('keepassCatUrls') >= 0) {
+        var urls = entry.keepassCatUrls.split(',');
         for (var i = 0; i < urls.length; i++) {
           var altLevel = matchLevel(siteUrl.href, { url: urls[i].trim() });
           if (altLevel > level) level = altLevel;
@@ -427,7 +427,7 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
       if (fields.notes) entry.fields.set('Notes', fields.notes);
       if (fields.password) entry.fields.set('Password', kdbxweb.ProtectedValue.fromString(fields.password));
       if (fields.otp) entry.fields.set('otp', kdbxweb.ProtectedValue.fromString(fields.otp));
-      if (fields.tuskTotpEnabled) entry.fields.set('tuskTotpEnabled', fields.tuskTotpEnabled);
+      if (fields.keepassCatTotpEnabled) entry.fields.set('keepassCatTotpEnabled', fields.keepassCatTotpEnabled);
       return _db.save();
     });
   };

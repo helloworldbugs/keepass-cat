@@ -1,4 +1,4 @@
-# 🐘 Tusk — KeePass Browser Extension
+# 🐱 Keepass Cat — KeePass Browser Extension
 
 > 🔒 KeePass 密码数据库浏览器集成（支持编辑保存）· Chrome & Firefox 双平台支持
 
@@ -12,7 +12,7 @@ Fork 自 [subdavis/Tusk](https://github.com/subdavis/Tusk)，在原始项目基�
 
 ## 📋 目录
 
-- [🐘 Tusk — KeePass Browser Extension](#-tusk--keepass-browser-extension)
+- [🐱 Keepass Cat — KeePass Browser Extension](#-keepass-cat--keepass-browser-extension)
   - [📋 目录](#-目录)
   - [✨ 功能特性](#-功能特性)
   - [🗄️ 数据库管理](#️-数据库管理)
@@ -112,7 +112,7 @@ Fork 自 [subdavis/Tusk](https://github.com/subdavis/Tusk)，在原始项目基�
 
 | 快捷键 | 命令 | 说明 |
 |--------|------|------|
-| `Ctrl+Shift+Space` | 打开弹窗 | 打开 Tusk 弹窗 |
+| `Ctrl+Shift+Space` | 打开弹窗 | 打开 Keepass Cat 弹窗 |
 | `Ctrl+Shift+X` | 最佳匹配填充 | 自动填充当前页面最佳匹配条目 |
 
 > 快捷键可在 Chrome 扩展管理页面 `chrome://extensions/shortcuts` 自定义。
@@ -174,12 +174,12 @@ regex:192\.168\.\d+\.\d+:8080  →  匹配特定网段和端口
 
 | 方式 | 操作 | 适用场景 |
 |------|------|----------|
-| 🖱️ **弹窗点击** | 打开 Tusk 弹窗，点击条目 | 最常用，可浏览选择 |
+| 🖱️ **弹窗点击** | 打开 Keepass Cat 弹窗，点击条目 | 最常用，可浏览选择 |
 | ⌨️ **快捷键** | `Ctrl+Shift+X` | 快速填充，无需鼠标 |
 
 ### 字段检测算法
 
-Tusk 使用**双方法检测**来定位页面上的用户名和密码输入框：
+Keepass Cat 使用**双方法检测**来定位页面上的用户名和密码输入框：
 
 **方法一：焦点法（优先）**
 ```
@@ -216,7 +216,7 @@ Tusk 使用**双方法检测**来定位页面上的用户名和密码输入框�
 
 ## ☁️ 云端存储支持
 
-Tusk 通过 **WebDAV** 协议同步 KeePass 数据库：
+Keepass Cat 通过 **WebDAV** 协议同步 KeePass 数据库：
 
 | 存储后端 | 类型 | 说明 |
 |----------|------|------|
@@ -422,5 +422,5 @@ Background: autofill 消息
 ---
 
 <p align="center">
-  <sub>Made with ❤️ by the Tusk community</sub>
+  <sub>Made with ❤️ by the Keepass Cat community</sub>
 </p>

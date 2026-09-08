@@ -321,7 +321,7 @@ export default {
   cursor: pointer;
   &:hover { opacity: 0.7; }
   .group-name { font-weight: 600; font-size: 14px; flex: 1; }
-  .group-count { font-size: 12px; color: var(--tusk-text-muted); }
+  .group-count { font-size: 12px; color: var(--keepass-cat-text-muted); }
   .action-icons {
     display: flex; align-items: center; gap: 4px;
     margin-left: 8px;
@@ -333,10 +333,10 @@ export default {
     font-size: 12px;
     padding: 3px 4px;
     border-radius: 2px;
-    color: var(--tusk-icon-muted);
-    &:hover { color: var(--tusk-text); background: $light-gray; }
+    color: var(--keepass-cat-icon-muted);
+    &:hover { color: var(--keepass-cat-text); background: $light-gray; }
   }
-  .group-delete-icon:hover { color: var(--tusk-delete-hover); }
+  .group-delete-icon:hover { color: var(--keepass-cat-delete-hover); }
   .rename-field {
     display: flex; align-items: center; gap: 4px; flex: 1;
   }
@@ -363,12 +363,12 @@ export default {
   .entry-row {
     display: flex; align-items: center;
     padding: 8px $wall-padding;
-    border-bottom: 1px solid var(--tusk-border-light);
-    &:hover { background: var(--tusk-bg-hover); }
+    border-bottom: 1px solid var(--keepass-cat-border-light);
+    &:hover { background: var(--keepass-cat-bg-hover); }
     .entry-info {
       flex: 1;
       .entry-title { font-size: 14px; display: block; }
-      .entry-user { font-size: 11px; color: var(--tusk-text-subtle); }
+      .entry-user { font-size: 11px; color: var(--keepass-cat-text-subtle); }
     }
     .entry-copy-user,
     .entry-copy,
@@ -390,7 +390,7 @@ export default {
   font-size: 13px;
   color: $blue;
   cursor: pointer;
-  &:hover { background: var(--tusk-bg-hover); }
+  &:hover { background: var(--keepass-cat-bg-hover); }
   .fa { margin-right: 4px; }
 }
 .new-group-form {
@@ -413,7 +413,7 @@ export default {
   left: 0; right: 0;
   padding: 6px $wall-padding;
   font-size: 12px;
-  color: var(--tusk-svg-fill);
+  color: var(--keepass-cat-svg-fill);
   background: rgba(0,0,0,0.7);
   text-align: center;
   z-index: 10;

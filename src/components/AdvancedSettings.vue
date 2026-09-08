@@ -157,7 +157,7 @@ export default {
     <div class="box-bar roomy">
       <h4>{{ $t('Clipboard Expiration Time') }}</h4>
       <p>
-        {{ $t('When you copy a value to the clipboard, Tusk will set a timeout to automatically clear it again. You can choose how long this timeout will last.') }}
+        {{ $t('When you copy a value to the clipboard, Keepass Cat will set a timeout to automatically clear it again. You can choose how long this timeout will last.') }}
       </p>
     </div>
     <div class="box-bar roomy lighter">
@@ -215,10 +215,10 @@ export default {
     >
       <h4>{{ $t('Grant Permission on All Websites') }}</h4>
       <p>
-        <strong style="color: var(--tusk-red)">{{ $t('Only proceed if you know what you\'re doing.') }}</strong>
+        <strong style="color: var(--keepass-cat-red)">{{ $t('Only proceed if you know what you\'re doing.') }}</strong>
         {{ $t(' If enabled, the extension prompts once for permission to access and change data on all websites which disables the permissions popup on each new website. This has ') }}
         <a href="https://github.com/subdavis/Tusk/issues/168">{{ $t('serious security implications') }}</a>
-        {{ $t('. Only applies to Chrome. Because of a Chrome bug, it is currently impossible to revoke this permission again after it is enabled. If you turn this ON, Tusk must be reinstalled to reset.') }}
+        {{ $t('. Only applies to Chrome. Because of a Chrome bug, it is currently impossible to revoke this permission again after it is enabled. If you turn this ON, Keepass Cat must be reinstalled to reset.') }}
       </p>
     </div>
     <div
@@ -244,7 +244,7 @@ export default {
 
     <div class="box-bar roomy">
       <h4>{{ $t('Notification') }}</h4>
-      <p>{{ $t('Choose which type of notification do you want to receive from Tusk.') }}</p>
+      <p>{{ $t('Choose which type of notification do you want to receive from Keepass Cat.') }}</p>
     </div>
     <div class="box-bar roomy lighter">
       <div>
@@ -300,7 +300,7 @@ export default {
     <div class="box-bar roomy">
       <h4>{{ $t('Stored Data') }}</h4>
       <p>
-        {{ $t('The following objects represent the current data cached in local storage. This data is only available to Tusk, and is never sent over any network connection.') }}
+        {{ $t('The following objects represent the current data cached in local storage. This data is only available to Keepass Cat, and is never sent over any network connection.') }}
       </p>
     </div>
     <div

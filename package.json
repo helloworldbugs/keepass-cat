@@ -1,6 +1,6 @@
 {
-  "name": "Tusk",
-  "description": "A modern keepass extension",
+  "name": "keepass-cat",
+  "description": "Keepass Cat - KeePass password manager and autofill",
   "version": "3.4.7",
   "type": "module",
   "author": "Brandon Davis <brandon@subdavis.com>",
