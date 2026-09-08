@@ -8,7 +8,7 @@ export default {
   <div>
     <div class="box-bar roomy">
       <div class="unlockLogo stack-item optionsheader">
-        <img src="@/assets/icons/exported/128x128.svg" width="256px" height="256px" />
+        <img src="@/assets/icons/exported/128x128.png" width="256px" height="256px" />
         <span>{{ $t('Getting Started with Keepass Cat') }}</span>
       </div>
 
