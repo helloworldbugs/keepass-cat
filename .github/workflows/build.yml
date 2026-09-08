@@ -42,14 +42,11 @@ jobs:
             cp extension/dist/popup.html extension/dist/options.html
           fi
 
-      - name: Chrome — create ZIP
-        run: cd extension && zip -r ../keepass-cat-release-chrome.zip .
-
-      - name: Chrome — upload release ZIP
+      - name: Chrome — upload extension
         uses: actions/upload-artifact@v4
         with:
-          name: keepass-cat-release-zip-chrome
-          path: keepass-cat-release-chrome.zip
+          name: keepass-cat-chrome
+          path: extension
           retention-days: 30
 
       # ── Firefox ──
@@ -76,12 +73,9 @@ jobs:
             cp extension/dist/popup.html extension/dist/options.html
           fi
 
-      - name: Firefox — create ZIP
-        run: cd extension && zip -r ../keepass-cat-release-firefox.zip .
-
-      - name: Firefox — upload release ZIP
+      - name: Firefox — upload extension
         uses: actions/upload-artifact@v4
         with:
-          name: keepass-cat-release-zip-firefox
-          path: keepass-cat-release-firefox.zip
+          name: keepass-cat-firefox
+          path: extension
           retention-days: 30
