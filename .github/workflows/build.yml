@@ -43,13 +43,13 @@ jobs:
           fi
 
       - name: Chrome — create ZIP
-        run: cd extension && zip -r ../tusk-release-chrome.zip .
+        run: cd extension && zip -r ../keepass-cat-release-chrome.zip .
 
       - name: Chrome — upload release ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: tusk-release-zip-chrome
-          path: tusk-release-chrome.zip
+          name: keepass-cat-release-zip-chrome
+          path: keepass-cat-release-chrome.zip
           retention-days: 30
 
       # ── Firefox ──
@@ -77,11 +77,11 @@ jobs:
           fi
 
       - name: Firefox — create ZIP
-        run: cd extension && zip -r ../tusk-release-firefox.zip .
+        run: cd extension && zip -r ../keepass-cat-release-firefox.zip .
 
       - name: Firefox — upload release ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: tusk-release-zip-firefox
-          path: tusk-release-firefox.zip
+          name: keepass-cat-release-zip-firefox
+          path: keepass-cat-release-firefox.zip
           retention-days: 30

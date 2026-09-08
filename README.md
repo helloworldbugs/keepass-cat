@@ -2,9 +2,9 @@
 
 > 🔒 KeePass 密码数据库浏览器集成（支持编辑保存）· Chrome & Firefox 双平台支持
 
-[![Version](https://img.shields.io/badge/version-3.4.7-blue)](https://github.com/helloworldbugs/Tusk/releases)
+[![Version](https://img.shields.io/badge/version-3.4.7-blue)](https://github.com/helloworldbugs/keepass-cat/releases)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![CI](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/helloworldbugs/Tusk/actions)
+[![CI](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/helloworldbugs/keepass-cat/actions)
 
 Fork 自 [subdavis/Tusk](https://github.com/subdavis/Tusk)，在原始项目基础上进行了大量功能增强和体验优化。
 
@@ -287,7 +287,7 @@ PasswordFileStoreRegistry (注册中心)
 
 ### 安装
 
-1. 从 [Releases](https://github.com/helloworldbugs/Tusk/releases) 下载最新版本
+1. 从 [Releases](https://github.com/helloworldbugs/keepass-cat/releases) 下载最新版本
 2. 解压到本地目录
 3. 打开 `chrome://extensions`，开启「开发者模式」
 4. 点击「加载已解压的扩展程序」，选择解压目录
@@ -296,8 +296,8 @@ PasswordFileStoreRegistry (注册中心)
 
 ```bash
 # 克隆仓库
-git clone https://github.com/helloworldbugs/Tusk.git
-cd Tusk
+git clone https://github.com/helloworldbugs/keepass-cat.git
+cd keepass-cat
 
 # 安装依赖
 npm install --legacy-peer-deps

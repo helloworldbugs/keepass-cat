@@ -15,7 +15,7 @@ about: If something isn't working as expected 🤔.
   and how to reproduce your issue.
   
   For example: 
-  1. I open Tusk
+  1. I open Keepass Cat
   1. I input the password
   1. It doesn't unlock
 -->
@@ -24,7 +24,7 @@ about: If something isn't working as expected 🤔.
 
 <!--
   For example:
-  Please enable unlocking in Tusk!
+  Please enable unlocking in Keepass Cat!
 --> 
 
 #### Additional remarks
