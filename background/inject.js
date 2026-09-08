@@ -30,6 +30,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     //mismatch, but in that case we will only fill the password on the https.
     var documentOrigin = parseUrl(document.URL);
     var expectedOrigin = parseUrl(message.o);
+    console.log('[inject] fillPassword msg: o=', message.o, 'document.URL=', document.URL, 'u=', message.u);
     var whiteListed = !!whiteListedHostnameMismatches.filter(function (item) {
       return (
         item.documentOrigin === documentOrigin.hostname &&
@@ -40,10 +41,13 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (
       (documentOrigin.hostname !== expectedOrigin.hostname && !whiteListed) ||
       (documentOrigin.protocol !== expectedOrigin.protocol && documentOrigin.protocol !== 'https:')
-    )
+    ) {
+      console.log('[inject] origin check FAILED, returning');
       return;
+    }
 
     //passed the origin check - go ahead and fill the password
+    console.log('[inject] origin check passed, filling');
     filler.fillPassword(message.u, message.p);
   }
 });
@@ -147,6 +151,7 @@ var filler = (function () {
 
   function fillPassword(username, password) {
     identifyPasswordFields();
+    console.log('[inject] fillPassword: priorityPair=', !!priorityPair, 'pairs=', userPasswordPairs.length, 'lonely=', lonelyPasswords.length, 'activeElem=', document.activeElement && document.activeElement.type);
     var filled = false;
 
     if (priorityPair) {
@@ -188,6 +193,7 @@ var filler = (function () {
   }
 
   function fillField(field, val) {
+    console.log('[inject] fillField: type=', field.type, 'name=', field.name, 'val=', val);
     // Use the native value setter to bypass React/Vue value trackers (which
     // override the instance `value` property and would otherwise revert our
     // assignment on the next re-render).
@@ -198,6 +204,7 @@ var filler = (function () {
       field.value = val;
     }
     var filled = field.value === val;
+    console.log('[inject] fillField: filled=', filled, 'readback=', field.value);
     sendKeyEvent(field);
     return filled;
   }
