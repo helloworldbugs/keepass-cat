@@ -163,15 +163,19 @@ function Background(protectedMemory, localMemory, settings, notifications) {
   //listen for "autofill" message:
   chrome.runtime.onMessage.addListener(handleMessage);
 
-  // Shortcut autofill: Ctrl+Shift+X
+  // Shortcut autofill (Firefox has no default key; user assigns one manually)
   chrome.commands.onCommand.addListener(function(cmd, tab) {
     if (cmd !== 'autofill_best_match') return;
     console.log('[shortcut] triggered:', cmd, 'tab:', tab?.url);
+    // Open the popup immediately within the user-gesture context.
+    // Firefox requires openPopup() to be called synchronously in the command
+    // handler; otherwise the gesture expires and the popup never opens.
+    openPopup();
     chrome.storage.local.get('autofillShortcut', function(items) {
       if (!items.autofillShortcut) { console.log('[shortcut] disabled'); return; }
       protectedMemory.getData('secureCache.entries').then(function(entries) {
         if (typeof entries === 'string') entries = protectedMemory.deserialize(entries);
-        if (!entries || !Array.isArray(entries) || !entries.length) { openPopup(); return; }
+        if (!entries || !Array.isArray(entries) || !entries.length) return;
         var url = (tab && tab.url) || '';
         var bestMatch = null, bestRank = 0, bestCount = 0;
         for (var i = 0; i < entries.length; i++) {
@@ -181,24 +185,15 @@ function Background(protectedMemory, localMemory, settings, notifications) {
           if (rank > bestRank) { bestRank = rank; bestMatch = e; bestCount = 1; }
           else if (rank === bestRank && rank > 0) { bestCount++; }
         }
-        // Field-specific fills: always fill at cursor, single match only
         // autofill_best_match: require exactly 1 match
-        if (!bestMatch || (cmd === 'autofill_best_match' && bestCount > 1)) { openPopup(); return; }
-
-        var openPendingFill = function () {
-          pendingFill = {
-            title: bestMatch.title,
-            userName: bestMatch.userName,
-            url: bestMatch.url
-          };
-          console.log('[shortcut] pendingFill set: title:', pendingFill.title);
-          chrome.storage.session.set({ pendingAutofill: pendingFill }, function () {
-            console.log('[shortcut] opening popup:', cmd);
-            openPopup();
-          });
+        if (!bestMatch || bestCount > 1) return;
+        pendingFill = {
+          title: bestMatch.title,
+          userName: bestMatch.userName,
+          url: bestMatch.url
         };
-
-        openPendingFill();
+        console.log('[shortcut] pendingFill set: title:', pendingFill.title);
+        chrome.storage.session.set({ pendingAutofill: pendingFill });
       });
     });
   });

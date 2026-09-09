@@ -10,15 +10,7 @@ const action = {
 
 const backgroundScript = './dist/background/index.mjs';
 
-const executeAction = {
-  suggested_key: {
-    windows: 'Ctrl+Shift+Space',
-    mac: 'Command+Shift+Space',
-    chromeos: 'Ctrl+Shift+Space',
-    linux: 'Ctrl+Shift+Space',
-    default: 'Ctrl+Shift+Space',
-  },
-};
+const executeAction = {};
 
 const hostPermissions = ['https://*/*', 'http://*/*', 'file:///*/*'];
 
@@ -69,7 +61,7 @@ function chromeManifestV3(): Manifest.WebExtensionManifest {
     commands: {
       _execute_action: executeAction,
       autofill_best_match: {
-        suggested_key: { default: 'Ctrl+Shift+X' },
+        suggested_key: { default: 'Ctrl+Shift+Space' },
         description: '__MSG_autofillBestMatch__',
       },
     },
@@ -95,7 +87,7 @@ function firefoxManifestV2(): Manifest.WebExtensionManifest {
     commands: {
       _execute_browser_action: executeAction,
       autofill_best_match: {
-        suggested_key: { default: 'Ctrl+Shift+X' },
+        suggested_key: { default: 'Ctrl+Shift+Space' },
         description: '__MSG_autofillBestMatch__',
       },
     },

@@ -186,11 +186,12 @@ export default {
     <div class="box-bar roomy">
       <h4>{{ $t('Autofill Shortcut') }}</h4>
       <p>
-        {{ $t('Customize the key combinations in Chrome\'s shortcut settings.') }}
-        <br />
-        {{ $t('Currently Chrome only.') }}
-        <br />
-        <a href="#" @click.prevent="openShortcuts">{{ $t('Open Chrome shortcut settings') }}</a>
+        <template v-if="isFirefox()">
+          {{ $t('Customize shortcuts in Firefox: toolbar menu (top-right) → Add-ons and themes → gear icon (top-right) → Manage Extension Shortcuts.') }}
+        </template>
+        <template v-else>
+          <a href="#" @click.prevent="openShortcuts">{{ $t('Open Chrome shortcut settings') }}</a>
+        </template>
       </p>
     </div>
     <div class="box-bar roomy lighter">
