@@ -1,345 +1,344 @@
 # 🐱 Keepass Cat — KeePass Browser Extension
 
-[English](README_EN.md) | 中文
+English | [中文](README_CN.md)
 
 [![Releases](https://img.shields.io/badge/releases-latest-blue)](https://github.com/helloworldbugs/keepass-cat/releases)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![CI](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/helloworldbugs/keepass-cat/actions)
 
->Keepass Cat 是一款开源、轻量的 KeePass 浏览器扩展，把你现有的 WebDAV 云端上的 KeePass 数据库（.kdbx）直接接入浏览器，实现密码自动填充、以及密码条目的增删改查。可彻底抛弃本地运行的Keepass、KeepassXC客户端，一个浏览器扩展足矣。
+> Keepass Cat is a lightweight, open-source KeePass browser extension that connects your existing KeePass database (.kdbx) on your WebDAV cloud directly to your browser, enabling password autofill and full entry management — create, read, edit, and delete. You can ditch local KeePass / KeePassXC clients entirely: a browser extension is all you need.
 
 ---
 
-## 📋 目录
+## 📋 Table of Contents
 
 - [🐱 Keepass Cat — KeePass Browser Extension](#-keepass-cat--keepass-browser-extension)
-  - [📋 目录](#-目录)
-  - [✨ 功能特性](#-功能特性)
-  - [🗄️ 数据库管理](#️-数据库管理)
-    - [条目操作](#条目操作)
-    - [📁 分组管理](#-分组管理)
-    - [🔐 TOTP 双因素认证](#-totp-双因素认证)
-  - [⌨️ 键盘快捷键填充](#️-键盘快捷键填充)
-  - [🧠 分级 URL 匹配策略](#-分级-url-匹配策略)
-    - [匹配等级](#匹配等级)
-    - [匹配流程](#匹配流程)
-    - [徽章计数逻辑](#徽章计数逻辑)
-    - [正则表达式匹配](#正则表达式匹配)
-  - [⚡ 自动填充引擎](#-自动填充引擎)
-    - [两种触发方式](#两种触发方式)
-    - [字段检测算法](#字段检测算法)
-    - [Iframe 跨域填充](#iframe-跨域填充)
-  - [☁️ 云端存储支持](#️-云端存储支持)
-    - [存储后端架构](#存储后端架构)
-  - [🔐 安全设计](#-安全设计)
-    - [加密存储](#加密存储)
-    - [双层记忆系统](#双层记忆系统)
-    - [遗忘定时器](#遗忘定时器)
-    - [安全原则](#安全原则)
-    - [密钥文件 (Keyfile)](#密钥文件-keyfile)
-  - [🚀 快速开始](#-快速开始)
-    - [安装](#安装)
-    - [开发](#开发)
-    - [构建产物](#构建产物)
-  - [🏗️ 技术栈](#️-技术栈)
-  - [📐 架构概览](#-架构概览)
-    - [数据流](#数据流)
-  - [🧪 测试](#-测试)
-  - [🙏 致谢](#-致谢)
+  - [📋 Table of Contents](#-table-of-contents)
+  - [✨ Features](#-features)
+  - [🗄️ Database Management](#️-database-management)
+    - [Entry Operations](#entry-operations)
+    - [📁 Group Management](#-group-management)
+    - [🔐 TOTP Two-Factor Authentication](#-totp-two-factor-authentication)
+  - [⌨️ Keyboard Shortcuts](#️-keyboard-shortcuts)
+  - [🧠 4-Level URL Matching](#-4-level-url-matching)
+    - [Matching Levels](#matching-levels)
+    - [Matching Flow](#matching-flow)
+    - [Badge Count Logic](#badge-count-logic)
+    - [Regular Expression Matching](#regular-expression-matching)
+  - [⚡ Autofill Engine](#-autofill-engine)
+    - [Two Trigger Methods](#two-trigger-methods)
+    - [Field Detection Algorithm](#field-detection-algorithm)
+    - [Iframe Cross-Origin Autofill](#iframe-cross-origin-autofill)
+  - [☁️ Cloud Storage](#️-cloud-storage)
+    - [Storage Backend Architecture](#storage-backend-architecture)
+  - [🔐 Security Design](#-security-design)
+    - [Encrypted Storage](#encrypted-storage)
+    - [Two-Tier Memory System](#two-tier-memory-system)
+    - [Forget Timer](#forget-timer)
+    - [Security Principles](#security-principles)
+    - [Keyfiles](#keyfiles)
+  - [🚀 Quick Start](#-quick-start)
+    - [Installation](#installation)
+    - [Development](#development)
+    - [Build Output](#build-output)
+  - [🏗️ Tech Stack](#️-tech-stack)
+  - [📐 Architecture Overview](#-architecture-overview)
+    - [Data Flow](#data-flow)
+  - [🧪 Testing](#-testing)
+  - [🙏 Acknowledgements](#-acknowledgements)
 
 ---
 
-## ✨ 功能特性
+## ✨ Features
 
-| 功能 | 说明 |
-|------|------|
-| 🕐 **遗忘定时器** | 可配置数据库解锁记忆时长：30 分钟 → 永久，到期自动清除 |
-| 🔢 **徽章计数** | 扩展图标右下角实时显示当前页面匹配的密码条目数量 |
-| ⚡ **一键填充** | 点击条目即可自动填充用户名和密码 |
-| 🧠 **分级匹配** | 独创的 4 级 URL(支持正则表达式) 匹配算法，精准排序最佳匹配条目 |
-| ✏️ **增删改查** | 直接在弹窗中编辑标题、用户名、密码(支持随机生成强密码)、URL、备注、TOTP，保存回 WebDAV 上的 KDBX 文件 |
-| 📂 **分组管理** | 创建、重命名、删除分组，条目在分组间自由移动 |
-| 🔐 **TOTP 双因素** | 一键复制 TOTP 动态验证码（带倒计时），支持编辑保存（`otpauth://`） |
-| 🔄 **WebDAV 同步** | 支持 WebDAV 云端同步（坚果云 / Nextcloud 等私有部署），编辑后自动写回 |
-| 🌍 **中英文国际化** | 完整的中英文界面翻译，自动检测浏览器语言 |
-| 🛡️ **Manifest V3** | 完整兼容 Chrome MV3，同时支持 Firefox MV2 |
+| Feature | Description |
+|---------|-------------|
+| 🕐 **Forget Timer** | Configurable unlock remember period: 30 minutes → forever, auto-clears on expiry |
+| 🔢 **Badge Count** | Real-time count of matching password entries shown on the extension icon |
+| ⚡ **One-Click Autofill** | Click an entry to autofill username and password |
+| 🧠 **4-Level Matching** | Original 4-level URL matching (with regex support) that ranks the best-matching entry |
+| ✏️ **CRUD** | Edit title, username, password (with strong password generator), URL, notes, and TOTP right in the popup; saves back to the KDBX file on WebDAV |
+| 📂 **Group Management** | Create, rename, and delete groups; move entries between groups |
+| 🔐 **TOTP 2FA** | One-click copy of TOTP codes (with countdown), with edit support (`otpauth://`) |
+| 🔄 **WebDAV Sync** | WebDAV cloud sync (Jianguoyun / Nextcloud and other self-hosted services), auto-writes changes back |
+| 🌍 **i18n (EN & ZH)** | Full English/Chinese UI, auto-detects browser language |
+| 🛡️ **Manifest V3** | Full Chrome MV3 support, plus Firefox MV2 |
 
 ---
 
-## 🗄️ 数据库管理
+## 🗄️ Database Management
 
-### 条目操作
+### Entry Operations
 
-| 操作 | 说明 |
-|------|------|
-| ➕ **新建** | 填写标题、用户名、密码、URL(支持正则表达式)、备注，选择分组 |
-| ✏️ **编辑** | 点击铅笔图标，修改任意字段，点击保存 |
-| 🗑️ **删除** | 二次确认防误删，删除后自动上传更新 |
-| 📋 **复制** | 一键复制用户名或密码到剪贴板 |
-| 🔗 **打开网址** | 点击图标，新标签页打开条目 URL |
-| 🔑 **生成密码** | 编辑时点击钥匙图标，生成 16-20 位混合密码 |
-| 🔐 **TOTP** | 列表项时钟图标一键复制动态验证码（带倒计时），编辑页勾选「启用 TOTP」配置 `otpauth://` URL |
+| Action | Description |
+|--------|-------------|
+| ➕ **Create** | Fill in title, username, password, URL (regex supported), notes, and select a group |
+| ✏️ **Edit** | Click the pencil icon, modify any field, click save |
+| 🗑️ **Delete** | Double confirmation to prevent accidental deletion; auto-uploads after delete |
+| 📋 **Copy** | One-click copy of username or password to the clipboard |
+| 🔗 **Open URL** | Click the icon to open the entry URL in a new tab |
+| 🔑 **Generate Password** | Click the key icon to generate a 16-20 character mixed password |
+| 🔐 **TOTP** | Clock icon on list items copies the current code (with countdown); enable via `otpauth://` in the edit page |
 
-### 📁 分组管理
+### 📁 Group Management
 
 ```
-📁 社交
+📁 Social
   ├── 🔑 Twitter
   ├── 🔑 Facebook
   └── 🔑 Instagram
-📁 工作
-  ├── 🔑 公司邮箱
-  ├── 🔑 内部系统
+📁 Work
+  ├── 🔑 Company Email
+  ├── 🔑 Internal System
   └── 🔑 VPN
-📁 银行
-  ├── 🔑 工商银行
-  └── 🔑 招商银行
+📁 Bank
+  ├── 🔑 ICBC
+  └── 🔑 CMB
 ```
 
-- 创建 / 重命名 / 删除分组
-- 条目在分组间自由移动
-- 树形结构浏览，支持展开/折叠
+- Create / rename / delete groups
+- Move entries freely between groups
+- Tree-style browsing with expand/collapse
 
-### 🔐 TOTP 双因素认证
+### 🔐 TOTP Two-Factor Authentication
 
-- 支持 `otpauth://` 标准格式（SHA1 / SHA256 / SHA512，6-8 位验证码，含 Steam 格式）
-- 密码列表项显示一个时钟图标 + 纯文字倒计时（如 `24s`），点击图标一键复制当前验证码
-- 编辑页通过「启用 TOTP」开关新增 / 修改 `otpauth://` URL
-
----
-
-## ⌨️ 键盘快捷键填充
-
-| 快捷键 | 命令 | 说明 |
-|--------|------|------|
-| `Ctrl+Shift+Space` | 打开弹窗 | 打开 Keepass Cat 弹窗 |
-| `Ctrl+Shift+X` | 最佳匹配填充 | 自动填充当前页面最佳匹配条目 |
-
-> 快捷键可在 Chrome 扩展管理页面 `chrome://extensions/shortcuts` 自定义。
+- Supports the `otpauth://` standard (SHA1 / SHA256 / SHA512, 6-8 digit codes, including Steam format)
+- Password list shows a clock icon + plain-text countdown (e.g. `24s`); click to copy the current code
+- Edit page toggles "Enable TOTP" to add/modify the `otpauth://` URL
 
 ---
 
-## 🧠 分级 URL 匹配策略
+## ⌨️ Keyboard Shortcuts
 
-独创的**4 级 URL 匹配算法**，它同时驱动**徽章计数**和**自动填充优先排序**，确保最相关的密码条目始终排在第一位。
+| Shortcut | Command | Description |
+|----------|---------|-------------|
+| `Ctrl+Shift+Space` | Open popup | Open the Keepass Cat popup |
+| `Ctrl+Shift+X` | Best-match autofill | Autofill the best-matching entry on the current page |
 
-### 匹配等级
+> Shortcuts can be customized at `chrome://extensions/shortcuts`.
 
-| 级别 | 条件 | 示例 | 得分 |
+---
+
+## 🧠 4-Level URL Matching
+
+An original **4-level URL matching algorithm** that drives both **badge count** and **autofill priority ranking**, ensuring the most relevant entry always ranks first.
+
+### Matching Levels
+
+| Level | Condition | Example | Score |
 |:---:|---|---|:---:|
-| **4** | 条目的 URL 完整包含在页面 URL 中 | 条目 `a.com/admin` → 页面 `a.com/admin/login` | **100** |
-| **3** | 协议 + 主机名 + 端口完全一致 | 条目 `https://a.com` → 页面 `https://a.com/any` | **75** |
-| **2** | 相同域名（最后两段） | 条目 `a.example.com` → 页面 `b.example.com` | **50** |
-| **1** | 正则表达式匹配 | 条目 `regex:login\..*\.com` → 页面 `login.test.com` | **25** |
-| **0** | 无匹配 | 任意不相关 URL | **0** |
+| **4** | Entry URL fully contained in page URL | Entry `a.com/admin` → page `a.com/admin/login` | **100** |
+| **3** | Protocol + host + port exactly match | Entry `https://a.com` → page `https://a.com/any` | **75** |
+| **2** | Same domain (last two segments) | Entry `a.example.com` → page `b.example.com` | **50** |
+| **1** | Regular expression match | Entry `regex:login\..*\.com` → page `login.test.com` | **25** |
+| **0** | No match | Any unrelated URL | **0** |
 
-### 匹配流程
+### Matching Flow
 
 ```
-页面 URL  ──→  Level 4: 包含匹配?  ──→  ✅ 优先展示
+Page URL  ──→  Level 4: contains match?  ──→  ✅ show first
     │              │
-    │              └──→  Level 3: 同源匹配?  ──→  ✅ 第二优先
+    │              └──→  Level 3: same-origin?  ──→  ✅ second priority
     │                       │
-    │                       └──→  Level 2: 同域名?  ──→  ✅ 第三优先
+    │                       └──→  Level 2: same domain?  ──→  ✅ third priority
     │                                │
-    │                                └──→  Level 1: 正则匹配?  ──→  ✅ 兜底
+    │                                └──→  Level 1: regex?  ──→  ✅ fallback
     │                                         │
-    │                                         └──→  Level 0: 无匹配
+    │                                         └──→  Level 0: no match
 ```
 
-### 徽章计数逻辑
+### Badge Count Logic
 
 ```
-1. 遍历所有缓存条目，对每个条目计算最高匹配等级
-2. 统计达到最高等级的所有条目数量
-3. 在扩展图标上显示该数字
-4. 切换标签页时自动更新
+1. Iterate all cached entries, compute the highest match level for each
+2. Count entries reaching the highest level
+3. Show that number on the extension icon
+4. Auto-update on tab switch
 ```
 
-### 正则表达式匹配
+### Regular Expression Matching
 
-在条目 URL 字段以 `regex:` 前缀开头即可使用正则：
+Prefix the entry URL with `regex:` to use a regular expression:
 
 ```
-regex:login\..*\.com    →  匹配所有 login.*.com 子域名
-regex:10\.0\.\d+\.\d+   →  匹配所有 10.0.x.x 内网 IP
-regex:192\.168\.\d+\.\d+:8080  →  匹配特定网段和端口
+regex:login\..*\.com    →  matches all login.*.com subdomains
+regex:10\.0\.\d+\.\d+   →  matches all 10.0.x.x intranet IPs
+regex:192\.168\.\d+\.\d+:8080  →  matches a specific subnet and port
 ```
 
 ---
 
-## ⚡ 自动填充引擎
+## ⚡ Autofill Engine
 
-### 两种触发方式
+### Two Trigger Methods
 
-| 方式 | 操作 | 适用场景 |
-|------|------|----------|
-| 🖱️ **弹窗点击** | 打开 Keepass Cat 弹窗，点击条目 | 最常用，可浏览选择 |
-| ⌨️ **快捷键** | `Ctrl+Shift+X` | 快速填充，无需鼠标 |
+| Method | Action | Use Case |
+|--------|--------|----------|
+| 🖱️ **Popup click** | Open the Keepass Cat popup and click an entry | Most common; browse and choose |
+| ⌨️ **Shortcut** | `Ctrl+Shift+X` | Fast autofill, no mouse |
 
-### 字段检测算法
+### Field Detection Algorithm
 
-Keepass Cat 使用**双方法检测**来定位页面上的用户名和密码输入框：
+Keepass Cat uses a **dual-method detection** to locate username/password fields on the page:
 
-**方法一：焦点法（优先）**
+**Method 1: Focus (preferred)**
 ```
-用户光标所在位置 → 检测相邻输入框 → 跳过隐藏/不可见元素 → 精准定位
+Cursor position → detect adjacent inputs → skip hidden/invisible elements → precise targeting
 ```
-- 如果聚焦在用户名框 → 向后搜索找到第一个可见的 `type="password"` 输入框
-- 如果聚焦在密码框 → 向前搜索找到第一个可见的非密码输入框
-- 自动跳过 `type="hidden"` 等不可见元素
+- Focus on username field → search forward for the first visible `type="password"` input
+- Focus on password field → search backward for the first visible non-password input
+- Auto-skip `type="hidden"` and other invisible elements
 
-**方法二：全局扫描法（兜底）**
+**Method 2: Global scan (fallback)**
 ```
-遍历所有可见 input → 按类型配对 → 生成 用户名-密码 对列表
+Iterate all visible inputs → pair by type → generate username-password pair list
 ```
-- 识别注册表单（连续两个密码框）并自动排除
-- 处理独立密码框（无用户名配对的情况）
+- Detect registration forms (two consecutive password fields) and exclude them
+- Handle standalone password fields (no username pairing)
 
-### Iframe 跨域填充
+### Iframe Cross-Origin Autofill
 
 ```
 ┌─────────────────────────────────┐
-│  主页面 (gitee.com)              │
+│  Main page (gitee.com)          │
 │  ┌───────────────────────────┐  │
 │  │  iframe (udesk.cn)         │  │
-│  │  [用户名] [密码] [登录]     │  │  ← 也能填充！
+│  │  [username] [password] [login]  │  │  ← can also autofill!
 │  └───────────────────────────┘  │
 └─────────────────────────────────┘
 ```
 
-- 内容脚本注入到**所有 frame**
-- 每个 frame 独立进行**来源安全检查**
-- 白名单机制解决已知的跨域场景（如银行网站）
+- Content script injected into **all frames**
+- Each frame independently performs **origin security checks**
+- Whitelist mechanism for known cross-origin scenarios (e.g. bank websites)
 
 ---
 
-## ☁️ 云端存储支持
+## ☁️ Cloud Storage
 
-Keepass Cat 通过 **WebDAV** 协议同步 KeePass 数据库：
+Keepass Cat syncs KeePass databases via the **WebDAV** protocol:
 
-| 存储后端 | 类型 | 说明 |
-|----------|------|------|
-| 🔗 **WebDAV** | 私有部署 | 支持坚果云等 WebDAV 服务，扫描目录自动发现 `.kdbx` 文件，支持上传保存 |
+| Backend | Type | Description |
+|---------|------|-------------|
+| 🔗 **WebDAV** | Self-hosted | Supports Jianguoyun and other WebDAV services; scans directories to auto-discover `.kdbx` files, with upload/save support |
 
-### 存储后端架构
+### Storage Backend Architecture
 
 ```
-PasswordFileStoreRegistry (注册中心)
+PasswordFileStoreRegistry (registry)
     └── WebdavFileManager (WebDAV)
 ```
 
-所有后端统一实现 `FileManager` 接口，通过 `PasswordFileStoreRegistry` 注册和调度。
+All backends implement the `FileManager` interface and are registered/dispatched via `PasswordFileStoreRegistry`.
 
 ---
 
-## 🔐 安全设计
+## 🔐 Security Design
 
-### 加密存储
+### Encrypted Storage
 
 ```
 ┌──────────────┐     AES-CBC      ┌──────────────────┐
-│  明文数据     │  ──────────────→  │  chrome.storage   │
-│  (密码/条目)  │   256-bit key    │  (加密态)          │
+│  plaintext    │  ──────────────→  │  chrome.storage   │
+│  (passwords/  │   256-bit key    │  (encrypted)       │
+│   entries)    │                  │                    │
 └──────────────┘                  └──────────────────┘
 ```
 
-- 使用 **AES-CBC 256 位**加密存储在 `chrome.storage.session` 或 `chrome.storage.local`
-- 密钥在运行时通过 Web Crypto API 生成，不落盘
-- 自定义序列化协议处理二进制数据（ArrayBuffer → Base64）
+- Encrypted with **AES-CBC 256-bit** in `chrome.storage.session` or `chrome.storage.local`
+- Key generated at runtime via the Web Crypto API, never persisted
+- Custom serialization for binary data (ArrayBuffer → Base64)
 
-### 双层记忆系统
+### Two-Tier Memory System
 
-| 存储层 | 存储介质 | 生命周期 | 用途 |
-|--------|----------|----------|------|
-| **Session 层** | `storage.session` | 浏览器会话 | 临时缓存，会话结束自动清除 |
-| **Local 层** | `storage.local` | 持久化 | "永久记住"模式，跨浏览器重启 |
+| Tier | Storage | Lifetime | Purpose |
+|------|---------|----------|---------|
+| **Session tier** | `storage.session` | Browser session | Temporary cache, auto-cleared on session end |
+| **Local tier** | `storage.local` | Persistent | "Remember forever" mode, across browser restarts |
 
-### 遗忘定时器
+### Forget Timer
 
 ```
-记住时长:  [不记住]  [30分钟]  [2小时]  [4小时]  [8小时]  [24小时]  [本次会话]  [永久]
-           ──────────────────────────────────────────────────────────────────────────→
+Remember period:  [Never]  [30 min]  [2 h]  [4 h]  [8 h]  [24 h]  [This session]  [Forever]
+                  ──────────────────────────────────────────────────────────────────────────→
 ```
 
-- 到期后自动清除主密码和缓存的条目数据
-- 每 2 分钟检查一次过期定时器
-- 支持密码过期、剪贴板过期两种通知类型
+- Auto-clears the master password and cached entries on expiry
+- Checks the expiry timer every 2 minutes
+- Supports password-expiry and clipboard-expiry notifications
 
-### 安全原则
+### Security Principles
 
-- 🔒 主密码只在内存中解密，**不持久化明文**
-- 🚫 不在控制台输出敏感信息
-- ✅ 默认只读展示，仅在用户主动编辑保存时才写回 KDBX 文件
-- 🛡️ 来源检查：填充前验证 frame 与目标页面的 hostname 一致性
+- 🔒 Master password decrypted only in memory, **never persisted as plaintext**
+- 🚫 No sensitive information logged to console
+- ✅ Read-only by default; writes back to the KDBX file only on explicit user save
+- 🛡️ Origin check: verifies frame-hostname consistency before autofill
 
-### 密钥文件 (Keyfile)
+### Keyfiles
 
-- 支持 KeePass 全部四种 Keyfile 格式：XML（推荐）、32 字节、十六进制、哈希
-- 密钥文件可与主密码组合使用，也可单独作为认证方式
-- 密钥文件存储在浏览器本地存储中，网站与其他扩展无法访问
+- Supports all four KeePass keyfile formats: XML (recommended), 32-byte, hex, and hash
+- Keyfiles can be combined with a master password or used alone
+- Keyfiles are stored in browser local storage; websites and other extensions cannot access them
 
 ---
 
+## 🚀 Quick Start
 
+### Installation
 
-## 🚀 快速开始
+1. Download the latest version from [Releases](https://github.com/helloworldbugs/keepass-cat/releases)
+2. Extract to a local directory
+3. Open `chrome://extensions` and enable "Developer mode"
+4. Click "Load unpacked" and select the extracted directory
 
-### 安装
-
-1. 从 [Releases](https://github.com/helloworldbugs/keepass-cat/releases) 下载最新版本
-2. 解压到本地目录
-3. 打开 `chrome://extensions`，开启「开发者模式」
-4. 点击「加载已解压的扩展程序」，选择解压目录
-
-### 开发
+### Development
 
 ```bash
-# 克隆仓库
+# Clone the repository
 git clone https://github.com/helloworldbugs/keepass-cat.git
 cd keepass-cat
 
-# 安装依赖
+# Install dependencies
 npm install --legacy-peer-deps
 
-# 开发模式（热重载）
+# Development mode (hot reload)
 npm run dev
 
-# 生产构建
+# Production build
 npm run build
 
-# 仅构建内容脚本
+# Build content script only
 npm run build:js
 
-# 仅构建后台脚本
+# Build background script only
 npm run build:background
 ```
 
-### 构建产物
+### Build Output
 
-| 命令 | 输入 | 输出 |
-|------|------|------|
-| `build:web` | `src/` (Vue 弹窗/选项页) | `extension/dist/` |
+| Command | Input | Output |
+|---------|-------|--------|
+| `build:web` | `src/` (Vue popup/options) | `extension/dist/` |
 | `build:background` | `background/background.js` | `extension/dist/background/index.mjs` |
-| `build:js` | `background/inject.js` (内容脚本) | `extension/dist/contentScripts/index.global.js` |
+| `build:js` | `background/inject.js` (content script) | `extension/dist/contentScripts/index.global.js` |
 
 ---
 
-## 🏗️ 技术栈
+## 🏗️ Tech Stack
 
-| 技术 | 用途 |
-|------|------|
-| [Vue 3](https://vuejs.org/) (`@vue/compat`) | 弹窗 UI 框架 |
-| [Vite](https://vitejs.dev/) | 构建工具 |
-| [kdbxweb](https://github.com/keeweb/kdbxweb) | KeePass 数据库解析 |
-| [Argon2](https://github.com/antelle/argon2-browser) | KDF 密钥派生 |
-| [webdav](https://github.com/perry-mitchell/webdav-client) | WebDAV 客户端 |
-| [Chrome Extensions API](https://developer.chrome.com/docs/extensions/reference/) | 浏览器扩展 API |
-| GitHub Actions | CI/CD 自动构建 |
+| Technology | Purpose |
+|------------|---------|
+| [Vue 3](https://vuejs.org/) (`@vue/compat`) | Popup UI framework |
+| [Vite](https://vitejs.dev/) | Build tool |
+| [kdbxweb](https://github.com/keeweb/kdbxweb) | KeePass database parsing |
+| [Argon2](https://github.com/antelle/argon2-browser) | KDF key derivation |
+| [webdav](https://github.com/perry-mitchell/webdav-client) | WebDAV client |
+| [Chrome Extensions API](https://developer.chrome.com/docs/extensions/reference/) | Browser extension API |
+| GitHub Actions | CI/CD automated build |
 
 ---
 
-## 📐 架构概览
+## 📐 Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -350,74 +349,74 @@ npm run build:background
 │  └─────────┘ └──────────┘ └──────────┘ └─────────┘ │
 │                        │                             │
 │                  UnlockedState                       │
-│              (状态管理 + 剪贴板 + 自动填充)              │
+│            (state + clipboard + autofill)            │
 ├────────────────────────┼─────────────────────────────┤
 │               SecureCacheMemory                       │
-│          (端口通信桥接 popup ↔ background)              │
+│          (port bridge popup ↔ background)             │
 ├────────────────────────┼─────────────────────────────┤
 │              Background Service Worker                │
 │  ┌──────────────────────────────────────────────┐   │
-│  │  ProtectedMemory  │  Settings  │ Badge 更新   │   │
-│  │  (AES-CBC 加密)    │  (配置)    │ (图标计数)    │   │
-│  │  LocalMemory       │            │ 快捷键处理    │   │
-│  │  (持久化加密)       │            │ 会话管理      │   │
+│  │  ProtectedMemory  │  Settings  │ Badge update │   │
+│  │  (AES-CBC)         │  (config)  │ (icon count) │   │
+│  │  LocalMemory       │            │ shortcut     │   │
+│  │  (persistent)      │            │ session      │   │
 │  └──────────────────────────────────────────────┘   │
 ├────────────────────────┼─────────────────────────────┤
 │             Content Script (inject.js)                │
 │  ┌──────────────────────────────────────────────┐   │
-│  │  字段检测  │  fillPassword  │  来源安全检查    │   │
-│  │  (焦点法+  │  (值填充+      │  (hostname      │   │
-│  │   全局扫描) │   DOM事件触发)  │   验证)         │   │
+│  │  field detection │ fillPassword │ origin check │   │
+│  │  (focus + global) │ (value + DOM  │ (hostname   │   │
+│  │                  │  events)      │  verify)    │   │
 │  └──────────────────────────────────────────────┘   │
 ├────────────────────────┼─────────────────────────────┤
 │                    Services                           │
 │  ┌──────────┐ ┌────────────┐ ┌──────────────────┐  │
 │  │ Keepass  │ │ Keepass    │ │ PasswordFileStore│  │
-│  │ Service  │ │ Reference  │ │ Registry (1后端) │  │
+│  │ Service  │ │ Reference  │ │ Registry (1)     │  │
 │  └──────────┘ └────────────┘ └──────────────────┘  │
 └─────────────────────────────────────────────────────┘
 ```
 
-### 数据流
+### Data Flow
 
 ```
-用户点击条目
+User clicks an entry
     │
     ▼
 UnlockedState.autofill(entry)
     │
     ▼
-Background: autofill 消息
+Background: autofill message
     │
-    ├──→ 注入 content script 到所有 frame
+    ├──→ inject content script into all frames
     │
-    └──→ 向每个 frame 发送 fillPassword
+    └──→ send fillPassword to each frame
             │
-            ├── 来源安全检查 (hostname 匹配)
+            ├── origin check (hostname match)
             │
             └── filler.fillPassword(user, pass)
                     │
-                    ├── 方法1: 焦点法 (优先)
-                    │   └── 跳过隐藏元素，搜索真正的密码框
+                    ├── Method 1: focus (preferred)
+                    │   └── skip hidden elements, find the real password field
                     │
-                    └── 方法2: 全局扫描 (兜底)
-                        └── 遍历所有可见 input，配对填充
+                    └── Method 2: global scan (fallback)
+                        └── iterate all visible inputs, pair and fill
 ```
 
 ---
 
-## 🧪 测试
+## 🧪 Testing
 
-> ⚠️ 当前 `tests/` 目录下的测试为原 AngularJS 代码库遗留，尚未迁移到现有 Vue 3 + Vite 技术栈，且 `package.json` 未配置 `test` 脚本，暂无法通过 `npm test` 运行。测试基础设施有待完善（计划接入 Vitest）。
+> ⚠️ The current `tests/` directory is legacy from the AngularJS codebase and has not been migrated to the Vue 3 + Vite stack. `package.json` has no `test` script, so `npm test` is unavailable. Test infrastructure is planned (Vitest).
 
 ---
 
-## 🙏 致谢
+## 🙏 Acknowledgements
 
-- 原始项目：[subdavis/Tusk](https://github.com/subdavis/Tusk)
-- Fork 维护：[helloworldbugs](https://github.com/helloworldbugs)
-- KeePass 数据库解析：[keeweb/kdbxweb](https://github.com/keeweb/kdbxweb)
-- 构建于 [Vue 3](https://vuejs.org/) · [Vite](https://vitejs.dev/) · [Chrome Extensions](https://developer.chrome.com/docs/extensions/)
+- Original project: [subdavis/Tusk](https://github.com/subdavis/Tusk)
+- Fork maintained by: [helloworldbugs](https://github.com/helloworldbugs)
+- KeePass parsing: [keeweb/kdbxweb](https://github.com/keeweb/kdbxweb)
+- Built with [Vue 3](https://vuejs.org/) · [Vite](https://vitejs.dev/) · [Chrome Extensions](https://developer.chrome.com/docs/extensions/)
 
 ---
 
