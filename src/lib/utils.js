@@ -57,7 +57,7 @@ const isVisible = (el) => {
 };
 
 const isFirefox = () => {
-  return 'browser' in window;
+  return navigator.userAgent.includes('Firefox');
 };
 
 /**

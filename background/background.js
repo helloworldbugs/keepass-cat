@@ -17,6 +17,7 @@ import { matchLevel } from '@/lib/utils.js';
 function Background(protectedMemory, localMemory, settings, notifications) {
   console.log('Background worker registered.');
   var pendingFill = null;
+  var shortcutPending = false;
   chrome.runtime.onInstalled.addListener(settings.upgrade);
   chrome.runtime.onStartup.addListener(forgetStuff);
 
@@ -60,12 +61,32 @@ function Background(protectedMemory, localMemory, settings, notifications) {
     if (message.m == 'getPendingFill') {
       console.log('[getPendingFill] pendingFill=', pendingFill ? 'set' : 'null');
       // Do NOT clear pendingFill here — multiple popups (stale + fresh) may read it.
-      sendResponse({ pendingAutofill: pendingFill });
+      if (pendingFill) {
+        sendResponse({ pendingAutofill: pendingFill });
+        return;
+      }
+      if (shortcutPending) {
+        // The shortcut handler is still computing the best match; wait briefly.
+        var attempts = 0;
+        var waitTimer = setInterval(function () {
+          attempts++;
+          if (pendingFill) {
+            clearInterval(waitTimer);
+            sendResponse({ pendingAutofill: pendingFill });
+          } else if (attempts >= 20) {
+            clearInterval(waitTimer);
+            sendResponse({ pendingAutofill: null });
+          }
+        }, 50);
+        return true; // keep the message channel open for the async response
+      }
+      sendResponse({ pendingAutofill: null });
       return;
     }
 
     if (message.m == 'clearPendingFill') {
       pendingFill = null;
+      shortcutPending = false;
       chrome.storage.session.remove('pendingAutofill');
       return;
     }
@@ -170,12 +191,13 @@ function Background(protectedMemory, localMemory, settings, notifications) {
     // Open the popup immediately within the user-gesture context.
     // Firefox requires openPopup() to be called synchronously in the command
     // handler; otherwise the gesture expires and the popup never opens.
+    shortcutPending = true;
     openPopup();
     chrome.storage.local.get('autofillShortcut', function(items) {
-      if (!items.autofillShortcut) { console.log('[shortcut] disabled'); return; }
+      if (!items.autofillShortcut) { console.log('[shortcut] disabled'); shortcutPending = false; return; }
       protectedMemory.getData('secureCache.entries').then(function(entries) {
         if (typeof entries === 'string') entries = protectedMemory.deserialize(entries);
-        if (!entries || !Array.isArray(entries) || !entries.length) return;
+        if (!entries || !Array.isArray(entries) || !entries.length) { shortcutPending = false; return; }
         var url = (tab && tab.url) || '';
         var bestMatch = null, bestRank = 0, bestCount = 0;
         for (var i = 0; i < entries.length; i++) {
@@ -186,7 +208,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
           else if (rank === bestRank && rank > 0) { bestCount++; }
         }
         // autofill_best_match: require exactly 1 match
-        if (!bestMatch || bestCount > 1) return;
+        if (!bestMatch || bestCount > 1) { shortcutPending = false; return; }
         pendingFill = {
           title: bestMatch.title,
           userName: bestMatch.userName,

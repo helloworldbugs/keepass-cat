@@ -2,7 +2,7 @@
  * Cross-browser API compatibility shim.
  * Maps Chrome MV3 APIs to Firefox MV2 equivalents.
  */
-var isFirefox = typeof browser !== 'undefined' && !!browser.runtime;
+var isFirefox = navigator.userAgent.includes('Firefox');
 var actionApi = (typeof chrome !== 'undefined' && (chrome.action || chrome.browserAction)) || {};
 
 export function openPopup() {
