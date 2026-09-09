@@ -88,22 +88,32 @@ export default {
       var lower = 'abcdefghijklmnopqrstuvwxyz';
       var digits = '0123456789';
       var specials = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+      var all = upper + lower + digits + specials;
       var pick = function(str, n) {
         var result = '';
         for (var i = 0; i < n; i++) result += str[Math.floor(Math.random() * str.length)];
         return result;
       };
-      var len = 16 + Math.floor(Math.random() * 5); // 16-20
-      var extra = len - 16;
-      var chars = pick(upper, 4) + pick(lower, 4) + pick(digits, 4) + pick(specials, 4)
-        + pick(upper + lower + digits + specials, extra);
-      // Shuffle
-      var arr = chars.split('');
-      for (var i = arr.length - 1; i > 0; i--) {
-        var j = Math.floor(Math.random() * (i + 1));
-        var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
-      }
-      this.editFields.password = arr.join('');
+      var hasConsecutiveDup = function(s) {
+        for (var i = 1; i < s.length; i++) if (s[i] === s[i - 1]) return true;
+        return false;
+      };
+      var password;
+      // Regenerate until no two consecutive characters are equal
+      do {
+        var len = 16 + Math.floor(Math.random() * 5); // 16-20
+        var extra = len - 16;
+        var chars = pick(upper, 4) + pick(lower, 4) + pick(digits, 4) + pick(specials, 4)
+          + pick(all, extra);
+        // Shuffle
+        var arr = chars.split('');
+        for (var i = arr.length - 1; i > 0; i--) {
+          var j = Math.floor(Math.random() * (i + 1));
+          var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+        }
+        password = arr.join('');
+      } while (hasConsecutiveDup(password));
+      this.editFields.password = password;
     },
     async save() {
       this.saving = true;
