@@ -1,19 +1,12 @@
 # 🐱 Keepass Cat — KeePass Browser Extension
 
-[![Version](https://img.shields.io/badge/version-3.4.7-blue)](https://github.com/helloworldbugs/keepass-cat/releases)
+[English](README_EN.md) | 中文
+
+[![Releases](https://img.shields.io/badge/releases-latest-blue)](https://github.com/helloworldbugs/keepass-cat/releases)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![CI](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/helloworldbugs/keepass-cat/actions)
 
-Keepass Cat 是一款开源、轻量的 KeePass 浏览器扩展，把你现有的 WebDAV 云端上的 KeePass 数据库（.kdbx）直接接入浏览器，实现密码自动填充、以及密码条目的增删改查。可彻底抛弃本地运行的Keepass、KeepassXC客户端，一个浏览器扩展就够用了
-
-核心功能
-
-- 一键自动填充：智能识别页面上的用户名/密码输入框，精准填充，并且支持自定义键盘快捷键自动填充
-- 4 级 URL 匹配：精确 → 同源 → 同域名 → 正则，自动排序最匹配的条目，扩展图标实时显示匹配数量
-- 不只是只读：在弹窗中直接新增、编辑、删除条目与分组，改动自动写回数据库
-- TOTP 双因素认证：显示动态验证码并一键复制（带倒计时），支持编辑保存
-- 强密码生成器：一键生成高强度随机密码
-- 剪贴板保护：复制后定时自动清除，防止密码残留
+>Keepass Cat 是一款开源、轻量的 KeePass 浏览器扩展，把你现有的 WebDAV 云端上的 KeePass 数据库（.kdbx）直接接入浏览器，实现密码自动填充、以及密码条目的增删改查。可彻底抛弃本地运行的Keepass、KeepassXC客户端，一个浏览器扩展足矣。
 
 ---
 
