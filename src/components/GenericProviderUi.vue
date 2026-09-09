@@ -45,8 +45,5 @@ export default {
         />
       </span>
     </div>
-    <div class="description">
-      {{ $t(providerManager.chooseDescription) }}
-    </div>
   </div>
 </template>

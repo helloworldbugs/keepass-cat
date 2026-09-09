@@ -139,13 +139,6 @@ export default {
       :removeable="false"
     />
     <div v-if="loggedIn">
-      <div class="warn pill">
-        <p>
-          <b>{{ $t('Wait! ') }}</b>{{ $t('Did you read the') }}
-          <a href="https://github.com/subdavis/Tusk/wiki/WebDAV-Support">{{ $t('best practices guide') }}</a>?
-          {{ $t('Do that first!') }}
-        </p>
-      </div>
       <div>
         <p>
           {{ $t('The URL below should have the path of a FOLDER, not an individual FILE. The webDAV provider works by recursively scanning all files within the folder you specify. Your keepass databases will be discovered by their file extension (.kdbx).') }}
