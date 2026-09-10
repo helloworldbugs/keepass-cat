@@ -81,6 +81,9 @@ function firefoxManifestV2(): Manifest.WebExtensionManifest {
     browser_specific_settings: {
       gecko: {
         id: 'brandon@subdavis.com',
+        data_collection_permissions: {
+          required: ['none'],
+        },
       },
     },
     browser_action: action,
