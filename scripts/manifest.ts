@@ -80,7 +80,7 @@ function firefoxManifestV2(): Manifest.WebExtensionManifest {
     manifest_version: 2,
     browser_specific_settings: {
       gecko: {
-        id: 'brandon@subdavis.com',
+        id: 'keepass-cat@helloworldbugs.com',
         data_collection_permissions: {
           required: ['none'],
         },
