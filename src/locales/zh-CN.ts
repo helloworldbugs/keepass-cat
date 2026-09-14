@@ -108,7 +108,7 @@ const zhCN: Record<string, string> = {
   '1. Cloud Storage Setup': '1. 云存储设置',
   '2. Keyfile Setup (optional)': '2. 密钥文件设置（可选）',
   'Support Keepass Cat': '支持 Keepass Cat',
-  'If you like Keepass Cat, please consider leaving a review on the google web store or firefox addon store. If you find a problem or are dissatisfied, please instead open an issue on the issue tracker so we can make Keepass Cat better.': '如果你喜欢 Keepass Cat，请考虑在 Chrome 网上应用店或 Firefox 附加组件商店留下评价。如果你遇到问题或不满意，请在 issue 跟踪器中提交问题，以便我们改进 Keepass Cat。',
+  'If you like Keepass Cat, please consider leaving a review on the google web store or firefox addon store. If you find a problem or are dissatisfied, please instead open an issue on the issue tracker so we can make Keepass Cat better.': '如果你喜欢 Keepass Cat，请考虑在 Chrome 网上应用店或 Firefox 附加组件商店留下评价。如果你遇到问题或不满意，请在 issue 追踪器中提交问题，以便我们改进 Keepass Cat。',
 
   // ===== Options: Manage Keyfiles =====
   'Key files are an optional authentication method. More info on key files is available on the KeePass site': '密钥文件是可选的认证方式。更多信息请参考 KeePass 官方文档',
@@ -126,17 +126,10 @@ const zhCN: Record<string, string> = {
   'Enable Hotkey Navigation': '启用快捷键导航',
   'If enabled, you will be able to use [TAB] and [ENTER] to navigate and autofill your passwords when the Keepass Cat UI is open. By default, [CTRL]+[SHIFT]+[SPACE] will open the Keepass Cat popup': '启用后，在 Keepass Cat 弹窗中可使用 [Tab] 和 [Enter] 键导航并自动填充密码。默认快捷键 [Ctrl]+[Shift]+[Space] 可打开 Keepass Cat 弹窗。',
   'Hotkey Navigation': '快捷键导航',
-  'Grant Permission on All Websites': '授予所有网站权限',
-  'Only proceed if you know what you\'re doing.': '仅在了解后果的前提下继续。',
-  'If enabled, the extension prompts once for permission to access and change data on all websites which disables the permissions popup on each new website. This has serious security implications. Only applies to Chrome. Because of a Chrome bug, it is currently impossible to revoke this permission again after it is enabled. If you turn this ON, Keepass Cat must be reinstalled to reset.': '启用后，扩展将一次性请求所有网站的访问和修改权限，不会在每个新网站上弹出权限提示。但这有严重安全隐患。仅适用于 Chrome。由于 Chrome 的一个 bug，启用后无法撤销，需要重新安装 Keepass Cat 才能重置。',
-  'Grant All Permissions': '授予所有权限',
   'Notification': '通知',
   'Choose which type of notification do you want to receive from Keepass Cat.': '选择你希望从 Keepass Cat 收到的通知类型。',
   'Password expiration': '密码过期通知',
   'Clipboard events': '剪贴板事件通知',
-  'Enable Strict Matching': '启用严格匹配',
-  'If enabled, only entries whose origins match exactly will be suggested for input. Titles and other tab information will not be considered in matching.': '启用后，仅匹配完全相同的域名才会被建议填充。标题和其他标签页信息不会被用于匹配。',
-  'Strict Matching': '严格匹配',
   'Stored Data': '已存储数据',
   'The following objects represent the current data cached in local storage. This data is only available to Keepass Cat, and is never sent over any network connection.': '以下对象代表当前在本地存储中缓存的数据。这些数据仅供 Keepass Cat 使用，绝不会通过网络发送。',
 
@@ -178,11 +171,10 @@ const zhCN: Record<string, string> = {
   // ===== Misc link & segment texts =====
   'leaving a review on the google web store': '在 Chrome 网上应用店留下评价',
   'firefox addon store': 'Firefox 附加组件商店',
-  'issue tracker': 'issue 跟踪器',
+  'issue tracker': 'issue 追踪器',
   'optional authentication method': '可选认证方式',
   'KeePass site': 'KeePass 网站',
   'stored unencrypted': '以未加密形式存储',
-  'serious security implications': '严重的安全隐患',
   'Keepass2Android': 'Keepass2Android',
   'KeePassXC': 'KeePassXC',
   'KeeWeb': 'KeeWeb',
@@ -191,6 +183,8 @@ const zhCN: Record<string, string> = {
 
   // ===== Autofill Shortcut =====
   'Autofill Shortcut': '自动填充快捷键',
+  'Fill TOTP at cursor': '在光标处填充 TOTP',
+  'When enabled, clicking the TOTP button copies the code and also fills it into the focused input field on the current page.': '开启后，点击 TOTP 按钮会复制验证码，并自动填充到当前页面光标所在的输入框。',
   'Open Chrome shortcut settings': '打开 Chrome 快捷键设置',
   'Customize shortcuts in Firefox: toolbar menu (top-right) → Add-ons and themes → gear icon (top-right) → Manage Extension Shortcuts.': '在 Firefox 中自定义快捷键：右上角工具栏菜单 → 扩展和主题 → 右上角齿轮图标 → 管理扩展快捷键。',
 
@@ -201,12 +195,6 @@ const zhCN: Record<string, string> = {
   '. More info on key files is available on the ': '。更多信息请参考 ',
   'Keepass Cat can store your key files locally in your browser\'s storage, and apply them when opening your password database. Websites and other browser extensions do not have access to these files. However, they are ': 'Keepass Cat 可以将密钥文件存储在浏览器本地，在打开数据库时使用。网站和其他扩展无法访问这些文件，但它们会 ',
   ' in your local browser profile and someone with access to your device could read them.': ' 在你的浏览器本地配置文件中，有设备访问权限的人可以读取。',
-
-  // ===== Advanced Settings paragraph fragments =====
-  ' If enabled, the extension prompts once for permission to access and change data on all websites which disables the permissions popup on each new website. This has ': ' 启用后，扩展将一次性请求所有网站的访问和修改权限，不会在每个新网站上弹出权限提示。这有',
-  '. Only applies to Chrome. Because of a Chrome bug, it is currently impossible to revoke this permission again after it is enabled. If you turn this ON, Keepass Cat must be reinstalled to reset.': '。仅适用于 Chrome。由于 Chrome 的一个 bug，启用后无法撤销，需要重新安装 Keepass Cat 才能重置。',
-  'If enabled, only entries whose origins match exactly will be suggested for input. Titles and other tab information will not be considered in matching. For example': '启用后，仅匹配完全相同的域名才会被建议填充。标题和其他标签页信息不会被用于匹配。例如',
-  ' will not match ': ' 不会匹配 ',
 
   // ===== Support fragments =====
   'If you like Keepass Cat, please consider ': '如果你喜欢 Keepass Cat，请考虑在 ',

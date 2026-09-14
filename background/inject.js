@@ -46,6 +46,10 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     //passed the origin check - go ahead and fill the password
     filler.fillPassword(message.u, message.p);
   }
+
+  if (message.m == 'fillTotpAtCursor') {
+    filler.fillTotpAtCursor(message.code);
+  }
 });
 
 var filler = (function () {
@@ -107,7 +111,7 @@ var filler = (function () {
           }
         }
       }
-      priorityPair = pair;
+      if (pair.u && pair.p) priorityPair = pair;
     }
 
     // Methods 2 - based on types of fields and visibility
@@ -238,7 +242,15 @@ var filler = (function () {
     );
   }
 
+  function fillTotpAtCursor(code) {
+    var activeElem = document.activeElement;
+    if (activeElem && activeElem.tagName === 'INPUT' && isVisible(activeElem)) {
+      fillField(activeElem, code);
+    }
+  }
+
   return {
     fillPassword: fillPassword,
+    fillTotpAtCursor: fillTotpAtCursor,
   };
 })();

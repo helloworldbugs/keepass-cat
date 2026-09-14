@@ -19,6 +19,7 @@
     "build:background": "vite build --config vite.config.background.mts",
     "build:js": "vite build --config vite.config.content.mts",
     "build:web": "vite build",
+    "build:all": "node scripts/build-all.js",
     "format": "eslint --fix --ext .ts,.js,.vue,.html src/ scripts/ services/ background/",
     "pack:zip": "rm -f extension.zip && zip -r extension.zip extension/*"
   },

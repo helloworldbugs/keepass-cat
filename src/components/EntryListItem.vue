@@ -66,25 +66,7 @@ export default {
     },
     copyOtp(e) {
       e.stopPropagation();
-      let url = this.unlockedState.getDecryptedAttribute(this.entry, 'otp');
-      try {
-        let otpobj = Otp.parseUrl(url);
-        otpobj.next((_, code) => {
-          if (!code) return;
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(code).catch(() => {});
-          } else {
-            let ta = document.createElement('textarea');
-            ta.value = code;
-            document.body.appendChild(ta);
-            ta.select();
-            document.execCommand('copy');
-            document.body.removeChild(ta);
-          }
-        });
-      } catch (e) {
-        console.warn('[copyOtp] failed:', e);
-      }
+      this.unlockedState.copyTotp(this.entry);
     },
     setupOtpCountdown() {
       let period = 30;

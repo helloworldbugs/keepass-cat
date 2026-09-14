@@ -2,6 +2,7 @@
 
 import { ChromePromiseApi } from '@/lib/chrome-api-promise.js';
 import { parseUrl } from '@/lib/utils.js';
+import { Otp } from '@/lib/otp.js';
 import { ref } from 'vue';
 import { i18n } from '@/services/i18n';
 
@@ -138,6 +139,38 @@ function UnlockedState(keepassReference, settings, notifications) {
     return my.getDecryptedAttribute(entry, attr);
   }
 
+  function copyTotpCode(code) {
+    var finish = function () {
+      settings.getSetClipboardExpireInterval().then(function (interval) {
+        settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
+        notifications
+          .push({
+            text: 'TOTP' + i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval),
+            type: 'clipboard',
+          })
+          .then(function () {
+          settings.getSetFillTotpEnabled().then(function (enabled) {
+            if (enabled) {
+              chrome.runtime.sendMessage({ m: 'fillTotp', tabId: my.tabId, code: code });
+            }
+            window.close();
+          });
+        });
+      });
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(code).then(finish).catch(function () {});
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = code;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      finish();
+    }
+  }
+
   my.copyPassword = function (entry) {
     copyPart = 'password';
     copyEntry = entry;
@@ -147,6 +180,18 @@ function UnlockedState(keepassReference, settings, notifications) {
     copyPart = 'userName';
     copyEntry = entry;
     document.execCommand('copy');
+  };
+  my.copyTotp = function (entry) {
+    var url = my.getDecryptedAttribute(entry, 'otp');
+    if (!url) return;
+    try {
+      Otp.parseUrl(url).next(function (_, code) {
+        if (!code) return;
+        copyTotpCode(code);
+      });
+    } catch (err) {
+      console.warn('[copyTotp] failed:', err);
+    }
   };
 
   my.getDecryptedAttribute = function (entry, attributeName) {

@@ -152,6 +152,23 @@ function Background(protectedMemory, localMemory, settings, notifications) {
       );
     }
 
+    if (message.m == 'fillTotp') {
+      chrome.scripting.executeScript(
+        {
+          target: { tabId: message.tabId, allFrames: true },
+          files: ['/dist/contentScripts/index.global.js'],
+        },
+        function () {
+          chrome.webNavigation.getAllFrames({ tabId: message.tabId }, function (frames) {
+            if (!frames) return;
+            frames.forEach(function (f) {
+              chrome.tabs.sendMessage(message.tabId, { m: 'fillTotpAtCursor', code: message.code }, { frameId: f.frameId });
+            });
+          });
+        }
+      );
+    }
+
     if (message.m == 'uploadDatabase') {
       var binary = atob(message.data);
       var bytes = new Uint8Array(binary.length);

@@ -1,7 +1,6 @@
 <script>
 import JSONFormatter from 'json-formatter-js'
 import { isFirefox } from '@/lib/utils'
-import { toRaw } from 'vue'
 
 export default {
   props: {
@@ -13,14 +12,7 @@ export default {
       busy: false,
       expireTime: 2,
       autofillShortcut: false,
-      allOriginPermission: false,
-      allOriginPerms: {
-        origins: [
-          "https://*/*",
-          "http://*/*"
-        ]
-      },
-      strictMatchEnabled: false,
+      fillTotpEnabled: false,
       notificationsEnabled: [],
       jsonState: [{
         k: 'databaseUsages',                      // key
@@ -87,8 +79,8 @@ export default {
     expireTime(newval, oldval) {
       this.settings.getSetClipboardExpireInterval(parseInt(newval))
     },
-    strictMatchEnabled(newval, oldval) {
-      this.settings.getSetStrictModeEnabled(newval)
+    fillTotpEnabled(newval) {
+      this.settings.getSetFillTotpEnabled(newval)
     },
     notificationsEnabled(newval) {
       this.settings.getSetNotificationsEnabled(newval)
@@ -105,17 +97,6 @@ export default {
     openShortcuts() {
       chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
     },
-    toggleOriginPermissions(evt) {
-      // Negated because this function will call before the vue model update.
-      const rawPerms = toRaw(this.allOriginPerms); // Convert proxy to raw object
-      if (!this.allOriginPermission) {
-        chrome.permissions.request(rawPerms);
-      } else {
-        chrome.permissions.remove(rawPerms);
-      }
-      this.settings.getSetOriginPermissionEnabled(!this.allOriginPermission);
-      this.allOriginPermission = !this.allOriginPermission;
-    },
     init() {
       this.settings.getSetClipboardExpireInterval().then(val => {
         this.expireTime = val
@@ -123,18 +104,12 @@ export default {
       this.settings.getSetAutofillShortcut().then(val => {
         this.autofillShortcut = val
       })
+      this.settings.getSetFillTotpEnabled().then(val => {
+        this.fillTotpEnabled = val
+      })
       this.settings.getSetNotificationsEnabled().then(val => {
         this.notificationsEnabled = val
       })
-      this.settings.getSetStrictModeEnabled().then(val => {
-        this.strictMatchEnabled = val;
-      })
-      if (!isFirefox()) {
-        const rawPerms = toRaw(this.allOriginPerms);
-        chrome.permissions.contains(rawPerms, granted => {
-          this.allOriginPermission = !!granted;
-        });
-      }
       this.jsonState.forEach(blob => {
         blob.f().then(result => {
           if (result && Object.keys(result).length) {
@@ -210,34 +185,20 @@ export default {
       </div>
     </div>
 
-    <div
-      v-if="!isFirefox()"
-      class="box-bar roomy"
-    >
-      <h4>{{ $t('Grant Permission on All Websites') }}</h4>
-      <p>
-        <strong style="color: var(--keepass-cat-red)">{{ $t('Only proceed if you know what you\'re doing.') }}</strong>
-        {{ $t(' If enabled, the extension prompts once for permission to access and change data on all websites which disables the permissions popup on each new website. This has ') }}
-        <a href="https://github.com/helloworldbugs/keepass-cat/issues">{{ $t('serious security implications') }}</a>
-        {{ $t('. Only applies to Chrome. Because of a Chrome bug, it is currently impossible to revoke this permission again after it is enabled. If you turn this ON, Keepass Cat must be reinstalled to reset.') }}
-      </p>
+    <div class="box-bar roomy">
+      <h4>{{ $t('Fill TOTP at cursor') }}</h4>
+      <p>{{ $t('When enabled, clicking the TOTP button copies the code and also fills it into the focused input field on the current page.') }}</p>
     </div>
-    <div
-      v-if="!isFirefox()"
-      class="box-bar roomy lighter"
-    >
+    <div class="box-bar roomy lighter">
       <div>
         <div class="switch">
-          <label @click="toggleOriginPermissions">
+          <label>
             <input
-              v-model="allOriginPermission"
+              v-model="fillTotpEnabled"
               type="checkbox"
             >
-            <span
-              class="lever"
-              @click.prevent
-            />
-            {{ $t('Grant All Permissions') }}
+            <span class="lever" />
+            {{ $t('Fill TOTP at cursor') }}
           </label>
         </div>
       </div>
@@ -269,30 +230,6 @@ export default {
             >
             <span class="lever" />
             {{ $t('Clipboard events') }}
-          </label>
-        </div>
-      </div>
-    </div>
-
-    <div class="box-bar roomy">
-      <h4>{{ $t('Enable Strict Matching') }}</h4>
-      <p>
-        {{ $t('If enabled, only entries whose origins match exactly will be suggested for input. Titles and other tab information will not be considered in matching. For example') }},
-        <pre>www.google.com</pre>
-        {{ $t(' will not match ') }}
-        <pre>https://google.com</pre>
-      </p>
-    </div>
-    <div class="box-bar roomy lighter">
-      <div>
-        <div class="switch">
-          <label>
-            <input
-              v-model="strictMatchEnabled"
-              type="checkbox"
-            >
-            <span class="lever" />
-            {{ $t('Strict Matching') }}
           </label>
         </div>
       </div>

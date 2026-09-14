@@ -289,12 +289,12 @@ function Settings(secureCache) {
     return keyGetSetter('autofillShortcut', enabled, false, 'boolean');
   };
 
-  exports.getSetHotkeyNavEnabled = function (enabled) {
-    return keyGetSetter('hotkeyNavEnabled', enabled, false, 'boolean');
+  exports.getSetFillTotpEnabled = function (enabled) {
+    return keyGetSetter('fillTotpEnabled', enabled, false, 'boolean');
   };
 
-  exports.getSetStrictModeEnabled = function (enabled) {
-    return keyGetSetter('strictMatchModeEnabled', enabled, false, 'boolean');
+  exports.getSetHotkeyNavEnabled = function (enabled) {
+    return keyGetSetter('hotkeyNavEnabled', enabled, false, 'boolean');
   };
 
   exports.getSetNotificationsEnabled = function (enabledTypes) {
@@ -304,10 +304,6 @@ function Settings(secureCache) {
       [],
       'object'
     );
-  };
-
-  exports.getSetOriginPermissionEnabled = function (enabled) {
-    return keyGetSetter('originPermissionsEnabled', enabled, false, 'boolean');
   };
 
   return exports;
