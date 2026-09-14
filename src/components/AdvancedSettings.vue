@@ -218,7 +218,7 @@ export default {
       <p>
         <strong style="color: var(--keepass-cat-red)">{{ $t('Only proceed if you know what you\'re doing.') }}</strong>
         {{ $t(' If enabled, the extension prompts once for permission to access and change data on all websites which disables the permissions popup on each new website. This has ') }}
-        <a href="https://github.com/subdavis/Tusk/issues/168">{{ $t('serious security implications') }}</a>
+        <a href="https://github.com/helloworldbugs/keepass-cat/issues">{{ $t('serious security implications') }}</a>
         {{ $t('. Only applies to Chrome. Because of a Chrome bug, it is currently impossible to revoke this permission again after it is enabled. If you turn this ON, Keepass Cat must be reinstalled to reset.') }}
       </p>
     </div>

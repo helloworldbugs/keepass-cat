@@ -42,15 +42,15 @@ export default {
       <p>
         {{ $t('If you like Keepass Cat, please consider ') }}
         <a
-          href="https://chrome.google.com/webstore/detail/keepass-tusk-a-better-pas/fmhmiaejopepamlcjkncpgpdjichnecm"
+          href="https://chromewebstore.google.com/detail/keepass-cat/mafedpebfdpojojcgdmgkljcboehlegf"
           >{{ $t('leaving a review on the google web store') }}</a
         >
         {{ $t(' or ') }}
-        <a href="https://addons.mozilla.org/en-US/firefox/addon/keepass-tusk/"
+        <a href="https://addons.mozilla.org/firefox/addon/keepass-cat/"
           >{{ $t('firefox addon store') }}</a
         >
         {{ $t('. If you find a problem or are dissatisfied, please instead open an issue on the ') }}
-        <a href="https://github.com/suBDavis/Tusk/issues">{{ $t('issue tracker') }}</a>
+        <a href="https://github.com/helloworldbugs/keepass-cat/issues">{{ $t('issue tracker') }}</a>
         {{ $t(' so we can make Keepass Cat better.') }}
       </p>
     </div>

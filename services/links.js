@@ -4,19 +4,9 @@
 function Links() {
   var my = {
     openOptions: openOptions,
-    openWebstore: openWebstore,
-    openHomepage: openHomepage,
     openOptionsKeyfiles: openOptionsKeyfiles,
     openOptionsDatabases: openOptionsDatabases,
-    open: openGeneric,
   };
-
-  function openGeneric(url) {
-    // Given some URL, open it in a new tab
-    chrome.tabs.create({
-      url: url,
-    });
-  }
 
   function openOptionsPath(path) {
     // A hack to figure out what the browser uses to point to us.
@@ -41,18 +31,6 @@ function Links() {
 
   function openOptionsKeyfiles() {
     openOptionsPath('/dist/options.html#/manage/keyfiles');
-  }
-
-  function openWebstore() {
-    chrome.tabs.create({
-      url: 'https://chrome.google.com/webstore/detail/ckpx-chrome-keepass-exten/fmhmiaejopepamlcjkncpgpdjichnecm',
-    });
-  }
-
-  function openHomepage() {
-    chrome.tabs.create({
-      url: 'https://subdavis.com/Tusk',
-    });
   }
 
   return my;

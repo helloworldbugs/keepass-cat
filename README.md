@@ -2,6 +2,8 @@
 
 English | [中文](README_CN.md)
 
+[![Chrome Web Store](https://img.shields.io/badge/Chrome_Web_Store-blue?style=for-the-badge)](https://chromewebstore.google.com/detail/keepass-cat/mafedpebfdpojojcgdmgkljcboehlegf) [![Firefox Add-ons](https://img.shields.io/badge/Firefox_Add--ons-orange?style=for-the-badge)](https://addons.mozilla.org/firefox/addon/keepass-cat/)
+
 [![Releases](https://img.shields.io/badge/releases-latest-blue)](https://github.com/helloworldbugs/keepass-cat/releases)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![CI](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/helloworldbugs/keepass-cat/actions)
