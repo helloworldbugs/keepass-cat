@@ -293,6 +293,10 @@ function Settings(secureCache) {
     return keyGetSetter('fillTotpEnabled', enabled, false, 'boolean');
   };
 
+  exports.getSetCopyTotpOnAutofill = function (enabled) {
+    return keyGetSetter('copyTotpOnAutofill', enabled, false, 'boolean');
+  };
+
   exports.getSetHotkeyNavEnabled = function (enabled) {
     return keyGetSetter('hotkeyNavEnabled', enabled, false, 'boolean');
   };

@@ -13,6 +13,7 @@ export default {
       expireTime: 2,
       autofillShortcut: false,
       fillTotpEnabled: false,
+      copyTotpOnAutofill: false,
       notificationsEnabled: [],
       jsonState: [{
         k: 'databaseUsages',                      // key
@@ -82,6 +83,9 @@ export default {
     fillTotpEnabled(newval) {
       this.settings.getSetFillTotpEnabled(newval)
     },
+    copyTotpOnAutofill(newval) {
+      this.settings.getSetCopyTotpOnAutofill(newval)
+    },
     notificationsEnabled(newval) {
       this.settings.getSetNotificationsEnabled(newval)
     }
@@ -106,6 +110,9 @@ export default {
       })
       this.settings.getSetFillTotpEnabled().then(val => {
         this.fillTotpEnabled = val
+      })
+      this.settings.getSetCopyTotpOnAutofill().then(val => {
+        this.copyTotpOnAutofill = val
       })
       this.settings.getSetNotificationsEnabled().then(val => {
         this.notificationsEnabled = val
@@ -199,6 +206,25 @@ export default {
             >
             <span class="lever" />
             {{ $t('Fill TOTP at cursor') }}
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="box-bar roomy">
+      <h4>{{ $t('Copy TOTP on autofill') }}</h4>
+      <p>{{ $t('When enabled, if the entry you autofill has a TOTP, its code is automatically copied to the clipboard.') }}</p>
+    </div>
+    <div class="box-bar roomy lighter">
+      <div>
+        <div class="switch">
+          <label>
+            <input
+              v-model="copyTotpOnAutofill"
+              type="checkbox"
+            >
+            <span class="lever" />
+            {{ $t('Copy TOTP on autofill') }}
           </label>
         </div>
       </div>

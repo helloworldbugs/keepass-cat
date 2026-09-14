@@ -185,6 +185,8 @@ const zhCN: Record<string, string> = {
   'Autofill Shortcut': '自动填充快捷键',
   'Fill TOTP at cursor': '在光标处填充 TOTP',
   'When enabled, clicking the TOTP button copies the code and also fills it into the focused input field on the current page.': '开启后，点击 TOTP 按钮会复制验证码，并自动填充到当前页面光标所在的输入框。',
+  'Copy TOTP on autofill': '填充时自动复制 TOTP',
+  'When enabled, if the entry you autofill has a TOTP, its code is automatically copied to the clipboard.': '开启后，自动填充的条目如果有 TOTP，验证码会自动复制到剪贴板。',
   'Open Chrome shortcut settings': '打开 Chrome 快捷键设置',
   'Customize shortcuts in Firefox: toolbar menu (top-right) → Add-ons and themes → gear icon (top-right) → Manage Extension Shortcuts.': '在 Firefox 中自定义快捷键：右上角工具栏菜单 → 扩展和主题 → 右上角齿轮图标 → 管理扩展快捷键。',
 

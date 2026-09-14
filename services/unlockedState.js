@@ -131,7 +131,15 @@ function UnlockedState(keepassReference, settings, notifications) {
       },
     });
 
-    window.close(); //close the popup
+    // Optionally auto-copy the entry's TOTP code to the clipboard
+    settings.getSetCopyTotpOnAutofill().then(function (enabled) {
+      var otpUrl = enabled ? my.getDecryptedAttribute(entry, 'otp') : '';
+      if (otpUrl && entry['keepassCatTotpEnabled'] !== 'false') {
+        my.copyTotpUrl(otpUrl, false);
+      } else {
+        window.close(); //close the popup
+      }
+    });
   };
 
   //get clear-text password from entry
@@ -139,7 +147,7 @@ function UnlockedState(keepassReference, settings, notifications) {
     return my.getDecryptedAttribute(entry, attr);
   }
 
-  function copyTotpCode(code) {
+  function copyTotpCode(code, alsoFill) {
     var finish = function () {
       settings.getSetClipboardExpireInterval().then(function (interval) {
         settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
@@ -150,7 +158,7 @@ function UnlockedState(keepassReference, settings, notifications) {
           })
           .then(function () {
           settings.getSetFillTotpEnabled().then(function (enabled) {
-            if (enabled) {
+            if (alsoFill && enabled) {
               chrome.runtime.sendMessage({ m: 'fillTotp', tabId: my.tabId, code: code });
             }
             window.close();
@@ -181,17 +189,21 @@ function UnlockedState(keepassReference, settings, notifications) {
     copyEntry = entry;
     document.execCommand('copy');
   };
-  my.copyTotp = function (entry) {
-    var url = my.getDecryptedAttribute(entry, 'otp');
-    if (!url) return;
+  my.copyTotpUrl = function (url, alsoFill) {
     try {
       Otp.parseUrl(url).next(function (_, code) {
-        if (!code) return;
-        copyTotpCode(code);
+        if (!code) { window.close(); return; }
+        copyTotpCode(code, alsoFill);
       });
     } catch (err) {
       console.warn('[copyTotp] failed:', err);
+      window.close();
     }
+  };
+  my.copyTotp = function (entry) {
+    var url = my.getDecryptedAttribute(entry, 'otp');
+    if (!url) return;
+    my.copyTotpUrl(url, true);
   };
 
   my.getDecryptedAttribute = function (entry, attributeName) {
