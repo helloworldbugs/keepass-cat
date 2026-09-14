@@ -46,7 +46,6 @@ English | [中文](README_CN.md)
   - [🏗️ Tech Stack](#️-tech-stack)
   - [📐 Architecture Overview](#-architecture-overview)
     - [Data Flow](#data-flow)
-  - [🧪 Testing](#-testing)
   - [🙏 Acknowledgements](#-acknowledgements)
 
 ---
@@ -404,12 +403,6 @@ Background: autofill message
                     └── Method 2: global scan (fallback)
                         └── iterate all visible inputs, pair and fill
 ```
-
----
-
-## 🧪 Testing
-
-> ⚠️ The current `tests/` directory is legacy from the AngularJS codebase and has not been migrated to the Vue 3 + Vite stack. `package.json` has no `test` script, so `npm test` is unavailable. Test infrastructure is planned (Vitest).
 
 ---
 
