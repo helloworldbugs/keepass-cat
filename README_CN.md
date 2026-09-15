@@ -2,8 +2,8 @@
 
 [English](README.md) | 中文
 
-[![Chrome 网上应用店](https://img.shields.io/badge/Chrome_Web_Store-blue?style=for-the-badge)](https://chromewebstore.google.com/detail/keepass-cat/mafedpebfdpojojcgdmgkljcboehlegf) [![Firefox 附加组件](https://img.shields.io/badge/Firefox_Add--ons-orange?style=for-the-badge)](https://addons.mozilla.org/firefox/addon/keepass-cat/)
-
+🚀快速开始：[Chrome 网上应用店](https://chromewebstore.google.com/detail/keepass-cat/mafedpebfdpojojcgdmgkljcboehlegf) · [Firefox 附加组件](https://addons.mozilla.org/firefox/addon/keepass-cat/)
+---
 [![Releases](https://img.shields.io/badge/releases-latest-blue)](https://github.com/helloworldbugs/keepass-cat/releases)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![CI](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/helloworldbugs/keepass-cat/actions)
@@ -15,6 +15,7 @@
 ## 📋 目录
 
 - [🐱 Keepass Cat — KeePass Browser Extension](#-keepass-cat--keepass-browser-extension)
+  - [🚀快速开始：Chrome 网上应用店 · Firefox 附加组件](#快速开始chrome-网上应用店--firefox-附加组件)
   - [📋 目录](#-目录)
   - [✨ 功能特性](#-功能特性)
   - [🗄️ 数据库管理](#️-数据库管理)
@@ -39,10 +40,6 @@
     - [遗忘定时器](#遗忘定时器)
     - [安全原则](#安全原则)
     - [密钥文件 (Keyfile)](#密钥文件-keyfile)
-  - [🚀 快速开始](#-快速开始)
-    - [安装](#安装)
-    - [开发](#开发)
-    - [构建产物](#构建产物)
   - [🏗️ 技术栈](#️-技术栈)
   - [📐 架构概览](#-架构概览)
     - [数据流](#数据流)
@@ -279,50 +276,6 @@ PasswordFileStoreRegistry (注册中心)
 - 支持 KeePass 全部四种 Keyfile 格式：XML（推荐）、32 字节、十六进制、哈希
 - 密钥文件可与主密码组合使用，也可单独作为认证方式
 - 密钥文件存储在浏览器本地存储中，网站与其他扩展无法访问
-
----
-
-
-
-## 🚀 快速开始
-
-### 安装
-
-1. 从 [Releases](https://github.com/helloworldbugs/keepass-cat/releases) 下载最新版本
-2. 解压到本地目录
-3. 打开 `chrome://extensions`，开启「开发者模式」
-4. 点击「加载已解压的扩展程序」，选择解压目录
-
-### 开发
-
-```bash
-# 克隆仓库
-git clone https://github.com/helloworldbugs/keepass-cat.git
-cd keepass-cat
-
-# 安装依赖
-npm install --legacy-peer-deps
-
-# 开发模式（热重载）
-npm run dev
-
-# 生产构建
-npm run build
-
-# 仅构建内容脚本
-npm run build:js
-
-# 仅构建后台脚本
-npm run build:background
-```
-
-### 构建产物
-
-| 命令 | 输入 | 输出 |
-|------|------|------|
-| `build:web` | `src/` (Vue 弹窗/选项页) | `extension/dist/` |
-| `build:background` | `background/background.js` | `extension/dist/background/index.mjs` |
-| `build:js` | `background/inject.js` (内容脚本) | `extension/dist/contentScripts/index.global.js` |
 
 ---
 

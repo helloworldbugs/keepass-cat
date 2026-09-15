@@ -2,8 +2,8 @@
 
 English | [中文](README_CN.md)
 
-[![Chrome Web Store](https://img.shields.io/badge/Chrome_Web_Store-blue?style=for-the-badge)](https://chromewebstore.google.com/detail/keepass-cat/mafedpebfdpojojcgdmgkljcboehlegf) [![Firefox Add-ons](https://img.shields.io/badge/Firefox_Add--ons-orange?style=for-the-badge)](https://addons.mozilla.org/firefox/addon/keepass-cat/)
-
+🚀 Quick Start：[Chrome Web Store](https://chromewebstore.google.com/detail/keepass-cat/mafedpebfdpojojcgdmgkljcboehlegf) · [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/keepass-cat/)
+---
 [![Releases](https://img.shields.io/badge/releases-latest-blue)](https://github.com/helloworldbugs/keepass-cat/releases)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![CI](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/helloworldbugs/keepass-cat/actions)
@@ -15,6 +15,7 @@ English | [中文](README_CN.md)
 ## 📋 Table of Contents
 
 - [🐱 Keepass Cat — KeePass Browser Extension](#-keepass-cat--keepass-browser-extension)
+  - [🚀 Quick Start：Chrome Web Store · Firefox Add-ons](#-quick-startchrome-web-store--firefox-add-ons)
   - [📋 Table of Contents](#-table-of-contents)
   - [✨ Features](#-features)
   - [🗄️ Database Management](#️-database-management)
@@ -39,10 +40,6 @@ English | [中文](README_CN.md)
     - [Forget Timer](#forget-timer)
     - [Security Principles](#security-principles)
     - [Keyfiles](#keyfiles)
-  - [🚀 Quick Start](#-quick-start)
-    - [Installation](#installation)
-    - [Development](#development)
-    - [Build Output](#build-output)
   - [🏗️ Tech Stack](#️-tech-stack)
   - [📐 Architecture Overview](#-architecture-overview)
     - [Data Flow](#data-flow)
@@ -280,48 +277,6 @@ Remember period:  [Never]  [30 min]  [2 h]  [4 h]  [8 h]  [24 h]  [This session]
 - Supports all four KeePass keyfile formats: XML (recommended), 32-byte, hex, and hash
 - Keyfiles can be combined with a master password or used alone
 - Keyfiles are stored in browser local storage; websites and other extensions cannot access them
-
----
-
-## 🚀 Quick Start
-
-### Installation
-
-1. Download the latest version from [Releases](https://github.com/helloworldbugs/keepass-cat/releases)
-2. Extract to a local directory
-3. Open `chrome://extensions` and enable "Developer mode"
-4. Click "Load unpacked" and select the extracted directory
-
-### Development
-
-```bash
-# Clone the repository
-git clone https://github.com/helloworldbugs/keepass-cat.git
-cd keepass-cat
-
-# Install dependencies
-npm install --legacy-peer-deps
-
-# Development mode (hot reload)
-npm run dev
-
-# Production build
-npm run build
-
-# Build content script only
-npm run build:js
-
-# Build background script only
-npm run build:background
-```
-
-### Build Output
-
-| Command | Input | Output |
-|---------|-------|--------|
-| `build:web` | `src/` (Vue popup/options) | `extension/dist/` |
-| `build:background` | `background/background.js` | `extension/dist/background/index.mjs` |
-| `build:js` | `background/inject.js` (content script) | `extension/dist/contentScripts/index.global.js` |
 
 ---
 
