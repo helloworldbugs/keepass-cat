@@ -19,10 +19,6 @@ function Settings(secureCache) {
     });
   };
 
-  exports.handleProviderError = function (err, provider) {
-    // Only WebDAV remains; there are no OAuth providers to reauthorize.
-  };
-
   exports.getKeyFiles = function () {
     return chromePromise.storage.local.get(['keyFiles']).then(function (items) {
       return items.keyFiles || [];
@@ -51,10 +47,6 @@ function Settings(secureCache) {
     if (key.length) {
       return chromePromise.storage.local.remove(key);
     }
-  };
-
-  exports.hardReset = function () {
-    chromePromise.storage.clear();
   };
 
   exports.addKeyFile = function (name, key) {
@@ -165,18 +157,6 @@ function Settings(secureCache) {
     });
   };
 
-  exports.getForgetTime = function (key) {
-    var storageKey = 'forgetTimes';
-    return chromePromise.storage.local.get(storageKey).then(function (items) {
-      var forgetTimes = {};
-      if (items[storageKey]) {
-        forgetTimes = items[storageKey];
-      }
-
-      return forgetTimes[key];
-    });
-  };
-
   exports.getAllForgetTimes = function () {
     var storageKey = 'forgetTimes';
     return chromePromise.storage.local.get(storageKey).then(function (items) {
@@ -246,12 +226,6 @@ function Settings(secureCache) {
     });
   };
 
-  exports.getSharedUrlList = function () {
-    return chromePromise.storage.local.get('sharedUrlList').then((links) => {
-      return links || false;
-    });
-  };
-
   let keyGetSetter = function (key, val, defaultval, value_type) {
     let update_obj = {};
     update_obj[key] = toRaw(val);
@@ -295,10 +269,6 @@ function Settings(secureCache) {
 
   exports.getSetCopyTotpOnAutofill = function (enabled) {
     return keyGetSetter('copyTotpOnAutofill', enabled, false, 'boolean');
-  };
-
-  exports.getSetHotkeyNavEnabled = function (enabled) {
-    return keyGetSetter('hotkeyNavEnabled', enabled, false, 'boolean');
   };
 
   exports.getSetNotificationsEnabled = function (enabledTypes) {

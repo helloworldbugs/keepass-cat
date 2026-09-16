@@ -26,17 +26,6 @@ export default {
       );
     },
   },
-  watch: {
-    // When the element becomes active, scroll it into view.
-    'entry.view_is_active': function (val) {
-      if (val)
-        this.$el.scrollIntoView({
-          block: 'end',
-          inline: 'nearest',
-          behavior: 'smooth',
-        });
-    },
-  },
   mounted() {
     if (this.hasTotp) this.setupOtpCountdown();
   },
@@ -91,7 +80,6 @@ export default {
 <template>
     <div
     class="entry-list-item selectable between flair"
-    :class="{ active: entry.view_is_active }"
     @click="autofill"
   >
     <div class="text-info" :class="{ strike: entry.is_expired }">
@@ -194,10 +182,6 @@ export default {
     .url:hover {
       opacity: 0.4;
     }
-  }
-  &.active {
-    background-color: $highlighted;
-    padding-left: 20px;
   }
 }
 

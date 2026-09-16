@@ -108,11 +108,8 @@ const zhCN: Record<string, string> = {
   '1. Cloud Storage Setup': '1. 云存储设置',
   '2. Keyfile Setup (optional)': '2. 密钥文件设置（可选）',
   'Support Keepass Cat': '支持 Keepass Cat',
-  'If you like Keepass Cat, please consider leaving a review on the google web store or firefox addon store. If you find a problem or are dissatisfied, please instead open an issue on the issue tracker so we can make Keepass Cat better.': '如果你喜欢 Keepass Cat，请考虑在 Chrome 网上应用店或 Firefox 附加组件商店留下评价。如果你遇到问题或不满意，请在 issue 追踪器中提交问题，以便我们改进 Keepass Cat。',
 
   // ===== Options: Manage Keyfiles =====
-  'Key files are an optional authentication method. More info on key files is available on the KeePass site': '密钥文件是可选的认证方式。更多信息请参考 KeePass 官方文档',
-  'Keepass Cat can store your key files locally in your browser\'s storage, and apply them when opening your password database. Websites and other browser extensions do not have access to these files. However, they are stored unencrypted in your local browser profile and someone with access to your device could read them.': 'Keepass Cat 可以将你的密钥文件存储在浏览器本地，在打开数据库时使用。网站和其他浏览器扩展无法访问这些文件，但它们以未加密形式存储在你的浏览器本地配置文件中，有设备访问权限的人可以读取。',
   'Add Key File': '添加密钥文件',
 
   // ===== Options: Advanced Settings =====
@@ -123,9 +120,6 @@ const zhCN: Record<string, string> = {
   '3 minutes': '3 分钟',
   '5 minutes': '5 分钟',
   '8 minutes': '8 分钟',
-  'Enable Hotkey Navigation': '启用快捷键导航',
-  'If enabled, you will be able to use [TAB] and [ENTER] to navigate and autofill your passwords when the Keepass Cat UI is open. By default, [CTRL]+[SHIFT]+[SPACE] will open the Keepass Cat popup': '启用后，在 Keepass Cat 弹窗中可使用 [Tab] 和 [Enter] 键导航并自动填充密码。默认快捷键 [Ctrl]+[Shift]+[Space] 可打开 Keepass Cat 弹窗。',
-  'Hotkey Navigation': '快捷键导航',
   'Notification': '通知',
   'Choose which type of notification do you want to receive from Keepass Cat.': '选择你希望从 Keepass Cat 收到的通知类型。',
   'Password expiration': '密码过期通知',
@@ -184,11 +178,13 @@ const zhCN: Record<string, string> = {
   // ===== Autofill Shortcut =====
   'Autofill Shortcut': '自动填充快捷键',
   'Fill TOTP at cursor': '在光标处填充 TOTP',
-  'When enabled, clicking the TOTP button copies the code and also fills it into the focused input field on the current page.': '开启后，点击 TOTP 按钮会复制验证码，并自动填充到当前页面光标所在的输入框。',
   'Copy TOTP on autofill': '填充时自动复制 TOTP',
-  'When enabled, if the entry you autofill has a TOTP, its code is automatically copied to the clipboard.': '开启后，自动填充的条目如果有 TOTP，验证码会自动复制到剪贴板。',
   'Open Chrome shortcut settings': '打开 Chrome 快捷键设置',
   'Customize shortcuts in Firefox: toolbar menu (top-right) → Add-ons and themes → gear icon (top-right) → Manage Extension Shortcuts.': '在 Firefox 中自定义快捷键：右上角工具栏菜单 → 扩展和主题 → 右上角齿轮图标 → 管理扩展快捷键。',
+
+  // ===== TOTP Automation =====
+  'TOTP Automation': 'TOTP 自动化',
+  'Choose how Keepass Cat handles one-time passwords (TOTP). With Fill TOTP at cursor enabled, clicking the TOTP button copies the code and also fills it into the focused input field on the current page. With Copy TOTP on autofill enabled, autofilling an entry that has a TOTP also copies its code to the clipboard.': '选择 Keepass Cat 处理一次性密码（TOTP）的方式。开启「在光标处填充 TOTP」后，点击 TOTP 按钮会复制验证码，并自动填充到当前页面光标所在的输入框；开启「填充时自动复制 TOTP」后，自动填充含 TOTP 的条目时会将验证码同时复制到剪贴板。',
 
   ' or ': ' 或 ',
 

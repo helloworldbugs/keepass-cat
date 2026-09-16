@@ -498,7 +498,6 @@ export default defineComponent({
       v-if="!busy && isUnlocked && !showBrowse"
       :messages="unlockedMessages"
       :unlocked-state="unlockedState"
-      :settings="settings"
     />
 
     <!-- Browse All Entries -->

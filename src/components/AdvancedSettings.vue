@@ -4,12 +4,10 @@ import { isFirefox } from '@/lib/utils'
 
 export default {
   props: {
-    settings: Object,
-    secureCacheMemory: Object
+    settings: Object
   },
   data() {
     return {
-      busy: false,
       expireTime: 2,
       autofillShortcut: false,
       fillTotpEnabled: false,
@@ -63,15 +61,6 @@ export default {
       {
         k: 'forgetTimes',
         f: this.settings.getAllForgetTimes
-      },
-      {
-        k: 'sharedUrlList',
-        f: this.settings.getSharedUrlList,
-        delete: {
-          f: this.settings.destroyLocalStorage,
-          arg: 'sharedUrlList',
-          op: 'Delete'
-        }
       },
       ]
     }
@@ -193,8 +182,8 @@ export default {
     </div>
 
     <div class="box-bar roomy">
-      <h4>{{ $t('Fill TOTP at cursor') }}</h4>
-      <p>{{ $t('When enabled, clicking the TOTP button copies the code and also fills it into the focused input field on the current page.') }}</p>
+      <h4>{{ $t('TOTP Automation') }}</h4>
+      <p>{{ $t('Choose how Keepass Cat handles one-time passwords (TOTP). With Fill TOTP at cursor enabled, clicking the TOTP button copies the code and also fills it into the focused input field on the current page. With Copy TOTP on autofill enabled, autofilling an entry that has a TOTP also copies its code to the clipboard.') }}</p>
     </div>
     <div class="box-bar roomy lighter">
       <div>
@@ -208,15 +197,6 @@ export default {
             {{ $t('Fill TOTP at cursor') }}
           </label>
         </div>
-      </div>
-    </div>
-
-    <div class="box-bar roomy">
-      <h4>{{ $t('Copy TOTP on autofill') }}</h4>
-      <p>{{ $t('When enabled, if the entry you autofill has a TOTP, its code is automatically copied to the clipboard.') }}</p>
-    </div>
-    <div class="box-bar roomy lighter">
-      <div>
         <div class="switch">
           <label>
             <input
@@ -288,8 +268,6 @@ export default {
 </template>
 
 <style lang="scss">
-@import "../styles/settings.scss";
-
 .json {
 	font-size: 12px;
 }

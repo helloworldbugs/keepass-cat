@@ -22,7 +22,6 @@
           v-if="show.advanced.visible"
           id="/advanced"
           :settings="services.settings"
-          :secure-cache-memory="services.secureCacheMemory"
         />
       </div>
     </div>

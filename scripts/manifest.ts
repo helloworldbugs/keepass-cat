@@ -12,10 +12,9 @@ const backgroundScript = './dist/background/index.mjs';
 
 const executeAction = {};
 
-const hostPermissions = ['https://*/*', 'http://*/*', 'file:///*/*'];
+const hostPermissions = ['https://*/*', 'http://*/*'];
 
 const permissions = [
-  'activeTab',
   'tabs',
   'webNavigation',
   'scripting',
