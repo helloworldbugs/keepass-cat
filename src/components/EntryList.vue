@@ -66,10 +66,22 @@ export default {
     },
   },
   mounted() {
-    // Autofocus searchbox
-    this.$nextTick(function () {
-      if (this.$refs.searchbox) this.$refs.searchbox.focus();
-    });
+    // Autofocus searchbox.
+    // Firefox renders the browser_action popup in a panel that grabs keyboard
+    // focus asynchronously (Bug 1324255): until then document.hasFocus() is
+    // false and element.focus() only sets activeElement (the caret blinks)
+    // without receiving key events. So on Firefox we wait for the popup
+    // window's focus event instead of racing it in $nextTick.
+    this.focusSearchbox = () => {
+      this.$nextTick(() => {
+        if (this.$refs.searchbox) this.$refs.searchbox.focus();
+      });
+    };
+    if (document.hasFocus()) {
+      this.focusSearchbox();
+    } else {
+      window.addEventListener('focus', this.focusSearchbox, { once: true });
+    }
     this.createEntryFilters(this.allEntries);
     // Restore the search term if needed
     let st = this.unlockedState.cache.searchFilter;
@@ -88,6 +100,7 @@ export default {
   },
   beforeUnmount() {
     window.removeEventListener('keydown', this.keyHandler);
+    if (this.focusSearchbox) window.removeEventListener('focus', this.focusSearchbox);
   },
   methods: {
     collectFilters(data, collector) {

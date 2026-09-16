@@ -143,10 +143,20 @@ export default defineComponent({
       };
 
       let focus = () => {
-        this.$nextTick(() => {
-          let mp = this.$refs.masterPassword;
-          if (mp) mp.focus();
-        });
+        let doFocus = () => {
+          this.$nextTick(() => {
+            let mp = this.$refs.masterPassword;
+            if (mp) mp.focus();
+          });
+        };
+        // Firefox's popup panel grabs keyboard focus asynchronously (Bug 1324255);
+        // until then element.focus() only sets activeElement without receiving
+        // key events, so wait for the window focus event on Firefox.
+        if (document.hasFocus()) {
+          doFocus();
+        } else {
+          window.addEventListener('focus', doFocus, { once: true });
+        }
       };
 
       this.busy = true;
