@@ -90,7 +90,7 @@ export default {
       </span>
       <span v-if="entry.groupName" class="group-label">{{ entry.groupName }}</span>
     </div>
-    <div class="buttons">
+    <div class="buttons" :class="{ 'no-otp': !hasTotp }">
       <span v-if="hasTotp" class="otp-countdown">{{ otpTimeleft }}s</span>
       <span v-if="hasTotp" class="fa-stack copy-otp" @click="copyOtp" :title="$t('Copy TOTP code')">
         <i class="fa fa-circle fa-stack-2x" />
@@ -143,7 +143,13 @@ export default {
     display: flex;
     justify-content: space-between;
     box-sizing: border-box;
-    min-width: 80px;
+    min-width: calc(60em / 7 + 22px);
+    &.no-otp {
+      min-width: calc(48em / 7);
+    }
+    > .fa-stack {
+      min-width: calc(12em / 7);
+    }
   }
   .copy,
   .copy-user,
