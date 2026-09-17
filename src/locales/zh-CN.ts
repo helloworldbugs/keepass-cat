@@ -184,7 +184,9 @@ const zhCN: Record<string, string> = {
 
   // ===== TOTP Automation =====
   'TOTP Automation': 'TOTP 自动化',
-  'Choose how Keepass Cat handles one-time passwords (TOTP). With Fill TOTP at cursor enabled, clicking the TOTP button copies the code and also fills it into the focused input field on the current page. With Copy TOTP on autofill enabled, autofilling an entry that has a TOTP also copies its code to the clipboard.': '选择 Keepass Cat 处理一次性密码（TOTP）的方式。开启「在光标处填充 TOTP」后，点击 TOTP 按钮会复制验证码，并自动填充到当前页面光标所在的输入框；开启「填充时自动复制 TOTP」后，自动填充含 TOTP 的条目时会将验证码同时复制到剪贴板。',
+  'Choose how Keepass Cat automates one-time passwords (TOTP).': '设置 Keepass Cat 自动处理一次性密码（TOTP）的方式。',
+  'Copies the code and also fills it into the focused input field on the current page when you click the TOTP button.': '点击 TOTP 按钮时，会复制验证码并自动填充到当前页面光标所在的输入框。',
+  'Copies the code to the clipboard whenever you autofill an entry that has a TOTP.': '触发自动填充含 TOTP 的密码条目时，会自动将 TOTP 验证码复制到剪贴板。',
 
   ' or ': ' 或 ',
 

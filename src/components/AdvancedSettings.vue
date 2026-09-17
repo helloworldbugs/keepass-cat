@@ -183,10 +183,13 @@ export default {
 
     <div class="box-bar roomy">
       <h4>{{ $t('TOTP Automation') }}</h4>
-      <p>{{ $t('Choose how Keepass Cat handles one-time passwords (TOTP). With Fill TOTP at cursor enabled, clicking the TOTP button copies the code and also fills it into the focused input field on the current page. With Copy TOTP on autofill enabled, autofilling an entry that has a TOTP also copies its code to the clipboard.') }}</p>
+      <p>{{ $t('Choose how Keepass Cat automates one-time passwords (TOTP).') }}</p>
     </div>
     <div class="box-bar roomy lighter">
       <div>
+        <p class="totp-note">
+          {{ $t('Copies the code and also fills it into the focused input field on the current page when you click the TOTP button.') }}
+        </p>
         <div class="switch">
           <label>
             <input
@@ -197,6 +200,9 @@ export default {
             {{ $t('Fill TOTP at cursor') }}
           </label>
         </div>
+        <p class="totp-note">
+          {{ $t('Copies the code to the clipboard whenever you autofill an entry that has a TOTP.') }}
+        </p>
         <div class="switch">
           <label>
             <input
@@ -274,5 +280,17 @@ export default {
 
 h4 {
 	font-size: 24px;
+}
+
+.totp-note {
+	margin: 0 0 4px;
+	padding-left: 16px;
+	font-size: 12px;
+	line-height: 1.5;
+	color: var(--keepass-cat-text-muted);
+}
+
+.switch + .totp-note {
+	margin-top: 16px;
 }
 </style>

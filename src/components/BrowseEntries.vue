@@ -212,6 +212,7 @@ export default {
               @keyup.escape="cancelRename"
             />
             <i class="fa fa-check confirm-icon" @click.stop="confirmRename(group)" :title="$t('Confirm')" />
+            <i class="fa fa-times cancel-icon" @click.stop="cancelRename" :title="$t('Cancel')" />
           </span>
           <span class="action-icons" @click.stop>
             <i class="fa fa-pencil group-edit-icon" @click="startRename(group)" :title="$t('Rename group')" />
@@ -260,7 +261,8 @@ export default {
             @keyup.enter="confirmNewGroup"
             @keyup.escape="cancelNewGroup"
           />
-          <i class="fa fa-check confirm-icon" @click="confirmNewGroup" title="Confirm" />
+          <i class="fa fa-check confirm-icon" @click="confirmNewGroup" :title="$t('Confirm')" />
+          <i class="fa fa-times cancel-icon" @click="cancelNewGroup" :title="$t('Cancel')" />
         </div>
         <div v-else class="new-group-btn selectable" @click="startNewGroup">
           <i class="fa fa-plus" /> {{ $t('New Group') }}
@@ -354,6 +356,14 @@ export default {
 .confirm-icon {
   font-size: 13px;
   color: $green;
+  cursor: pointer;
+  flex-shrink: 0;
+  &:hover { opacity: 0.7; }
+}
+
+.cancel-icon {
+  font-size: 13px;
+  color: var(--keepass-cat-icon-muted);
   cursor: pointer;
   flex-shrink: 0;
   &:hover { opacity: 0.7; }
