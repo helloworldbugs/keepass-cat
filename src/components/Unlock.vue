@@ -86,7 +86,7 @@ export default defineComponent({
     },
     selectedKeyFileName: function () {
       if (this.selectedKeyFile !== undefined) return this.selectedKeyFile.name;
-      return this.$t('No keyfile selected.  (click to change)');
+      return this.$t('No keyfile selected. (click to change)');
     },
   },
   watch: {
@@ -516,8 +516,10 @@ export default defineComponent({
       </div>
 
       <form @submit="clickUnlock">
-        <div class="small selectable databaseChoose" @click="$router.route('/choose')">
-          <b>{{ databaseFileName }}</b> <span class="muted-color">{{ $t('change...') }}</span>
+        <div class="selectable databaseChoose" @click="$router.route('/choose')">
+          <i class="fa fa-database database-icon" aria-hidden="true" />
+          <b class="database-name">{{ databaseFileName }}</b>
+          <span class="change-badge">{{ $t('change...') }}</span>
         </div>
 
         <div class="stack-item masterPasswordInput">
@@ -526,7 +528,7 @@ export default defineComponent({
             ref="masterPassword"
             v-model="masterPassword"
             :type="isMasterPasswordInputVisible ? 'text' : 'password'"
-            placeholder="🔒 master password"
+            :placeholder="$t('🔒 master password')"
             autocomplete="off"
           />
           <i
@@ -757,6 +759,50 @@ export default defineComponent({
 }
 
 .databaseChoose {
-  padding-left: 5px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px $wall-padding;
+  background: $light-background-color;
+  border-top: 1px solid $light-gray;
+  color: $text-color;
+
+  .database-icon {
+    flex-shrink: 0;
+    font-size: 16px;
+    color: $blue;
+  }
+
+  .database-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 16px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .change-badge {
+    flex-shrink: 0;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: $blue;
+    border: 1px solid $blue;
+    border-radius: 3px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  &:hover {
+    background: var(--keepass-cat-bg-hover);
+
+    .change-badge {
+      color: var(--keepass-cat-svg-fill);
+      background: $blue;
+    }
+  }
 }
 </style>

@@ -3,7 +3,7 @@ const zhCN: Record<string, string> = {
   'Keepass Cat': 'Keepass Cat',
   'change...': '更换...',
   '🔒 master password': '🔒 主密码',
-  'No keyfile selected.  (click to change)': '未选择密钥文件（点击更换）',
+  'No keyfile selected. (click to change)': '未选择密钥文件（点击更换）',
   'Manage Keyfiles': '管理密钥文件',
   'Do not remember': '不记住',
   'Remember for 30 min.': '记住 30 分钟',
