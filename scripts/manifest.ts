@@ -24,10 +24,12 @@ const permissions = [
   'notifications',
 ];
 
-const baseManifest: Manifest.WebExtensionManifest = {
+// `manifest_version` is injected by chromeManifestV3()/firefoxManifestV2()
+// below, so this shared base deliberately omits it.
+const baseManifest: Omit<Manifest.WebExtensionManifest, 'manifest_version'> = {
   name: 'Keepass Cat',
   short_name: 'Keepass Cat',
-  version: '1.0.1',
+  version: '1.0.2',
   description: 'Open-source KeePass extension: connect your WebDAV database for one-click autofill, TOTP 2FA, and editing — self-hosted and secure.',
   default_locale: 'en',
   icons: {
