@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run the release pipeline (notes + zips + checks) without publishing'
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -79,3 +84,104 @@ jobs:
           name: keepass-cat-firefox
           path: extension
           retention-days: 30
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Publish, driven purely by the version in package.json.
+  #
+  # Pushing to main only runs this job when "v<package.json version>" does not
+  # exist yet, so bumping the version is what publishes a release and any later
+  # push for the same version is a no-op. The tag is created here, which is why
+  # tags are never pushed by hand.
+  #
+  # Manually dispatching the workflow with dry_run=true runs the whole pipeline
+  # (notes, zips, checks) without creating the release.
+  # ─────────────────────────────────────────────────────────────────────────
+  release:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code (full history, for the changelog and tags)
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: Work out what to do for this version
+        id: ver
+        run: |
+          version=$(node -p "require('./package.json').version")
+          tag="v$version"
+          dry="${{ inputs.dry_run }}"
+
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            tag_exists=true
+          else
+            tag_exists=false
+          fi
+
+          if [ "$dry" = "true" ]; then
+            run=true; publish=false
+          elif [ "$tag_exists" = "false" ]; then
+            run=true; publish=true
+          else
+            run=false; publish=false
+          fi
+
+          echo "tag=$tag"         >> "$GITHUB_OUTPUT"
+          echo "run=$run"         >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Release $tag::run=$run publish=$publish (tag already exists: $tag_exists)"
+
+      - name: Generate release notes from the commit log
+        if: steps.ver.outputs.run == 'true'
+        run: node scripts/release-notes.mjs
+
+      - name: Download the extension artifacts
+        if: steps.ver.outputs.run == 'true'
+        uses: actions/download-artifact@v7
+        with:
+          path: artifacts
+
+      - name: Package the extension zips
+        if: steps.ver.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+          (cd artifacts/keepass-cat-chrome && zip -qr "$GITHUB_WORKSPACE/keepass-cat-chrome.zip" .)
+          (cd artifacts/keepass-cat-firefox && zip -qr "$GITHUB_WORKSPACE/keepass-cat-firefox.zip" .)
+
+          # A store upload was once rejected with "Invalid file name in archive"
+          # because the zip used backslash separators. Guard against that here.
+          python3 - <<'PY'
+          import zipfile
+
+          for name in ("keepass-cat-chrome.zip", "keepass-cat-firefox.zip"):
+              with zipfile.ZipFile(name) as zf:
+                  entries = zf.namelist()
+              backslashes = [e for e in entries if "\\" in e]
+              at_root = "manifest.json" in entries
+              print(f"{name}: entries={len(entries)} backslashes={len(backslashes)} manifest_at_root={at_root}")
+              assert not backslashes, f"{name} has backslash entry names: {backslashes[:3]}"
+              assert at_root, f"{name} has no manifest.json at its root"
+          PY
+
+          echo "── release body ──"
+          cat RELEASE_BODY.md
+
+      - name: Create the GitHub release
+        if: steps.ver.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.ver.outputs.tag }}" \
+            --title "${{ steps.ver.outputs.tag }}" \
+            --notes-file RELEASE_BODY.md \
+            --target "$GITHUB_SHA" \
+            keepass-cat-chrome.zip keepass-cat-firefox.zip
