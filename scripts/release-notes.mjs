@@ -58,7 +58,7 @@ const GROUPS = [
   ['perf', 'Performance'],
   ['refactor', 'Refactoring'],
   ['docs', 'Documentation'],
-  ['chore', 'Chores'],
+  ['chore|ci|build|test|style', 'Chores and CI'],
 ];
 
 const claimed = new Set();
@@ -72,8 +72,8 @@ if (breaking.length) {
   );
 }
 
-for (const [prefix, title] of GROUPS) {
-  const re = new RegExp(`^${prefix}(\\(.+?\\))?!?: `);
+for (const [prefixes, title] of GROUPS) {
+  const re = new RegExp(`^(?:${prefixes})(?:\\(.+?\\))?!?: `);
   const items = subjects.filter((s) => re.test(s) && !claimed.has(s));
   if (!items.length) continue;
   items.forEach((s) => claimed.add(s));
