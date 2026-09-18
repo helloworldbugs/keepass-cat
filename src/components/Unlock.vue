@@ -42,7 +42,6 @@ export default defineComponent({
       keyFilePicker: false,
       showBrowse: false,
       appVersion: chrome.runtime.getManifest().version,
-      silentAutofill: false,
       slider_options: [
         {
           time: 0,
@@ -303,9 +302,6 @@ export default defineComponent({
       } else {
         setBadgeText({ text: '' });
       }
-
-      // Check for pending shortcut autofill
-      this.checkPendingAutofill(allEntries);
     },
     silentRefresh(cachedEntries) {
       // Auto-sync: after showing cached entries, quietly re-fetch from the backend
@@ -322,7 +318,7 @@ export default defineComponent({
             self.keepassService.rankEntries(fresh, siteUrl);
             if (!self.entriesEqual(fresh, cachedEntries)) {
               // Update cache in place WITHOUT re-running showResults, which would
-              // call checkPendingAutofill and steal a pending fill from a fresh shortcut popup.
+              // steal a pending fill from a fresh shortcut popup.
               self.unlockedState.cacheSet('allEntries', fresh);
               var priority = fresh.filter(function (e) { return e.matchRank === 100; });
               if (!priority.length) priority = fresh.filter(function (e) { return e.matchRank === 75; });
@@ -365,53 +361,6 @@ export default defineComponent({
           });
       };
       return JSON.stringify(canon(a)) === JSON.stringify(canon(b));
-    },
-    checkPendingAutofill(allEntries) {
-      var self = this;
-      console.log('[checkPendingAutofill] called, entries=', allEntries ? allEntries.length : 0);
-      var processPa = function (pa) {
-        console.log('[checkPendingAutofill] pa=', pa ? ('title=' + pa.title) : 'null');
-        if (!pa) return;
-        var entry = allEntries.find(e =>
-          e.title === pa.title && e.url === pa.url && e.userName === pa.userName
-        );
-        if (!entry) { entry = allEntries.find(e => e.title === pa.title); }
-        if (entry) {
-          // Clear the pending fill now that we've matched and are about to fill.
-          chrome.runtime.sendMessage({ m: 'clearPendingFill' });
-          self.silentAutofill = true;
-          self.$nextTick(() => {
-            self.unlockedState.autofill(entry);
-          });
-        }
-      };
-
-      // Primary: pull the pending fill via a message (avoids the storage.local
-      // propagation race between the service worker and the popup).
-      chrome.runtime.sendMessage({ m: 'getPendingFill' }, (response) => {
-        console.log('[checkPendingAutofill] msg response=', response && response.pendingAutofill ? 'set' : 'null',
-          'lastError=', chrome.runtime.lastError ? chrome.runtime.lastError.message : 'none');
-        if (chrome.runtime.lastError) { response = null; }
-        if (response && response.pendingAutofill) {
-          processPa(response.pendingAutofill);
-          return;
-        }
-        // Fallback: storage.session (poll a few times)
-        var attempts = 0;
-        var tryRead = function () {
-          chrome.storage.session.get('pendingAutofill', (items) => {
-            var pa = items.pendingAutofill;
-            if (!pa) {
-              attempts++;
-              if (attempts < 4) setTimeout(tryRead, 200);
-              return;
-            }
-            chrome.storage.session.remove('pendingAutofill');
-            processPa(pa);
-          });
-        };
-        tryRead();
-      });
     },
     clickUnlock(event) {
       event.preventDefault();
@@ -487,7 +436,7 @@ export default defineComponent({
 </script>
 
 <template>
-  <div v-if="!silentAutofill">
+  <div>
     <!-- Busy Spinner -->
     <div v-if="busy" class="spinner">
       <spinner size="medium" :message="$t('Unlocking ') + databaseFileName" />

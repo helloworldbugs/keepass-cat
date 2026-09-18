@@ -16,8 +16,6 @@ import { matchLevel } from '@/lib/utils.js';
 
 function Background(protectedMemory, localMemory, settings, notifications) {
   console.log('Background worker registered.');
-  var pendingFill = null;
-  var shortcutPending = false;
   chrome.runtime.onInstalled.addListener(settings.upgrade);
   chrome.runtime.onStartup.addListener(forgetStuff);
 
@@ -55,41 +53,39 @@ function Background(protectedMemory, localMemory, settings, notifications) {
     });
   });
 
+  // Inject the content script into all frames of the tab and ask each frame to
+  // fill the given credentials. Shared by the popup autofill message and the
+  // background-only shortcut path.
+  function performAutofill(tabId, userName, password) {
+    var fillAllFrames = function() {
+      chrome.webNavigation.getAllFrames({tabId: tabId}, function(frames) {
+        if (!frames) return;
+        frames.forEach(function(f) {
+          var url = new URL(f.url);
+          var frameOrigin = url.protocol + '//' + url.hostname + '/';
+          chrome.tabs.sendMessage(tabId, {
+            m: 'fillPassword',
+            u: userName,
+            p: password,
+            o: frameOrigin,
+          }, {frameId: f.frameId});
+        });
+      });
+    };
+    chrome.scripting.executeScript(
+      {
+        target: { tabId: tabId, allFrames: true },
+        files: ['/dist/contentScripts/index.global.js'],
+      },
+      function () {
+        console.log('Autofill script injected.');
+        fillAllFrames();
+      }
+    );
+  }
+
   function handleMessage(message, sender, sendResponse) {
     if (!message || !message.m) return; //message format unrecognized
-
-    if (message.m == 'getPendingFill') {
-      console.log('[getPendingFill] pendingFill=', pendingFill ? 'set' : 'null');
-      // Do NOT clear pendingFill here — multiple popups (stale + fresh) may read it.
-      if (pendingFill) {
-        sendResponse({ pendingAutofill: pendingFill });
-        return;
-      }
-      if (shortcutPending) {
-        // The shortcut handler is still computing the best match; wait briefly.
-        var attempts = 0;
-        var waitTimer = setInterval(function () {
-          attempts++;
-          if (pendingFill) {
-            clearInterval(waitTimer);
-            sendResponse({ pendingAutofill: pendingFill });
-          } else if (attempts >= 20) {
-            clearInterval(waitTimer);
-            sendResponse({ pendingAutofill: null });
-          }
-        }, 50);
-        return true; // keep the message channel open for the async response
-      }
-      sendResponse({ pendingAutofill: null });
-      return;
-    }
-
-    if (message.m == 'clearPendingFill') {
-      pendingFill = null;
-      shortcutPending = false;
-      chrome.storage.session.remove('pendingAutofill');
-      return;
-    }
 
     if (message.m == 'showMessage') {
       const expire = typeof message.expire !== 'undefined' ? message.expire * 1000 : 60000;
@@ -125,31 +121,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
   }
 
   if (message.m == 'autofill') {
-      var fillAllFrames = function() {
-        chrome.webNavigation.getAllFrames({tabId: message.tabId}, function(frames) {
-          if (!frames) return;
-          frames.forEach(function(f) {
-            var url = new URL(f.url);
-            var frameOrigin = url.protocol + '//' + url.hostname + '/';
-            chrome.tabs.sendMessage(message.tabId, {
-              m: 'fillPassword',
-              u: message.u,
-              p: message.p,
-              o: frameOrigin,
-            }, {frameId: f.frameId});
-          });
-        });
-      };
-      chrome.scripting.executeScript(
-        {
-          target: { tabId: message.tabId, allFrames: true },
-          files: ['/dist/contentScripts/index.global.js'],
-        },
-        function () {
-          console.log('Autofill script injected.');
-          fillAllFrames();
-        }
-      );
+      performAutofill(message.tabId, message.u, message.p);
     }
 
     if (message.m == 'fillTotp') {
@@ -201,20 +173,39 @@ function Background(protectedMemory, localMemory, settings, notifications) {
   //listen for "autofill" message:
   chrome.runtime.onMessage.addListener(handleMessage);
 
+  // Decrypt a cached protected field (XOR of value and salt) without kdbxweb.
+  // protectedData[field] may be absent when the field is not protected, in which
+  // case we fall back to the plain-text field on the entry (mirrors
+  // keepassReference.keewebGetDecryptedFieldValue).
+  function decryptProtectedField(entry, field) {
+    var pd = entry && entry.protectedData && entry.protectedData[field];
+    if (!pd || !pd.value || !pd.salt) {
+      return (entry && entry[field]) || '';
+    }
+    var value = new Uint8Array(pd.value);
+    var salt = new Uint8Array(pd.salt);
+    var out = new Uint8Array(value.length);
+    for (var i = 0; i < value.length; i++) out[i] = value[i] ^ salt[i];
+    try { return new TextDecoder().decode(out); } catch (e) { return ''; }
+  }
+
+  // Best-effort fallback: open the popup. openPopup() must be called within a
+  // user gesture; after our async reads the gesture may already have expired
+  // (Chrome usually still allows it, Firefox may not), so this is wrapped and
+  // must never throw.
+  function fallbackToPopup() {
+    try { openPopup(); } catch (e) { console.warn('[shortcut] openPopup failed:', e); }
+  }
+
   // Shortcut autofill (Firefox has no default key; user assigns one manually)
   chrome.commands.onCommand.addListener(function(cmd, tab) {
     if (cmd !== 'autofill_best_match') return;
     console.log('[shortcut] triggered:', cmd, 'tab:', tab?.url);
-    // Open the popup immediately within the user-gesture context.
-    // Firefox requires openPopup() to be called synchronously in the command
-    // handler; otherwise the gesture expires and the popup never opens.
-    shortcutPending = true;
-    openPopup();
     chrome.storage.local.get('autofillShortcut', function(items) {
-      if (!items.autofillShortcut) { console.log('[shortcut] disabled'); shortcutPending = false; return; }
+      if (!items.autofillShortcut) { console.log('[shortcut] disabled'); return; }
       protectedMemory.getData('secureCache.entries').then(function(entries) {
         if (typeof entries === 'string') entries = protectedMemory.deserialize(entries);
-        if (!entries || !Array.isArray(entries) || !entries.length) { shortcutPending = false; return; }
+        if (!entries || !Array.isArray(entries) || !entries.length) { fallbackToPopup(); return; }
         var url = (tab && tab.url) || '';
         var bestMatch = null, bestRank = 0, bestCount = 0;
         for (var i = 0; i < entries.length; i++) {
@@ -225,14 +216,16 @@ function Background(protectedMemory, localMemory, settings, notifications) {
           else if (rank === bestRank && rank > 0) { bestCount++; }
         }
         // autofill_best_match: require exactly 1 match
-        if (!bestMatch || bestCount > 1) { shortcutPending = false; return; }
-        pendingFill = {
-          title: bestMatch.title,
-          userName: bestMatch.userName,
-          url: bestMatch.url
-        };
-        console.log('[shortcut] pendingFill set: title:', pendingFill.title);
-        chrome.storage.session.set({ pendingAutofill: pendingFill });
+        if (!bestMatch || bestCount > 1) { fallbackToPopup(); return; }
+        // Unique match: fill entirely in the background, without opening a popup.
+        var password = decryptProtectedField(bestMatch, 'password');
+        var userName = decryptProtectedField(bestMatch, 'userName');
+        if (!password) { console.warn('[shortcut] no password to fill; falling back to popup'); fallbackToPopup(); return; }
+        console.log('[shortcut] unique match, autofilling in background:', bestMatch.title);
+        performAutofill(tab.id, userName, password);
+      }).catch(function (err) {
+        console.warn('[shortcut] lookup failed; falling back to popup:', err);
+        fallbackToPopup();
       });
     });
   });
