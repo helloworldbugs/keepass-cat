@@ -1,7 +1,7 @@
 {
   "name": "keepass-cat",
   "description": "Keepass Cat - KeePass password manager and autofill",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "type": "module",
   "author": "helloworldbugs",
   "license": "MIT",
