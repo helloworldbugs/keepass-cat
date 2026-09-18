@@ -2,6 +2,7 @@
 
 import { ChromePromiseApi } from '@/lib/chrome-api-promise.js';
 import { parseUrl } from '@/lib/utils.js';
+import { buildEntryFilters } from '@/lib/entryFilters.js';
 import { Otp } from '@/lib/otp.js';
 import { ref } from 'vue';
 import { i18n } from '@/services/i18n';
@@ -41,7 +42,9 @@ function UnlockedState(keepassReference, settings, notifications) {
             // 	resolve();
             // 	return;
             // }
-            var url = tabs[0].url.split('?');
+            // my.url keeps no query string and no fragment (used as the fallback
+            // for pre-filling a new entry); my.fullUrl keeps both for matching.
+            var url = tabs[0].url.split(/[?#]/);
             my.url = url[0];
             my.fullUrl = tabs[0].url; // keep query params for matching
             my.title = tabs[0].title;
@@ -89,7 +92,10 @@ function UnlockedState(keepassReference, settings, notifications) {
     console.log('locked', my.unlocked.value);
   };
 
-  my.cacheSet = function (key, val) {
+  my.cacheSet = function (key, value) {
+    // Derived UI index: whenever allEntries enters the cache it must already carry
+    // filterKey, because the browse page has no mount hook of its own to rebuild it.
+    if (key === 'allEntries') buildEntryFilters(value);
     // Refresh cache
     clearTimeout(cacheTimeoutId);
     cacheTimeoutId = setTimeout(function () {
@@ -97,7 +103,7 @@ function UnlockedState(keepassReference, settings, notifications) {
       window.close();
     }, 120000);
     console.log('Setting cache for ' + key);
-    my.cache[key] = val;
+    my.cache[key] = value;
     my.unlocked.value = true;
   };
 

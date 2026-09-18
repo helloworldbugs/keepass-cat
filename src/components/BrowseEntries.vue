@@ -91,7 +91,9 @@ export default {
     newEntry() {
       var title = this.unlockedState.title || '';
       var url = this.unlockedState.fullUrl || this.unlockedState.url || '';
-      url = url.split('?')[0];
+      // Drop both the query string and the URL fragment: neither belongs in a
+      // saved entry URL (`#...` alone would otherwise slip through).
+      url = url.split(/[?#]/)[0];
       var params = 'title=' + encodeURIComponent(title) + '&url=' + encodeURIComponent(url);
       this.$router.route('/entry-edit/new?' + params);
     },

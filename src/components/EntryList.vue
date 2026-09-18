@@ -23,7 +23,7 @@ export default {
       this.unlockedState.cacheSet('searchFilter', val); // Causes cache refresh
       if (val.length) {
         this.filteredEntries = this.allEntries.filter((entry) => {
-          let result = entry.filterKey.indexOf(val.toLocaleLowerCase());
+          let result = (entry.filterKey || '').indexOf(val.toLocaleLowerCase());
           return result > -1;
         });
       }
@@ -46,7 +46,9 @@ export default {
     } else {
       window.addEventListener('focus', this.focusSearchbox, { once: true });
     }
-    this.createEntryFilters(this.allEntries);
+    // The search index (entry.filterKey) is built centrally by
+    // unlockedState.cacheSet when allEntries enters the cache, so there is no
+    // mount hook here to rebuild it.
     // Restore the search term if needed
     let st = this.unlockedState.cache.searchFilter;
     if (st !== undefined) this.searchTerm = st;
@@ -57,25 +59,12 @@ export default {
     if (this.focusSearchbox) window.removeEventListener('focus', this.focusSearchbox);
   },
   methods: {
-    collectFilters(data, collector) {
-      if (data === null || data === undefined) return data;
-      if (data.constructor == ArrayBuffer || data.constructor == Uint8Array) return null;
-      else if (typeof data === 'string') collector.push(data.toLocaleLowerCase());
-      else if (data.constructor == Array)
-        for (var i = 0; i < data.length; i++) this.collectFilters(data[i], collector);
-      else for (var prop in data) this.collectFilters(data[prop], collector);
-    },
-    createEntryFilters(entries) {
-      entries.forEach((entry) => {
-        var filters = new Array();
-        this.collectFilters(entry, filters);
-        entry.filterKey = filters.join(' ');
-      });
-    },
     newEntry() {
       var title = this.unlockedState.title || '';
       var url = this.unlockedState.fullUrl || this.unlockedState.url || '';
-      url = url.split('?')[0];
+      // Drop both the query string and the URL fragment: neither belongs in a
+      // saved entry URL (`#...` alone would otherwise slip through).
+      url = url.split(/[?#]/)[0];
       var params = 'title=' + encodeURIComponent(title) + '&url=' + encodeURIComponent(url);
       this.$router.route('/entry-edit/new?' + params);
     },
