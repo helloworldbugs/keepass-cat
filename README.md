@@ -119,26 +119,26 @@ English | [中文](README_CN.md)
 
 ## 🧠 4-Level URL Matching
 
-An original **4-level URL matching algorithm** that drives both **badge count** and **autofill priority ranking**, ensuring the most relevant entry always ranks first.
+An original **4-level URL matching algorithm** that drives both **badge count** and **autofill priority ranking**, ensuring the most relevant entry always ranks first. Levels are checked in order 4 → 3 → 2 → 1; the first hit wins, and the regex fallback is only tried last.
 
 ### Matching Levels
 
 | Level | Condition | Example | Score |
 |:---:|---|---|:---:|
-| **4** | Entry URL fully contained in page URL | Entry `a.com/admin` → page `a.com/admin/login` | **100** |
-| **3** | Protocol + host + port exactly match | Entry `https://a.com` → page `https://a.com/any` | **75** |
-| **2** | Same domain (last two segments) | Entry `a.example.com` → page `b.example.com` | **50** |
-| **1** | Regular expression match | Entry `regex:login\..*\.com` → page `login.test.com` | **25** |
-| **0** | No match | Any unrelated URL | **0** |
+| **4** | Same origin (protocol + host + port) **and** the page's `path + query` starts with the entry's `path + query` (left-to-right, with a boundary check) | `https://a.com/admin` → `https://a.com/admin/login`<br>`https://a.com` → `https://a.com/any` (entry has no path, equivalent to `/`) | **100** |
+| **3** | Same origin (protocol + host + port), any path | `https://a.com/admin` → `https://a.com/login` (same origin but the prefix does not hold)<br>`https://a.com/admin` → `https://a.com/administrator` (boundary check) | **75** |
+| **2** | Same domain (last two segments) **and** same port (**protocol ignored**) | `http://a.com:8080` → `https://a.com:8080/x` (same domain + port, different protocol still matches) | **50** |
+| **1** | Regular expression fallback (`regex:` prefix) | `regex:login` → `https://evil.com/login` | **25** |
+| **0** | No match | `https://evil.com/?u=https://a.com/x` (a domain appearing mid-URL does **not** match) | **0** |
 
 ### Matching Flow
 
 ```
-Page URL  ──→  Level 4: contains match?  ──→  ✅ show first
+Page URL  ──→  Level 4: same-origin + path prefix?  ──→  ✅ show first
     │              │
     │              └──→  Level 3: same-origin?  ──→  ✅ second priority
     │                       │
-    │                       └──→  Level 2: same domain?  ──→  ✅ third priority
+    │                       └──→  Level 2: same domain + port?  ──→  ✅ third priority
     │                                │
     │                                └──→  Level 1: regex?  ──→  ✅ fallback
     │                                         │
@@ -156,7 +156,7 @@ Page URL  ──→  Level 4: contains match?  ──→  ✅ show first
 
 ### Regular Expression Matching
 
-Prefix the entry URL with `regex:` to use a regular expression:
+This is **Level 1**, the fallback that only applies when none of the URL-based levels (4–2) match. Prefix the entry URL with `regex:` to use a regular expression:
 
 ```
 regex:login\..*\.com    →  matches all login.*.com subdomains

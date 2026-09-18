@@ -211,7 +211,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
         for (var i = 0; i < entries.length; i++) {
           var e = entries[i];
           if (!e.url) continue;
-          var rank = matchLevel(url, e) * 25; // level 4/3/2/1 -> 100/75/50/25
+          var rank = matchLevel(url, e) * 25; // level 4..1 -> 100/75/50/25
           if (rank > bestRank) { bestRank = rank; bestMatch = e; bestCount = 1; }
           else if (rank === bestRank && rank > 0) { bestCount++; }
         }
