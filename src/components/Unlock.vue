@@ -141,6 +141,11 @@ export default defineComponent({
           });
       };
 
+      // Firefox's popup panel takes keyboard focus asynchronously (Bug 1324255):
+      // until the document actually has focus, element.focus() only sets
+      // activeElement and typed keys go nowhere. Poll until the document is
+      // focused instead of betting on a single focus event that may have fired
+      // before this component mounted, or may never fire at all.
       let focus = () => {
         let doFocus = () => {
           this.$nextTick(() => {
@@ -148,14 +153,16 @@ export default defineComponent({
             if (mp) mp.focus();
           });
         };
-        // Firefox's popup panel grabs keyboard focus asynchronously (Bug 1324255);
-        // until then element.focus() only sets activeElement without receiving
-        // key events, so wait for the window focus event on Firefox.
-        if (document.hasFocus()) {
-          doFocus();
-        } else {
-          window.addEventListener('focus', doFocus, { once: true });
-        }
+        let attempt = 0;
+        const focusWhenReady = () => {
+          if (document.hasFocus() || attempt >= 20) {
+            doFocus();
+            return;
+          }
+          attempt += 1;
+          setTimeout(focusWhenReady, 50);
+        };
+        focusWhenReady();
       };
 
       this.busy = true;

@@ -31,20 +31,27 @@ export default {
   },
   mounted() {
     // Autofocus searchbox.
-    // Firefox renders the browser_action popup in a panel that grabs keyboard
-    // focus asynchronously (Bug 1324255): until then document.hasFocus() is
-    // false and element.focus() only sets activeElement (the caret blinks)
-    // without receiving key events. So on Firefox we wait for the popup
-    // window's focus event instead of racing it in $nextTick.
+    // Firefox's popup panel takes keyboard focus asynchronously (Bug 1324255):
+    // until the document actually has focus, element.focus() only sets
+    // activeElement (the caret blinks) and typed keys go nowhere. Poll until the
+    // document is focused instead of betting on a single focus event, which may
+    // have fired before this component mounted, or may never fire at all.
     this.focusSearchbox = () => {
       this.$nextTick(() => {
         if (this.$refs.searchbox) this.$refs.searchbox.focus();
       });
     };
-    if (document.hasFocus()) {
-      this.focusSearchbox();
-    } else {
-      window.addEventListener('focus', this.focusSearchbox, { once: true });
+    {
+      let attempt = 0;
+      const focusWhenReady = () => {
+        if (document.hasFocus() || attempt >= 20) {
+          this.focusSearchbox();
+          return;
+        }
+        attempt += 1;
+        setTimeout(focusWhenReady, 50);
+      };
+      focusWhenReady();
     }
     // The search index (entry.filterKey) is built centrally by
     // unlockedState.cacheSet when allEntries enters the cache, so there is no
@@ -54,9 +61,6 @@ export default {
     if (st !== undefined) this.searchTerm = st;
     let um = this.unlockedState.cacheGet('unlockedMessages');
     if (um !== undefined) this.allMessages = um;
-  },
-  beforeUnmount() {
-    if (this.focusSearchbox) window.removeEventListener('focus', this.focusSearchbox);
   },
   methods: {
     newEntry() {
