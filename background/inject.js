@@ -50,6 +50,22 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   if (message.m == 'fillTotpAtCursor') {
     filler.fillTotpAtCursor(message.code);
   }
+
+  if (message.m == 'copyToClipboard') {
+    // Content script has a document, so it writes the clipboard on behalf of the
+    // background-only shortcut path (extension already has clipboardWrite).
+    // Any failure is silent and must not affect the password fill.
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(message.code).catch(function () {});
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = message.code;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+  }
 });
 
 var filler = (function () {

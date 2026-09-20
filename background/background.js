@@ -13,6 +13,7 @@ import { Notifications } from '$services/notifications';
 import { i18n } from '@/services/i18n';
 import { openPopup, setBadgeText, setBadgeBackgroundColor } from '@/lib/browser.js';
 import { matchLevel } from '@/lib/utils.js';
+import { Otp } from '@/lib/otp.js';
 
 function Background(protectedMemory, localMemory, settings, notifications) {
   console.log('Background worker registered.');
@@ -72,16 +73,54 @@ function Background(protectedMemory, localMemory, settings, notifications) {
         });
       });
     };
-    chrome.scripting.executeScript(
-      {
-        target: { tabId: tabId, allFrames: true },
-        files: ['/dist/contentScripts/index.global.js'],
-      },
-      function () {
-        console.log('Autofill script injected.');
-        fillAllFrames();
-      }
-    );
+    // Resolves once the content script has been injected, so callers that need to
+    // send it another message (e.g. the TOTP clipboard copy) can wait for it.
+    return new Promise(function (resolve) {
+      chrome.scripting.executeScript(
+        {
+          target: { tabId: tabId, allFrames: true },
+          files: ['/dist/contentScripts/index.global.js'],
+        },
+        function () {
+          console.log('Autofill script injected.');
+          fillAllFrames();
+          resolve();
+        }
+      );
+    });
+  }
+
+  // Mirror the popup autofill path for the shortcut flow: when "copy TOTP on
+  // autofill" is enabled, compute the entry's TOTP and have the content script
+  // copy it to the clipboard (a service worker has no document/clipboard access).
+  // Every failure here is silent and never affects the password fill itself.
+  function copyTotpForShortcut(tabId, entry) {
+    settings
+      .getSetCopyTotpOnAutofill()
+      .then(function (enabled) {
+        if (!enabled) return;
+        var otpUrl = decryptProtectedField(entry, 'otp');
+        if (!otpUrl) return;
+        if (entry['keepassCatTotpEnabled'] === 'false') return;
+        try {
+          Otp.parseUrl(otpUrl).next(function (err, code) {
+            if (err || !code) return;
+            chrome.tabs.sendMessage(tabId, { m: 'copyToClipboard', code: code, label: 'TOTP' });
+            settings.getSetClipboardExpireInterval().then(function (interval) {
+              settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
+              notifications.push({
+                text: 'TOTP' + i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval),
+                type: 'clipboard',
+              });
+            });
+          });
+        } catch (e) {
+          console.warn('[shortcut] TOTP failed:', e);
+        }
+      })
+      .catch(function (e) {
+        console.warn('[shortcut] TOTP setting lookup failed:', e);
+      });
   }
 
   function handleMessage(message, sender, sendResponse) {
@@ -222,7 +261,9 @@ function Background(protectedMemory, localMemory, settings, notifications) {
         var userName = decryptProtectedField(bestMatch, 'userName');
         if (!password) { console.warn('[shortcut] no password to fill; falling back to popup'); fallbackToPopup(); return; }
         console.log('[shortcut] unique match, autofilling in background:', bestMatch.title);
-        performAutofill(tab.id, userName, password);
+        performAutofill(tab.id, userName, password).then(function () {
+          copyTotpForShortcut(tab.id, bestMatch);
+        });
       }).catch(function (err) {
         console.warn('[shortcut] lookup failed; falling back to popup:', err);
         fallbackToPopup();
