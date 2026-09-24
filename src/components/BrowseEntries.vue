@@ -1,4 +1,6 @@
 <script>
+import { Otp } from '@/lib/otp.js';
+
 export default {
   props: {
     unlockedState: Object,
@@ -16,7 +18,14 @@ export default {
       busy: false,
       message: '',
       entriesVersion: 0,
+      // entry.id -> seconds left on its TOTP code, refreshed by the shared ticker.
+      otpCountdowns: {},
     };
+  },
+  created() {
+    // entry.id -> OTP period (seconds). Deliberately plain/non-reactive: it is
+    // resolved lazily on the first sight of each entry and never changes after.
+    this.otpPeriods = {};
   },
   watch: {
     searchTerm(val) {
@@ -41,6 +50,14 @@ export default {
         this.$set(this.expandedGroups, this.groups[0].name, true);
       }
     });
+    // One ticker for the whole list, not one per row: the browse view can hold
+    // hundreds of entries, so per-row intervals (as in the match list) would be
+    // far too costly here.
+    this.tickOtp();
+    this.otpTicker = setInterval(() => this.tickOtp(), 1000);
+  },
+  beforeUnmount() {
+    clearInterval(this.otpTicker);
   },
   computed: {
     allEntries() {
@@ -87,6 +104,40 @@ export default {
     },
     copyEntryUsername(entry) {
       this.unlockedState.copyUsername(entry);
+    },
+    copyEntryTotp(entry) {
+      this.unlockedState.copyTotp(entry);
+    },
+    // Same condition as the match list (EntryListItem.vue).
+    hasTotp(entry) {
+      return (
+        entry.protectedData !== undefined &&
+        'otp' in entry.protectedData &&
+        entry['keepassCatTotpEnabled'] !== 'false'
+      );
+    },
+    // Resolve an entry's OTP period once, then reuse it. Never decrypt on a tick.
+    totpPeriod(entry) {
+      const cached = this.otpPeriods[entry.id];
+      if (cached !== undefined) return cached;
+      let period = 30;
+      try {
+        let url = this.unlockedState.getDecryptedAttribute(entry, 'otp');
+        period = Otp.parseUrl(url).period || 30;
+      } catch (e) {}
+      this.otpPeriods[entry.id] = period;
+      return period;
+    },
+    tickOtp() {
+      const now = Date.now();
+      this.allEntries.forEach(entry => {
+        if (!this.hasTotp(entry)) return;
+        const ms = this.totpPeriod(entry) * 1000;
+        const left = Math.ceil((ms - (now % ms)) / 1000);
+        if (this.otpCountdowns[entry.id] !== left) {
+          this.$set(this.otpCountdowns, entry.id, left);
+        }
+      });
     },
     newEntry() {
       var title = this.unlockedState.title || '';
@@ -203,7 +254,11 @@ export default {
       <div v-for="group in groups" :key="group.name" class="group-section">
         <div class="group-header" @click="toggleGroup(group.name)">
           <i :class="['fa', expandedGroups[group.name] ? 'fa-folder-open' : 'fa-folder', 'fa-fw']" />
-          <span v-if="renamingGroup !== group.name" class="group-name">{{ group.name }}</span>
+          <span
+            v-if="renamingGroup !== group.name"
+            class="group-name"
+            :title="group.name"
+          >{{ group.name }}</span>
           <span v-else class="rename-field">
             <input
               ref="renameInput"
@@ -230,9 +285,20 @@ export default {
             @click="autofill(entry)"
           >
             <div class="entry-info">
-              <span class="entry-title">{{ entry.title || $t('(empty)') }}</span>
-              <span class="entry-user">{{ entry.userName || '' }}</span>
+              <span
+                class="entry-title"
+                :title="entry.title"
+              >{{ entry.title || $t('(empty)') }}</span>
+              <span
+                class="entry-user"
+                :title="entry.userName || ''"
+              >{{ entry.userName || '' }}</span>
             </div>
+            <span v-if="hasTotp(entry)" class="otp-countdown">{{ otpCountdowns[entry.id] }}s</span>
+            <span v-if="hasTotp(entry)" class="fa-stack entry-copy-otp" @click.stop="copyEntryTotp(entry)" :title="$t('Copy TOTP code')">
+              <i class="fa fa-circle fa-stack-2x" />
+              <i class="fa fa-clock-o fa-stack-1x fa-inverse" />
+            </span>
             <span class="fa-stack entry-url" @click.stop="openUrl(entry)" :title="$t('Open URL')">
               <i class="fa fa-circle fa-stack-2x" />
               <i class="fa fa-external-link fa-stack-1x fa-inverse" />
@@ -314,6 +380,7 @@ export default {
 .browse-groups {
   height: 350px;
   overflow-y: auto;
+  overflow-x: hidden;
   border-bottom: 2px solid $light-gray;
 }
 
@@ -324,11 +391,28 @@ export default {
   display: flex; align-items: center; gap: 6px;
   cursor: pointer;
   &:hover { opacity: 0.7; }
-  .group-name { font-weight: 600; font-size: 14px; flex: 1; }
-  .group-count { font-size: 12px; color: var(--keepass-cat-text-muted); }
+  > .fa { flex: 0 0 auto; }
+  .group-name {
+    font-weight: 600;
+    font-size: 14px;
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    // Dissolve the cut like the entry rows rather than truncating with dots.
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
+  }
+  .group-count {
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: var(--keepass-cat-text-muted);
+  }
   .action-icons {
     display: flex; align-items: center; gap: 4px;
     margin-left: 8px;
+    flex: 0 0 auto;
     opacity: 0;
     transition: opacity 0.15s;
   }
@@ -376,19 +460,46 @@ export default {
     display: flex; align-items: center;
     padding: 8px $wall-padding;
     border-bottom: 1px solid var(--keepass-cat-border-light);
+    overflow-x: hidden;
     &:hover { background: var(--keepass-cat-bg-hover); }
     .entry-info {
-      flex: 1;
-      .entry-title { font-size: 14px; display: block; }
+      flex: 1 1 auto;
+      min-width: 0;
+      .entry-title,
+      .entry-user {
+        display: block;
+        max-width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: clip;
+        // Dissolve the cut like the popup entry rows rather than truncating with dots.
+        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
+        mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
+      }
+      .entry-title { font-size: 14px; }
       .entry-user { font-size: 11px; color: var(--keepass-cat-text-subtle); }
     }
     .entry-copy-user,
     .entry-copy,
+    .entry-copy-otp,
     .entry-url,
-    .entry-edit { opacity: 0.3; font-size: 16px; &:hover { opacity: 0.8; } }
+    .entry-edit {
+      flex: 0 0 auto;
+      opacity: 0.3; font-size: 16px; &:hover { opacity: 0.8; }
+    }
+    // Fixed-ish column so the row never reflows as the number ticks.
+    .otp-countdown {
+      flex: 0 0 auto;
+      font-size: 11px;
+      color: var(--keepass-cat-text-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      min-width: 22px;
+    }
     @media (prefers-color-scheme: dark) {
-      .entry-copy-user, .entry-copy, .entry-url, .entry-edit { opacity: 0.6; }
-      .entry-copy-user:hover, .entry-copy:hover, .entry-url:hover, .entry-edit:hover { opacity: 0.35; }
+      .entry-copy-user, .entry-copy, .entry-copy-otp, .entry-url, .entry-edit { opacity: 0.6; }
+      .entry-copy-user:hover, .entry-copy:hover, .entry-copy-otp:hover, .entry-url:hover, .entry-edit:hover { opacity: 0.35; }
     }
   }
 }
