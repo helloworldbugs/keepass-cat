@@ -737,7 +737,10 @@ export default defineComponent({
     font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
+    text-overflow: clip;
+    // Dissolve the cut like the entry rows rather than truncating with dots.
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
   }
 
   .change-badge {

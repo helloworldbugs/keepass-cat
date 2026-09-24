@@ -35,8 +35,13 @@ export default {
       </div>
     </div>
     <div style="display: flex; flex-wrap: wrap">
-      <span v-for="(db, index) in databases" class="chip" style="margin-bottom: 5px">
-        {{ db.title }}
+      <span
+        v-for="(db, index) in databases"
+        class="chip"
+        style="margin-bottom: 5px"
+        :title="db.title"
+      >
+        <span class="chip-label">{{ db.title }}</span>
         <i
           v-if="removeable"
           class="fa fa-times-circle selectable"

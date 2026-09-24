@@ -118,6 +118,7 @@ export default {
   border-bottom: 2px solid $light-gray;
   height: 350px;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .no-match-msg {

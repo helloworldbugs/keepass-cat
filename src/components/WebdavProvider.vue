@@ -149,10 +149,11 @@ export default {
           <th>{{ $t('User') }}</th>
           <th>{{ $t('URL') }}</th>
           <th>{{ $t('Actions') }}</th>
+          <th />
         </tr>
         <tr v-for="(server, index) in serverList">
-          <td>{{ server.username }}</td>
-          <td>{{ server.url }}</td>
+          <td :title="server.username">{{ server.username }}</td>
+          <td :title="server.url">{{ server.url }}</td>
           <td>
             <a v-show="!server.scanBusy" class="selectable" @click="scan(server.serverId)">
               <i class="fa fa-search" /> {{ $t('scan') }}</a
@@ -218,6 +219,8 @@ export default {
 }
 
 table {
+  width: 100%;
+  table-layout: fixed;
   font-size: 14px;
   td {
     padding: 5px 5px;
@@ -228,6 +231,38 @@ table {
   }
   tr {
     background-color: $background-color;
+  }
+  // The username and URL columns are the ones that can grow without bound, so
+  // pin every column instead of letting the table size itself from content.
+  th:nth-child(1),
+  td:nth-child(1) {
+    width: 22%;
+  }
+  th:nth-child(2),
+  td:nth-child(2) {
+    width: 48%;
+  }
+  th:nth-child(3),
+  td:nth-child(3) {
+    width: 15%;
+  }
+  th:nth-child(4),
+  td:nth-child(4) {
+    width: 15%;
+  }
+  // The remove action has no heading, so keep its header cell invisible.
+  th:empty {
+    background-color: transparent;
+  }
+  // Long usernames / URLs must not blow the table out: one line, softly faded
+  // at the cut. The full value stays available through the tooltip.
+  td:nth-child(1),
+  td:nth-child(2) {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: clip;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
   }
 }
 

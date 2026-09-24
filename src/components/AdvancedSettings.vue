@@ -276,6 +276,11 @@ export default {
 <style lang="scss">
 .json {
 	font-size: 12px;
+	/* The JSON viewer renders strings with `white-space: pre`, which never
+	   wraps and would otherwise push the page (and the Delete button) wide.
+	   Let the block shrink and scroll its own long lines instead. */
+	min-width: 0;
+	overflow-x: auto;
 }
 
 h4 {

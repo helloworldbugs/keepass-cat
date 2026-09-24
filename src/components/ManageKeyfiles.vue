@@ -77,7 +77,7 @@ export default {
     </div>
     <div v-for="(file, file_index) in keyFiles" class="box-bar roomy small lighter">
       <span
-        >{{ file.name }}
+        ><span class="keyfile-name" :title="file.name">{{ file.name }}</span>
         <i
           class="fa fa-times-circle selectable"
           aria-hidden="true"
@@ -93,6 +93,16 @@ export default {
 #key-file-manager {
   span {
     font-weight: 500;
+  }
+  // A long, space-less file name must not widen the row: clip it on one line
+  // and leave the remove icon in place. The full name is in the tooltip.
+  .keyfile-name {
+    display: inline-block;
+    max-width: calc(100% - 20px);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: clip;
+    vertical-align: bottom;
   }
 }
 </style>

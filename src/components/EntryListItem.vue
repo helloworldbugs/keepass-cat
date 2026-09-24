@@ -83,12 +83,16 @@ export default {
     @click="autofill"
   >
     <div class="text-info" :class="{ strike: entry.is_expired }">
-      <span class="header">{{ header }}</span>
+      <span class="header" :title="header">{{ header }}</span>
       <br />
-      <span class="user">
+      <span class="user" :title="entry.userName || ''">
         {{ entry.userName || $t('(empty)') }}
       </span>
-      <span v-if="entry.groupName" class="group-label">{{ entry.groupName }}</span>
+      <span
+        v-if="entry.groupName"
+        class="group-label"
+        :title="entry.groupName"
+      >{{ entry.groupName }}</span>
     </div>
     <div class="buttons" :class="{ 'no-otp': !hasTotp }">
       <span v-if="hasTotp" class="otp-countdown">{{ otpTimeleft }}s</span>
@@ -126,6 +130,28 @@ export default {
   border-bottom: 1px solid $light-gray;
   background-color: $light-background-color;
   display: flex;
+  overflow-x: hidden;
+  .text-info {
+    flex: 1 1 auto;
+    min-width: 0;
+    // Every line is a block now, so the <br> that separated the header from
+    // the username would only add an empty extra line. Drop it.
+    br {
+      display: none;
+    }
+    .header,
+    .user,
+    .group-label {
+      display: block;
+      max-width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: clip;
+      // Dissolve the cut instead of clipping hard or showing an ellipsis.
+      -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
+      mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
+    }
+  }
   .header {
     font-size: 16px;
   }
@@ -139,6 +165,8 @@ export default {
     margin-top: 1px;
   }
   .buttons {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
     font-size: 18px;
     display: flex;
     justify-content: space-between;
