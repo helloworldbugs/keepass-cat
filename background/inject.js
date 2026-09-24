@@ -208,6 +208,13 @@ var filler = (function () {
   }
 
   function fillField(field, val) {
+    // Focus first. Focusing after the write looks harmless, but login pages
+    // routinely do work in their own focus handler (state updates, re-renders),
+    // and a re-render re-applies the controlled `value` prop from the page's
+    // state, silently overwriting the value we just wrote. Focusing before the
+    // write lets that render land on the old value instead.
+    field.focus();
+
     // Use the native value setter to bypass React/Vue value trackers (which
     // override the instance `value` property and would otherwise revert our
     // assignment on the next re-render).
@@ -217,14 +224,23 @@ var filler = (function () {
     } else {
       field.value = val;
     }
+
+    // React records the last value it saw on the node itself (`_valueTracker`).
+    // If that record already holds the value we just wrote, React treats our
+    // input event as "no change": onChange never fires, the page's state keeps
+    // its old value, and the next render writes that stale value back over
+    // ours. Poison the record so the change is always observed — React reports
+    // event values from the DOM, so the sentinel itself never surfaces.
+    if (field._valueTracker) {
+      field._valueTracker.setValue('');
+    }
+
     var filled = field.value === val;
     sendKeyEvent(field);
     return filled;
   }
 
   function sendKeyEvent(field) {
-    field.focus();
-
     // Dispatch synchronously — React's onChange only updates state when the
     // input event fires in the same tick as the value assignment; a deferred
     // (setTimeout) dispatch gets reverted on the next render.
