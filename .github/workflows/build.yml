@@ -222,6 +222,7 @@ jobs:
       # cannot be compared against '' in an `if:` expression.
 
       - name: Publish to Firefox (AMO)
+        id: amo
         if: steps.ver.outputs.stores == 'true'
         continue-on-error: true
         env:
@@ -229,9 +230,13 @@ jobs:
           WEB_EXT_API_SECRET: ${{ secrets.AMO_API_SECRET }}
         run: |
           if [ -z "$WEB_EXT_API_KEY" ] && [ -z "$WEB_EXT_API_SECRET" ]; then
+            # Written before the early exit so the summary can tell a genuine
+            # skip-by-configuration apart from an attempted-but-failed upload.
+            echo "configured=false" >> "$GITHUB_OUTPUT"
             echo "AMO_API_KEY / AMO_API_SECRET are not configured — skipping the Firefox store upload."
             exit 0
           fi
+          echo "configured=true" >> "$GITHUB_OUTPUT"
 
           # A listed AMO submission of a bundled/minified build must ship the
           # human-readable source too; Vite bundles and minifies, so this is
@@ -251,6 +256,7 @@ jobs:
             --api-secret "$WEB_EXT_API_SECRET"
 
       - name: Publish to Chrome Web Store
+        id: cws
         if: steps.ver.outputs.stores == 'true'
         continue-on-error: true
         env:
@@ -259,8 +265,87 @@ jobs:
           CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
         run: |
           if [ -z "$CWS_SERVICE_ACCOUNT_JSON" ]; then
+            # Written before the early exit so the summary can tell a genuine
+            # skip-by-configuration apart from an attempted-but-failed upload.
+            echo "configured=false" >> "$GITHUB_OUTPUT"
             echo "CWS_SERVICE_ACCOUNT_JSON is not configured — skipping the Chrome Web Store upload."
             exit 0
           fi
+          echo "configured=true" >> "$GITHUB_OUTPUT"
 
           node scripts/publish-cws.mjs keepass-cat-chrome.zip
+
+      # ── Store upload summary ──
+      # The two steps above are continue-on-error, so the job stays green even
+      # when a store upload fails — which makes a silent failure easy to miss.
+      # This step writes a job summary so both outcomes are visible at the top of
+      # the run. It is `always()` so it still executes when an earlier step (or a
+      # store step) failed, and continue-on-error so this cosmetic step can never
+      # turn a successful release into a failed job.
+      # It reads `steps.<id>.outcome`, not `.conclusion`: outcome is the raw
+      # result and stays `failure` under continue-on-error, whereas conclusion is
+      # rewritten to `success` and would hide exactly what we want to show.
+      - name: Write the store upload summary
+        if: always()
+        continue-on-error: true
+        env:
+          TAG: ${{ steps.ver.outputs.tag }}
+          STORES: ${{ steps.ver.outputs.stores }}
+          RUN: ${{ steps.ver.outputs.run }}
+          PUBLISH: ${{ steps.ver.outputs.publish }}
+          AMO_OUTCOME: ${{ steps.amo.outcome }}
+          AMO_CONFIGURED: ${{ steps.amo.outputs.configured }}
+          CWS_OUTCOME: ${{ steps.cws.outcome }}
+          CWS_CONFIGURED: ${{ steps.cws.outputs.configured }}
+        run: |
+          # Map one step's outcome (+ whether its credentials were present) onto
+          # a single table cell.
+          describe() {
+            outcome="$1"; configured="$2"; label="$3"
+            if [ "$outcome" = "skipped" ]; then
+              echo "➖ not attempted in this run"
+            elif [ "$outcome" = "success" ] && [ "$configured" = "false" ]; then
+              echo "➖ skipped — credentials are not configured"
+            elif [ "$outcome" = "success" ]; then
+              echo "✅ uploaded — awaiting store review"
+            elif [ "$outcome" = "failure" ]; then
+              echo "❌ failed — see the \"$label\" step log for the error"
+            else
+              echo "❔ ${outcome:-unknown}"
+            fi
+          }
+
+          if [ "$STORES" != "true" ]; then
+            # Store uploads were not part of this run at all; keep it short.
+            {
+              echo "## Store uploads"
+              echo
+              echo "Store uploads were not attempted in this run; they happen only for a new version, or on a manual dispatch with \`publish_stores = true\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "## Store uploads"
+              echo
+              echo "Version: \`$TAG\`"
+              echo
+              echo "| Store | Result |"
+              echo "| --- | --- |"
+              echo "| Firefox (AMO) | $(describe "$AMO_OUTCOME" "$AMO_CONFIGURED" "Publish to Firefox (AMO)") |"
+              echo "| Chrome Web Store | $(describe "$CWS_OUTCOME" "$CWS_CONFIGURED" "Publish to Chrome Web Store") |"
+              echo
+              if [ "$PUBLISH" = "true" ]; then
+                echo "The GitHub release **$TAG** was created with both zips attached."
+              elif [ "$RUN" = "true" ]; then
+                echo "Dry run: no release was created and nothing was uploaded."
+              else
+                echo "No release was created — the tag **$TAG** already exists."
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "Store uploads are best-effort — an upload that shows \`❌\` above does not mean the GitHub release failed." >> "$GITHUB_STEP_SUMMARY"
+
+          # There is no REST endpoint for job summaries, so echo it too: this
+          # makes the summary readable from the job log as well as from the UI.
+          cat "$GITHUB_STEP_SUMMARY"
