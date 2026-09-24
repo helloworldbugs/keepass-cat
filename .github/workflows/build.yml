@@ -9,6 +9,10 @@ on:
         description: 'Run the release pipeline (notes + zips + checks) without publishing'
         type: boolean
         default: false
+      publish_stores:
+        description: 'Also upload this version to the Firefox and Chrome stores'
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -120,6 +124,7 @@ jobs:
           version=$(node -p "require('./package.json').version")
           tag="v$version"
           dry="${{ inputs.dry_run }}"
+          stores_input="${{ inputs.publish_stores }}"
 
           if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
             tag_exists=true
@@ -135,23 +140,42 @@ jobs:
             run=false; publish=false
           fi
 
+          # Store uploads normally ride along with a new release, but an already
+          # released tag can also be pushed to the stores after the fact by
+          # dispatching with publish_stores=true (never while dry-running).
+          if [ "$publish" = "true" ] || { [ "$stores_input" = "true" ] && [ "$dry" != "true" ]; }; then
+            stores=true
+          else
+            stores=false
+          fi
+
+          # The store upload needs the packaged zips even when the release itself
+          # is skipped because its tag already exists, so packaging follows either.
+          if [ "$run" = "true" ] || [ "$stores" = "true" ]; then
+            package=true
+          else
+            package=false
+          fi
+
           echo "tag=$tag"         >> "$GITHUB_OUTPUT"
           echo "run=$run"         >> "$GITHUB_OUTPUT"
           echo "publish=$publish" >> "$GITHUB_OUTPUT"
-          echo "::notice title=Release $tag::run=$run publish=$publish (tag already exists: $tag_exists)"
+          echo "stores=$stores"   >> "$GITHUB_OUTPUT"
+          echo "package=$package" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Release $tag::run=$run publish=$publish stores=$stores package=$package (tag already exists: $tag_exists)"
 
       - name: Generate release notes from the commit log
         if: steps.ver.outputs.run == 'true'
         run: node scripts/release-notes.mjs
 
       - name: Download the extension artifacts
-        if: steps.ver.outputs.run == 'true'
+        if: steps.ver.outputs.package == 'true'
         uses: actions/download-artifact@v7
         with:
           path: artifacts
 
       - name: Package the extension zips
-        if: steps.ver.outputs.run == 'true'
+        if: steps.ver.outputs.package == 'true'
         run: |
           set -euo pipefail
           (cd artifacts/keepass-cat-chrome && zip -qr "$GITHUB_WORKSPACE/keepass-cat-chrome.zip" .)
@@ -185,3 +209,54 @@ jobs:
             --notes-file RELEASE_BODY.md \
             --target "$GITHUB_SHA" \
             keepass-cat-chrome.zip keepass-cat-firefox.zip
+
+      # ── Store uploads ──
+      # Both steps below are best-effort: a store outage, a changed API or a slow
+      # review must never fail a release that has already been created above.
+      # Each one is a no-op (with a short message) until its secrets are set, and
+      # checks that with a plain bash test because a missing `secrets.VALUE`
+      # cannot be compared against '' in an `if:` expression.
+
+      - name: Publish to Firefox (AMO)
+        if: steps.ver.outputs.stores == 'true'
+        continue-on-error: true
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_API_KEY }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_API_SECRET }}
+        run: |
+          if [ -z "$WEB_EXT_API_KEY" ] && [ -z "$WEB_EXT_API_SECRET" ]; then
+            echo "AMO_API_KEY / AMO_API_SECRET are not configured — skipping the Firefox store upload."
+            exit 0
+          fi
+
+          # A listed AMO submission of a bundled/minified build must ship the
+          # human-readable source too; Vite bundles and minifies, so this is
+          # mandatory. `git archive` packages exactly the tree at HEAD.
+          git archive --format=zip -o "$GITHUB_WORKSPACE/firefox-source.zip" HEAD
+
+          # --approval-timeout 0 returns as soon as AMO accepts the submission.
+          # Review of a listed add-on can take many hours, so waiting for it here
+          # (the default is 15 minutes) would only ever time out and be pointless.
+          npx --yes web-ext@10 sign \
+            --source-dir artifacts/keepass-cat-firefox \
+            --artifacts-dir "$GITHUB_WORKSPACE/web-ext-artifacts" \
+            --channel listed \
+            --upload-source-code "$GITHUB_WORKSPACE/firefox-source.zip" \
+            --approval-timeout 0 \
+            --api-key "$WEB_EXT_API_KEY" \
+            --api-secret "$WEB_EXT_API_SECRET"
+
+      - name: Publish to Chrome Web Store
+        if: steps.ver.outputs.stores == 'true'
+        continue-on-error: true
+        env:
+          CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
+          CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+        run: |
+          if [ -z "$CWS_SERVICE_ACCOUNT_JSON" ]; then
+            echo "CWS_SERVICE_ACCOUNT_JSON is not configured — skipping the Chrome Web Store upload."
+            exit 0
+          fi
+
+          node scripts/publish-cws.mjs keepass-cat-chrome.zip
