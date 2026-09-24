@@ -196,8 +196,12 @@ jobs:
               assert at_root, f"{name} has no manifest.json at its root"
           PY
 
-          echo "── release body ──"
-          cat RELEASE_BODY.md
+          # The notes step only runs for a new release, so this packaging step can
+          # legitimately be reached without a body (a store-only re-upload).
+          if [ -f RELEASE_BODY.md ]; then
+            echo "── release body ──"
+            cat RELEASE_BODY.md
+          fi
 
       - name: Create the GitHub release
         if: steps.ver.outputs.publish == 'true'
