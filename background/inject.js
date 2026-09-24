@@ -188,11 +188,16 @@ var filler = (function () {
           isElementInViewport(pair.p) &&
           isVisible(pair.p) && password != null
         ) {
-          filled = fillField(pair.p, password);
+          // Username first, password second — the same order the focused-field
+          // path above uses. Some login pages reset their form when the username
+          // changes, which clears the password field and erases a password
+          // written just before it. Writing the password last leaves nothing
+          // running after it to undo the write.
           if (isVisible(pair.u) && username != null) {
             //sometimes the username is invisible, i.e. google login
             fillField(pair.u, username);
           }
+          filled = fillField(pair.p, password);
         }
       }
     }
