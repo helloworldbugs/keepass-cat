@@ -29,6 +29,85 @@ kdbxweb.CryptoEngine.setArgon2Impl(
 
 import { parseUrl, matchLevel } from '@/lib/utils.js';
 
+/*
+ * KDBX stores its built-in entry fields under exact, capitalized keys:
+ * `Title`, `UserName`, `Password`, `URL` and `Notes`. The extension's UI and
+ * parsed entries use lowerCamelCase keys, so every write MUST translate them
+ * before touching the kdbxweb fields Map. Writing `title` verbatim makes KeePass
+ * treat it as a *custom* string field and leaves the built-in Title empty/stale.
+ * `otp` is intentionally NOT capitalized: KeePass's built-in TOTP reads the
+ * lowercase `otp` custom field. Unknown keys pass through unchanged so callers
+ * can still write arbitrary custom fields.
+ */
+const KDBX_FIELD_NAMES = {
+  title: 'Title',
+  userName: 'UserName',
+  password: 'Password',
+  url: 'URL',
+  notes: 'Notes',
+  otp: 'otp',
+  keepassCatTotpEnabled: 'keepassCatTotpEnabled',
+};
+
+/* KDBX field names whose values are stored as kdbxweb ProtectedValues. */
+const KDBX_PROTECTED_FIELDS = ['Password', 'otp', 'tOTPSeed'];
+
+/*
+ * Legacy lowerCamel twins written by older buggy saves. Writing a built-in
+ * field also removes its twin so that re-saving an already-polluted entry
+ * repairs it. Only the five built-in fields are listed here; arbitrary custom
+ * fields are never touched by this cleanup.
+ */
+const KDBX_LEGACY_FIELD_TWINS = {
+  Title: 'title',
+  UserName: 'userName',
+  Password: 'password',
+  URL: 'url',
+  Notes: 'notes',
+};
+
+/*
+ * Writes a single field onto a kdbxweb entry, translating the extension's
+ * lowerCamelCase key to KDBX's built-in name, applying protection for secret
+ * fields, deleting on null/undefined, and dropping any legacy lowerCamel twin
+ * of the built-in field just written.
+ */
+function setKdbxEntryField(kdbxEntry, key, value) {
+  var mappedKey = KDBX_FIELD_NAMES[key] || key;
+  if (value === null || value === undefined) {
+    kdbxEntry.fields.delete(mappedKey);
+  } else if (KDBX_PROTECTED_FIELDS.indexOf(mappedKey) >= 0) {
+    kdbxEntry.fields.set(mappedKey, kdbxweb.ProtectedValue.fromString(value));
+  } else {
+    kdbxEntry.fields.set(mappedKey, value);
+  }
+  var legacyTwin = KDBX_LEGACY_FIELD_TWINS[mappedKey];
+  if (legacyTwin) kdbxEntry.fields.delete(legacyTwin);
+}
+
+/*
+ * One-way repair of data written by the older buggy save path. A polluted
+ * entry carries both a KDBX built-in field (e.g. `Title`) and a legacy
+ * lowerCamel twin (e.g. `title`); the twin's value is what the extension has
+ * been displaying, so move it onto the built-in key as-is (never re-wrapping a
+ * ProtectedValue) and drop the twin. Only the five built-in fields are touched.
+ * This mutates the in-memory entry only: it is persisted by the next
+ * `_db.save()`, never by a save of its own. Idempotent — once the twins are
+ * gone a second run is a no-op. Returns true if the entry was repaired.
+ */
+function migrateLegacyFieldTwins(db_entry) {
+  var repaired = false;
+  for (var builtIn in KDBX_LEGACY_FIELD_TWINS) {
+    var twin = KDBX_LEGACY_FIELD_TWINS[builtIn];
+    if (db_entry.fields.has(twin)) {
+      db_entry.fields.set(builtIn, db_entry.fields.get(twin));
+      db_entry.fields.delete(twin);
+      repaired = true;
+    }
+  }
+  return repaired;
+}
+
 function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keepassReference) {
   var my = {};
   var _db = null; // raw kdbx db reference for save operations
@@ -157,15 +236,33 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
   }
 
   /*
+   * Applies a single kdbxweb entry field onto the parsed entry object,
+   * camel-casing the key exactly as before. Protected values go to
+   * entry.protectedData, plain values to entry keys.
+   */
+  function addParsedKdbxField(entry, key, field) {
+    const camelKey = Case.camel(key);
+    if (typeof field === 'object') {
+      // type = object ? protected value
+      entry.protectedData[camelKey] = protectedValueToJSON(field);
+    } else {
+      entry.keys.push(camelKey);
+      entry[camelKey] = field;
+    }
+  }
+
+  /*
    * Takes a kdbxweb group object and transforms it into a list of entries.
    **/
-  function parseKdbxDb(groups) {
+  function parseKdbxDb(groups, repairCounter) {
+    var isTopLevel = repairCounter === undefined;
+    if (isTopLevel) repairCounter = { count: 0 };
     var results = [];
     for (var i = 0; i < groups.length; i++) {
       var group = groups[i];
       if (group.groups.length > 0) {
         // recursive case for subgroups.
-        results = results.concat(parseKdbxDb(group.groups));
+        results = results.concat(parseKdbxDb(group.groups, repairCounter));
       }
       for (var j = 0; j < group.entries.length; j++) {
         var db_entry = group.entries[j];
@@ -196,15 +293,29 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
           entry.keys.push('tags');
         }
         if (db_entry.fields) {
+          /*
+           * One-way repair of entries polluted by the older buggy save path.
+           * Runs before parsing so the migrated (twin) value is what gets read.
+           * Only mutates memory; the next `_db.save()` persists it.
+           */
+          if (migrateLegacyFieldTwins(db_entry)) repairCounter.count++;
+          /*
+           * `Case.camel` collapses `Title` and its legacy lowerCamel twin
+           * `title` onto the same output key. Older buggy saves wrote the twin
+           * (e.g. `title`) as a custom field, and that twin's value is what the
+           * extension has always displayed, so it must keep winning. Resolve
+           * this explicitly: apply the built-in keys first, then the legacy
+           * twins, instead of relying on Map insertion order. Normalization
+           * above removes the twins, so this is now only a safety net.
+           */
+          const legacyTwinNames = Object.values(KDBX_LEGACY_FIELD_TWINS);
           for (const [key, field] of db_entry.fields) {
-            const camelKey = Case.camel(key);
-            if (typeof field === 'object') {
-              // type = object ? protected value
-              entry.protectedData[camelKey] = protectedValueToJSON(field);
-            } else {
-              entry.keys.push(camelKey);
-              entry[camelKey] = field;
-            }
+            if (legacyTwinNames.indexOf(key) >= 0) continue;
+            addParsedKdbxField(entry, key, field);
+          }
+          for (const [key, field] of db_entry.fields) {
+            if (legacyTwinNames.indexOf(key) < 0) continue;
+            addParsedKdbxField(entry, key, field);
           }
         }
         if (db_entry.times) {
@@ -216,6 +327,13 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
           }
         }
       }
+    }
+    if (isTopLevel && repairCounter.count > 0) {
+      console.log(
+        '[keepassService] repaired ' +
+          repairCounter.count +
+          ' polluted entries in memory (persisted on the next save)'
+      );
     }
     return results;
   }
@@ -308,22 +426,12 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
       }
         if (!kdbxEntry) throw new Error(i18n.t('Entry not found in database'));
 
-      // Update fields on the kdbx entry (fields is a Map in kdbxweb)
-      let protectedFields = ['password', 'otp', 'tOTPSeed'];
-      
+      // Update fields on the kdbx entry (fields is a Map in kdbxweb).
+      // setKdbxEntryField maps the extension's lowerCamel keys onto KDBX's
+      // built-in field names (and repairs legacy twins) for both the set and
+      // the null/undefined delete paths.
       for (let key in updatedFields) {
-        let value = updatedFields[key];
-        if (value === null || value === undefined) {
-          // null/undefined means delete the field (used by TOTP toggle-off with cleared URL)
-          kdbxEntry.fields.delete(key);
-          continue;
-        }
-        if (protectedFields.includes(key)) {
-          let pv = kdbxweb.ProtectedValue.fromString(value);
-          kdbxEntry.fields.set(key, pv);
-        } else {
-          kdbxEntry.fields.set(key, value);
-        }
+        setKdbxEntryField(kdbxEntry, key, updatedFields[key]);
       }
 
       return _db.save().then(function(saved) {
@@ -421,13 +529,13 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
       }
       var group = findGroup(_db.groups, groupName) || _db.getDefaultGroup();
       var entry = _db.createEntry(group);
-      if (fields.title) entry.fields.set('Title', fields.title);
-      if (fields.userName) entry.fields.set('UserName', fields.userName);
-      if (fields.url) entry.fields.set('URL', fields.url);
-      if (fields.notes) entry.fields.set('Notes', fields.notes);
-      if (fields.password) entry.fields.set('Password', kdbxweb.ProtectedValue.fromString(fields.password));
-      if (fields.otp) entry.fields.set('otp', kdbxweb.ProtectedValue.fromString(fields.otp));
-      if (fields.keepassCatTotpEnabled) entry.fields.set('keepassCatTotpEnabled', fields.keepassCatTotpEnabled);
+      // Reuse the shared KDBX mapping so add and save cannot drift again.
+      // Only non-empty values are written (createEntry already seeds the
+      // built-in fields), matching the previous hand-written if-chain.
+      for (var key in fields) {
+        if (!fields[key]) continue;
+        setKdbxEntryField(entry, key, fields[key]);
+      }
       return _db.save();
     });
   };
