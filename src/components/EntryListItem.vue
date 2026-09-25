@@ -22,7 +22,8 @@ export default {
       return (
         this.entry.protectedData !== undefined &&
         'otp' in this.entry.protectedData &&
-        this.entry['keepassCatTotpEnabled'] !== 'false'
+        // Strict: only the literal 'true' enables TOTP; a missing key or any other value disables it.
+        this.entry['keepassCatTotpEnabled'] === 'true'
       );
     },
   },

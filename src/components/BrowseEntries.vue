@@ -113,7 +113,8 @@ export default {
       return (
         entry.protectedData !== undefined &&
         'otp' in entry.protectedData &&
-        entry['keepassCatTotpEnabled'] !== 'false'
+        // Strict: only the literal 'true' enables TOTP; a missing key or any other value disables it.
+        entry['keepassCatTotpEnabled'] === 'true'
       );
     },
     // Resolve an entry's OTP period once, then reuse it. Never decrypt on a tick.
