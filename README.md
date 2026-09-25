@@ -20,6 +20,8 @@ English | [中文](README_CN.md)
   - [✨ Features](#-features)
   - [🗄️ Database Management](#️-database-management)
     - [Entry Operations](#entry-operations)
+    - [🧩 Custom Fields](#-custom-fields)
+    - [✏️ Editing an Entry](#️-editing-an-entry)
     - [📁 Group Management](#-group-management)
     - [🔐 TOTP Two-Factor Authentication](#-totp-two-factor-authentication)
   - [⌨️ Keyboard Shortcuts](#️-keyboard-shortcuts)
@@ -55,7 +57,8 @@ English | [中文](README_CN.md)
 | 🔢 **Badge Count** | Real-time count of matching password entries shown on the extension icon |
 | ⚡ **One-Click Autofill** | Click an entry to autofill username and password |
 | 🧠 **4-Level Matching** | Original 4-level URL matching (with regex support) that ranks the best-matching entry |
-| ✏️ **CRUD** | Edit title, username, password (with strong password generator), URL, notes, and TOTP right in the popup; saves back to the KDBX file on WebDAV |
+| ✏️ **CRUD** | Edit title, username, password (with strong password generator), URL, notes, custom fields, and TOTP right in the popup; saves back to the KDBX file on WebDAV |
+| 🧩 **Custom Fields** | Arbitrary per-entry name/value fields with an optional **Protect** flag, stored as KDBX protected strings |
 | 📂 **Group Management** | Create, rename, and delete groups; move entries between groups |
 | 🔐 **TOTP 2FA** | One-click copy of TOTP codes (with countdown), with edit support (`otpauth://`) |
 | 🔄 **WebDAV Sync** | WebDAV cloud sync (Jianguoyun / Nextcloud and other self-hosted services), auto-writes changes back |
@@ -71,12 +74,26 @@ English | [中文](README_CN.md)
 | Action | Description |
 |--------|-------------|
 | ➕ **Create** | Fill in title, username, password, URL (regex supported), notes, and select a group |
-| ✏️ **Edit** | Click the pencil icon, modify any field, click save |
-| 🗑️ **Delete** | Double confirmation to prevent accidental deletion; auto-uploads after delete |
+| ✏️ **Edit** | Click the pencil icon, modify any field, then click **Save** in the top-right of the top bar (the bar stays pinned while you scroll) |
+| 🗑️ **Delete** | Delete is the last item in the form and needs two clicks — the second one confirms; auto-uploads after delete |
+| 🧩 **Custom Fields** | Add, rename, edit, and remove arbitrary name/value fields at the bottom of the edit page; each field has a **Protect** checkbox |
 | 📋 **Copy** | One-click copy of username or password to the clipboard |
 | 🔗 **Open URL** | Click the icon to open the entry URL in a new tab |
 | 🔑 **Generate Password** | Click the key icon to generate a 16-20 character mixed password |
 | 🔐 **TOTP** | Clock icon on list items copies the current code (with countdown); enable via `otpauth://` in the edit page |
+
+### 🧩 Custom Fields
+
+- Any entry can carry extra name/value fields alongside Title / Username / Password / URL / Notes; add, rename, edit and remove them in the edit page
+- Every field has a **Protect** checkbox; when it is on, the value is written to the KDBX file as a protected string — the same flag KeePass uses for "Protect value in process memory" — and turning it off rewrites the value as plain text
+- Names that collide with built-in fields (`Title`, `UserName`, `Password`, `URL`, `Notes`, `otp`, `keepassCatTotpEnabled`, `keepassCatUrls`) are rejected, case-insensitively
+- Renaming writes the new name and removes the old one, so KeePass never sees a duplicate
+
+### ✏️ Editing an Entry
+
+- Save is in the top-right of the pinned top bar, which stays visible however far you scroll
+- Delete is the last item in the form and needs two clicks; the second one confirms. The back arrow leaves without saving
+- Save results and errors appear just under the top bar and clear themselves (errors after about 5 seconds)
 
 ### 📁 Group Management
 
@@ -103,6 +120,9 @@ English | [中文](README_CN.md)
 - Supports the `otpauth://` standard (SHA1 / SHA256 / SHA512, 6-8 digit codes, including Steam format)
 - Password list shows a clock icon + plain-text countdown (e.g. `24s`); click to copy the current code
 - Edit page toggles "Enable TOTP" to add/modify the `otpauth://` URL
+- TOTP is enabled per entry by the `keepassCatTotpEnabled` field in the KDBX file, and only the exact value `true` counts — a missing, empty, or any other value means off
+- The seed is written to the entry's lowercase `otp` field as an `otpauth://` URI
+- Databases coming from the original Tusk extension keep their `otp` seeds, but the old `tuskTotpEnabled` flag is no longer read — flip "Enable TOTP" once and save to switch those entries back on
 
 ---
 
