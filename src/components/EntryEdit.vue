@@ -2,6 +2,10 @@
 import GoBack from '@/components/GoBack.vue';
 import { Otp } from '@/lib/otp.js';
 
+// An error toast clears itself after this long, leaving the user on the form so
+// they can fix the problem. Success/progress toasts are driven elsewhere.
+const ERROR_TOAST_MS = 5000;
+
 export default {
   components: { GoBack },
   props: {
@@ -23,6 +27,8 @@ export default {
       message: '',
       // 'progress' | 'success' | 'error' - drives the status toast colour/icon.
       messageKind: '',
+      messageTimer: null,   // pending auto-hide for the status toast
+      navTimer: null,       // pending "return to list" after a successful save
       deleteClick: 0,   // 0=not clicked, 1=clicked once (show confirm), 2=delete now
       fromBrowse: false,
       deleting: false,
@@ -139,7 +145,31 @@ export default {
       this.loadCustomFields(this.entry.id);
     }
   },
+  beforeUnmount() {
+    if (this.messageTimer) clearTimeout(this.messageTimer);
+    if (this.navTimer) clearTimeout(this.navTimer);
+    this.messageTimer = null;
+    this.navTimer = null;
+  },
   methods: {
+    // Single entry point for the status toast. It clears any pending auto-hide
+    // first, so a timer from an older message can never hide a newer one.
+    // Errors clear themselves after ERROR_TOAST_MS; pass autoHideMs to override.
+    showMessage(kind, text, autoHideMs = kind === 'error' ? ERROR_TOAST_MS : 0) {
+      if (this.messageTimer) {
+        clearTimeout(this.messageTimer);
+        this.messageTimer = null;
+      }
+      this.messageKind = kind;
+      this.message = text;
+      if (autoHideMs > 0) {
+        this.messageTimer = setTimeout(() => {
+          this.messageTimer = null;
+          this.message = '';
+          this.messageKind = '';
+        }, autoHideMs);
+      }
+    },
     generatePassword() {
       var upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
       var lower = 'abcdefghijklmnopqrstuvwxyz';
@@ -240,8 +270,7 @@ export default {
     },
     async save() {
       this.saving = true;
-      this.messageKind = 'progress';
-      this.message = this.$t('Saving...');
+      this.showMessage('progress', this.$t('Saving...'));
 
       // Prepare TOTP fields
       let otpUrl = (this.editFields.otp || '').trim();
@@ -249,8 +278,7 @@ export default {
         try {
           Otp.parseUrl(otpUrl);
         } catch (e) {
-          this.messageKind = 'error';
-          this.message = this.$t('Invalid otpauth URL');
+          this.showMessage('error', this.$t('Invalid otpauth URL'));
           this.saving = false;
           return;
         }
@@ -283,8 +311,7 @@ export default {
           );
         }
         
-        this.messageKind = 'progress';
-        this.message = this.$t('Uploading...');
+        this.showMessage('progress', this.$t('Uploading...'));
         await this.keepassService.uploadDatabase(newBuffer);
         
         // Refresh cache from server to avoid re-unlock spinner
@@ -304,32 +331,26 @@ export default {
           }
         }
         
-        this.messageKind = 'success';
-        this.message = customPayload.invalidCount > 0
+        this.showMessage('success', customPayload.invalidCount > 0
           ? this.$t('Saved. {0} custom field(s) were skipped due to errors.', customPayload.invalidCount)
-          : this.$t('Saved!');
+          : this.$t('Saved!'));
         // Success needs enough dwell time to be read; the skipped-fields
-        // variant carries more information so it stays a little longer.
-        setTimeout(() => this.$router.goBack(), customPayload.invalidCount > 0 ? 1900 : 1400);
+        // variant carries more information so it stays a little longer. This
+        // navigation timer stays separate from the toast's auto-hide timer.
+        this.navTimer = setTimeout(() => this.$router.goBack(), customPayload.invalidCount > 0 ? 1900 : 1400);
       } catch (err) {
-        this.messageKind = 'error';
-        this.message = this.$t('Error: ') + err.message;
+        this.showMessage('error', this.$t('Error: ') + err.message);
       }
       this.saving = false;
-    },
-    cancel() {
-      this.$router.goBack();
     },
     async deleteEntry() {
       if (this.deleteClick === 0) {
         this.deleteClick = 1;
-        this.message = '';
-        this.messageKind = '';
+        this.showMessage('', '');
         return;
       }
       this.deleting = true;
-      this.messageKind = 'progress';
-      this.message = this.$t('Deleting...');
+      this.showMessage('progress', this.$t('Deleting...'));
       try {
         let newBuffer = await this.keepassService.deleteEntry(this.entry.id);
         await this.keepassService.uploadDatabase(newBuffer);
@@ -354,8 +375,7 @@ export default {
         }
         this.$router.goBack();
       } catch (err) {
-        this.messageKind = 'error';
-        this.message = this.$t('Delete error: ') + err.message;
+        this.showMessage('error', this.$t('Delete error: ') + err.message);
         this.deleteClick = 0;
       }
       this.deleting = false;
@@ -365,14 +385,20 @@ export default {
 </script>
 
 <template>
-  <div>
+  <div class="entry-edit-view">
     <go-back :message="$t('back to entry list')">
-      <template v-if="!isNew" #extra>
-        <span class="delete-btn selectable" @click.stop="deleteEntry" :title="$t('Delete')">
-          <i class="fa fa-trash" />
-          <span v-if="deleteClick === 0"> {{ $t('Delete') }}</span>
-          <span v-if="deleteClick === 1" class="confirm-text">{{ $t('Click again to confirm') }}</span>
-        </span>
+      <template #extra>
+        <!-- Save lives in the shared top bar (top-right). Compact by design so
+             the bar height, driven by the 18px title line, never grows. -->
+        <button
+          class="bar-save-btn"
+          :disabled="saving"
+          :title="$t('Save')"
+          @click.stop="save"
+        >
+          <i v-if="saving" class="fa fa-spinner fa-spin" aria-hidden="true" />
+          <span>{{ saving ? $t('Saving...') : $t('Save') }}</span>
+        </button>
       </template>
     </go-back>
     <div class="edit-form" v-if="entry || isNew">
@@ -478,10 +504,16 @@ export default {
         </template>
       </div>
       <div class="edit-actions">
-        <button class="action-button" :disabled="saving" @click="save">
-          {{ saving ? $t('Saving...') : $t('Save') }}
-        </button>
-        <button class="action-button cancel" @click="cancel">{{ $t('Cancel') }}</button>
+        <span
+          v-if="!isNew"
+          class="delete-btn selectable"
+          :title="$t('Delete')"
+          @click="deleteEntry"
+        >
+          <i class="fa fa-trash" />
+          <span v-if="deleteClick === 0"> {{ $t('Delete') }}</span>
+          <span v-if="deleteClick === 1" class="confirm-text">{{ $t('Click again to confirm') }}</span>
+        </span>
       </div>
       <div
         v-if="message"
@@ -500,11 +532,43 @@ export default {
 <style lang="scss" scoped>
 @import '../styles/settings.scss';
 
+// Keep the shared top bar pinned while this form scrolls (the user wanted it
+// still there after scrolling to the bottom). :deep() keeps the rule scoped to
+// this screen only, so FilePicker and every other .box-bar consumer is
+// untouched. The document (html/body) is this screen's scroll container and no
+// ancestor sets overflow/transform, so sticky works and keeps the bar in
+// normal flow - no layout shift and no form padding needed.
+.entry-edit-view :deep(.box-bar) {
+  position: sticky;
+  top: 0;
+  // Above the form content, below the status toast (z-index: 50).
+  z-index: 40;
+  // .box-bar is transparent by default, so give it the page background;
+  // otherwise the form scrolls visibly through it.
+  background-color: $background-color;
+  // The bar's height comes from the 18px title line alone (~21px); the
+  // floated #extra slot does not add to it, so the taller Save button would
+  // spill over the 2px border. Lay the bar out as a fixed-height flex row
+  // instead: the button is centred with an equal gap above and below and the
+  // bar stays exactly 39px, which is what the toast offset below assumes.
+  // `float` has no effect on a flex item, so the #extra slot still lands on
+  // the right via space-between. The vertical padding is folded into 39px.
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 39px;
+  padding: 0 $wall-padding;
+}
+
 .edit-form {
   padding: $wall-padding;
 }
 
 .delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 2px;
   color: var(--keepass-cat-red);
   font-size: 13px;
   cursor: pointer;
@@ -514,6 +578,40 @@ export default {
     color: var(--keepass-cat-red);
     font-weight: 700;
   }
+}
+
+// Save button in the shared top bar's #extra slot. The label now matches the
+// bar's own 18px (shared .box-bar font-size) for visual consistency, so the
+// spinner is scaled with it (16px) to keep the icon-to-text ratio. The bar is
+// flex-centred at 39px (see above): the 21.6px line (18px x 1.2) plus 4px
+// padding top/bottom keeps the button at ~30px, so it still clears the bar's
+// edges with the same ~3.5px gap and the bar stays 39px.
+.bar-save-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  // Idle "Save" is governed by this floor; the busy label ("Saving..." plus
+  // the spinner) is what actually sizes the button at runtime.
+  min-width: 88px;
+  // Vertical padding is the counterweight to font-size: 5 + 16x1.2 + 5 keeps
+  // the button ~29px tall inside the 37px bar content box, so the gap to the
+  // bar's edges and the toast offset (39 + 7 = 46px) both stay put.
+  padding: 5px 16px;
+  border: none;
+  border-radius: 3px;
+  background: $blue;
+  color: var(--keepass-cat-svg-fill);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+  .fa { font-size: 14px; }
 }
 
 .edit-field {
@@ -552,34 +650,26 @@ export default {
   }
 }
 
+// The form now ends with Delete; Save moved to the top bar's #extra slot.
 .edit-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 16px;
-  button {
-    flex: 1;
-    padding: 10px;
-    border: none;
-    border-radius: 3px;
-    font-size: 14px;
-    cursor: pointer;
-    &:disabled { opacity: 0.5; }
-  }
-  .action-button { background: $blue; color: var(--keepass-cat-svg-fill); }
-  .cancel { background: $light-gray; color: var(--keepass-cat-text); }
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 2px solid $light-gray;
 }
 
-// Status toast: fixed above the actions row so it is always on screen, no
-// matter how far the form is scrolled. `pointer-events: none` means it never
-// blocks the Save/Cancel buttons underneath; it also reserves no layout space,
-// so showing it never shifts the form.
+// Status toast: fixed just below the shared top bar, so it is always on screen
+// no matter how far the form is scrolled. `pointer-events: none` means it never
+// blocks the form underneath; it reserves no layout space, so showing it never
+// shifts the form.
 .message {
   position: fixed;
   left: 12px;
   right: 12px;
-  // Sits just above the action row, which is ~16px from the viewport bottom
-  // when the form is scrolled to its end.
-  bottom: 64px;
+  // `.box-bar` is pinned to exactly 39px on this screen (see the flex rule
+  // above), so this floats a 7px gap under it (46px - 39px).
+  top: 46px;
   z-index: 50;
   box-sizing: border-box;
   padding: 8px 12px;
