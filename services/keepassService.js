@@ -67,6 +67,69 @@ const KDBX_LEGACY_FIELD_TWINS = {
 };
 
 /*
+ * Custom string fields the extension itself reads/writes (TOTP plus the extra
+ * reference URLs used by keepassReference.js). They are never user-editable:
+ * excluded from the custom-field list and impossible to write or delete through
+ * the custom-field path, even if the UI asks.
+ */
+const KDBX_OWNED_FIELDS = ['otp', 'keepassCatTotpEnabled', 'keepassCatUrls'];
+
+/*
+ * The built-in KDBX field names and their legacy lowerCamel twins, derived from
+ * the twin map so this guard can never drift from the repair logic. They are
+ * managed only by setKdbxEntryField and must not surface through the
+ * custom-field list. The five built-ins AND their twins are reserved: neither is
+ * writable/deletable through the custom-field path, so a custom field named
+ * `title` can never collide with (or be silently folded onto) the built-in on
+ * the next parse.
+ */
+const KDBX_BUILTIN_FIELD_NAMES = Object.keys(KDBX_LEGACY_FIELD_TWINS);
+const KDBX_BUILTIN_TWIN_NAMES = Object.values(KDBX_LEGACY_FIELD_TWINS);
+
+function isOwnedKdbxField(name) {
+  return KDBX_OWNED_FIELDS.indexOf(name) >= 0;
+}
+
+function isBuiltinKdbxField(name) {
+  return KDBX_BUILTIN_FIELD_NAMES.indexOf(name) >= 0;
+}
+
+function isTwinKdbxField(name) {
+  return KDBX_BUILTIN_TWIN_NAMES.indexOf(name) >= 0;
+}
+
+/* Names that must never appear in the custom-field list. */
+function isHiddenCustomFieldName(name) {
+  return isOwnedKdbxField(name) || isBuiltinKdbxField(name) || isTwinKdbxField(name);
+}
+
+/*
+ * Names the custom-field path must never write or delete: the extension-owned
+ * fields, the five KDBX built-ins and their legacy lowerCamel twins. The twins
+ * are reserved alongside the built-ins because the parse-path repair
+ * (migrateLegacyFieldTwins) folds any `title` field onto `Title`, so storing a
+ * custom field under a twin name would corrupt the built-in on reload. Twin
+ * names are written by the built-in path (setKdbxEntryField) only.
+ */
+function isBlockedCustomFieldName(name) {
+  return isOwnedKdbxField(name) || isBuiltinKdbxField(name) || isTwinKdbxField(name);
+}
+
+function isProtectedKdbxValue(value) {
+  return (
+    value instanceof kdbxweb.ProtectedValue ||
+    (!!value && typeof value === 'object' && typeof value.getText === 'function')
+  );
+}
+
+/* Decrypts a live kdbxweb field value for the edit form (memory only). */
+function readKdbxFieldValue(value) {
+  if (isProtectedKdbxValue(value)) return value.getText();
+  if (value === null || value === undefined) return '';
+  return String(value);
+}
+
+/*
  * Writes a single field onto a kdbxweb entry, translating the extension's
  * lowerCamelCase key to KDBX's built-in name, applying protection for secret
  * fields, deleting on null/undefined, and dropping any legacy lowerCamel twin
@@ -108,6 +171,46 @@ function migrateLegacyFieldTwins(db_entry) {
   return repaired;
 }
 
+/*
+ * Writes a user-defined custom string field under the EXACT name the user gave.
+ * Deliberately does no key mapping and no legacy-twin deletion: it only ever
+ * touches a genuinely user-owned name. Extension-owned names, the five KDBX
+ * built-ins and their legacy lowerCamel twins are reserved, so a write under
+ * any of them is ignored silently (never written, and never folded onto a
+ * built-in by the next parse). The caller's isProtected flag is the single
+ * source of truth: a truthy flag stores the value as a ProtectedValue, a falsy
+ * flag stores it as plain text. The flag therefore wins over the field's prior
+ * state, so the user can un-protect an existing protected field by unticking
+ * the checkbox. Returns true if it acted.
+ */
+function setKdbxCustomField(kdbxEntry, name, value, isProtected) {
+  if (typeof name !== 'string' || name.length === 0) return false;
+  if (isBlockedCustomFieldName(name)) return false;
+  if (value === null || value === undefined) {
+    kdbxEntry.fields.delete(name);
+    return true;
+  }
+  // Normalize to text, even if a caller hands us a live ProtectedValue, so the
+  // caller's isProtected flag alone decides the stored representation.
+  var text = isProtectedKdbxValue(value) ? value.getText() : String(value);
+  var stored = isProtected ? kdbxweb.ProtectedValue.fromString(text) : text;
+  kdbxEntry.fields.set(name, stored);
+  return true;
+}
+
+/*
+ * Deletes a user-defined custom field by its exact name. Extension-owned names,
+ * the five built-ins and their legacy lowerCamel twins are ignored silently so
+ * the custom-field path can never clobber the fields the extension (or KDBX
+ * itself) owns.
+ */
+function deleteKdbxCustomField(kdbxEntry, name) {
+  if (typeof name !== 'string' || name.length === 0) return false;
+  if (isBlockedCustomFieldName(name)) return false;
+  kdbxEntry.fields.delete(name);
+  return true;
+}
+
 function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keepassReference) {
   var my = {};
   var _db = null; // raw kdbx db reference for save operations
@@ -118,6 +221,34 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     for (var i = 0; i < groups.length; i++) {
       if (groups[i].name === name) return groups[i];
       var found = findGroup(groups[i].groups, name);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  /*
+   * Shared helper: find the RAW kdbxweb entry by the extension's UUID string
+   * (same lookup saveEntry has always used). Used instead of the parsed entry so
+   * protected values are only ever decrypted on demand, never stored in the
+   * parsed/cached shape.
+   */
+  function findKdbxEntryById(id) {
+    function findInGroup(group) {
+      for (let e of group.entries) {
+        if (e.uuid && !e.uuid.empty) {
+          let eid = convertArrayToUUID(Base64.decode(e.uuid.id));
+          if (eid === id) return e;
+        }
+      }
+      for (let sub of group.groups) {
+        let found = findInGroup(sub);
+        if (found) return found;
+      }
+      return null;
+    }
+    if (!_db) return null;
+    for (let g of _db.groups) {
+      let found = findInGroup(g);
       if (found) return found;
     }
     return null;
@@ -401,30 +532,48 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     });
   };
 
-  my.saveEntry = function (entryId, updatedFields) {
-    console.log('[keepassService] saveEntry called, _db:', !!_db, '_masterKey:', !!_masterKey);
-    return my.ensureDbLoaded().then(() => {
-      // Find the entry in the kdbx db by UUID
-      function findEntryInGroup(group, id) {
-        for (let e of group.entries) {
-          if (e.uuid && !e.uuid.empty) {
-            let eid = convertArrayToUUID(Base64.decode(e.uuid.id));
-            if (eid === id) return e;
-          }
-        }
-        for (let sub of group.groups) {
-          let found = findEntryInGroup(sub, id);
-          if (found) return found;
-        }
-        return null;
+  /*
+   * Returns the user's custom string fields for an entry, reading the RAW
+   * kdbxweb entry so protected values are decrypted only into this in-memory
+   * result (never into the parsed/cached entry shape). Names are returned
+   * exactly as stored. Extension-owned fields, the five built-ins and their
+   * lowerCamel twins are excluded. Rejects when the entry is missing.
+   */
+  my.getEntryCustomFields = function (entryId) {
+    return my.ensureDbLoaded().then(function () {
+      var kdbxEntry = findKdbxEntryById(entryId);
+      if (!kdbxEntry) throw new Error(i18n.t('Entry not found in database'));
+      var customFields = [];
+      if (!kdbxEntry.fields) return customFields;
+      for (const [name, value] of kdbxEntry.fields) {
+        if (isHiddenCustomFieldName(name)) continue;
+        customFields.push({
+          name: name,
+          value: readKdbxFieldValue(value),
+          isProtected: isProtectedKdbxValue(value),
+        });
       }
+      return customFields;
+    });
+  };
 
-      let kdbxEntry = null;
-      for (let g of _db.groups) {
-        kdbxEntry = findEntryInGroup(g, entryId);
-        if (kdbxEntry) break;
+  my.saveEntry = function (entryId, updatedFields, customFields, removedFieldNames) {
+    console.log('[keepassService] saveEntry called, _db:', !!_db, '_masterKey:', !!_masterKey);
+    customFields = customFields || [];
+    removedFieldNames = removedFieldNames || [];
+    return my.ensureDbLoaded().then(() => {
+      let kdbxEntry = findKdbxEntryById(entryId);
+      if (!kdbxEntry) throw new Error(i18n.t('Entry not found in database'));
+
+      /*
+       * Removals first, then writes, so a rename (old name in
+       * removedFieldNames, new name in customFields) can never delete the
+       * freshly written field. Custom removals are blocked from ever touching
+       * the extension-owned or built-in fields.
+       */
+      for (let i = 0; i < removedFieldNames.length; i++) {
+        deleteKdbxCustomField(kdbxEntry, removedFieldNames[i]);
       }
-        if (!kdbxEntry) throw new Error(i18n.t('Entry not found in database'));
 
       // Update fields on the kdbx entry (fields is a Map in kdbxweb).
       // setKdbxEntryField maps the extension's lowerCamel keys onto KDBX's
@@ -432,6 +581,21 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
       // the null/undefined delete paths.
       for (let key in updatedFields) {
         setKdbxEntryField(kdbxEntry, key, updatedFields[key]);
+      }
+
+      /*
+       * Custom fields are written by their EXACT name, with no key mapping and
+       * no twin cleanup, honouring the caller's isProtected flag.
+       */
+      for (let i = 0; i < customFields.length; i++) {
+        var customField = customFields[i];
+        if (!customField) continue;
+        setKdbxCustomField(
+          kdbxEntry,
+          customField.name,
+          customField.value,
+          customField.isProtected
+        );
       }
 
       return _db.save().then(function(saved) {
@@ -517,7 +681,8 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     });
   };
 
-  my.addEntry = function (groupName, fields) {
+  my.addEntry = function (groupName, fields, customFields) {
+    customFields = customFields || [];
     return my.ensureDbLoaded().then(function () {
       function findGroup(groups, name) {
         for (var i = 0; i < groups.length; i++) {
@@ -535,6 +700,18 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
       for (var key in fields) {
         if (!fields[key]) continue;
         setKdbxEntryField(entry, key, fields[key]);
+      }
+      // User-defined custom fields are written by their exact name on the new
+      // entry, honouring the caller-provided isProtected flag.
+      for (var c = 0; c < customFields.length; c++) {
+        var customField = customFields[c];
+        if (!customField) continue;
+        setKdbxCustomField(
+          entry,
+          customField.name,
+          customField.value,
+          customField.isProtected
+        );
       }
       return _db.save();
     });

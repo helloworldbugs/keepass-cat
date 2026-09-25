@@ -60,6 +60,23 @@ const zhCN: Record<string, string> = {
   'Delete error: ': '删除错误：',
   '(empty)': '（空）',
 
+  // ===== Custom Fields =====
+  'Custom fields': '自定义字段',
+  'Protect stores the value as KeePass does with "Protect value in process memory".': '「保护」与 KeePass 的「在进程内存中保护该值」是同一种存储方式。',
+  'Loading custom fields...': '正在加载自定义字段...',
+  'Failed to load custom fields.': '自定义字段加载失败',
+  'No custom fields yet.': '暂无自定义字段',
+  'Field name': '字段名称',
+  'Field value': '字段值',
+  'Protect': '保护',
+  'Remove field': '移除字段',
+  'Add field': '添加字段',
+  'Field name cannot be empty.': '字段名称不能为空',
+  '"{0}" is a built-in field.': '"{0}" 是内置字段',
+  '"{0}" is used by Keepass Cat internally.': '"{0}" 由 Keepass Cat 内部使用',
+  '"{0}" is listed more than once.': '"{0}" 重复出现',
+  'Saved. {0} custom field(s) were skipped due to errors.': '已保存，但有 {0} 个自定义字段因错误被跳过。',
+
   // ===== Browse Entries =====
   'Rename group': '重命名分组',
   'Delete group': '删除分组',
