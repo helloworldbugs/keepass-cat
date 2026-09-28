@@ -88,21 +88,23 @@ var filler = (function () {
   var userPasswordPairs = [];
   var lonelyPasswords = []; //passwords without usernames
   var priorityPair = null; //most likely pair of fields.
+  var usernameCandidates = []; //visible, credential-signalled username fields (for the username-only path)
 
   function identifyPasswordFields() {
     //identify user/password pairs
     userPasswordPairs = [];
     lonelyPasswords = [];
+    usernameCandidates = [];
     priorityPair = null;
     var inputList = Array.from(document.getElementsByTagName('INPUT'));
 
     // Method 1 - based on focused field (the thing your cursor is in)
     var activeElem = document.activeElement;
     var focusedIndex = inputList.indexOf(activeElem);
-    if (inputList.length && focusedIndex >= 0) {
+    if (inputList.length && focusedIndex >= 0 && isFillableField(activeElem)) {
       var pair = {},
         focusedPassword = false;
-      if (isPasswordField(activeElem)) {
+      if (isCurrentPasswordField(activeElem)) {
         pair.p = activeElem;
         focusedPassword = true;
       } else {
@@ -118,7 +120,12 @@ var filler = (function () {
           //skip over hidden/invisible inputs to find the real username
           for (var j = focusedIndex - 1; j >= 0; j--) {
             var candidate = inputList[j];
-            if (!isPasswordField(candidate) && isElementInViewport(candidate) && isVisible(candidate)) {
+            if (
+              isFillableField(candidate) &&
+              !isCurrentPasswordField(candidate) &&
+              isElementInViewport(candidate) &&
+              isVisible(candidate)
+            ) {
               pair.u = candidate;
               break;
             }
@@ -128,12 +135,22 @@ var filler = (function () {
           //skip over hidden/invisible inputs to find the real password field
           for (var j = focusedIndex + 1; j < inputList.length; j++) {
             var candidate = inputList[j];
-            if (isPasswordField(candidate) && isElementInViewport(candidate) && isVisible(candidate)) {
+            if (
+              isFillableField(candidate) &&
+              isCurrentPasswordField(candidate) &&
+              isElementInViewport(candidate) &&
+              isVisible(candidate)
+            ) {
               pair.p = candidate;
               break;
             }
             //stop searching if we encounter another visible non-password field (likely next form section)
-            if (!isPasswordField(candidate) && isElementInViewport(candidate) && isVisible(candidate)) {
+            if (
+              isFillableField(candidate) &&
+              !isCurrentPasswordField(candidate) &&
+              isElementInViewport(candidate) &&
+              isVisible(candidate)
+            ) {
               break;
             }
           }
@@ -146,8 +163,9 @@ var filler = (function () {
     var possibleUserName;
     var lastFieldWasPassword = false; //used to detect registration forms which have 2 password fields, one after the other
     inputList.forEach((field) => {
+      if (!isFillableField(field)) return;
       if (isElementInViewport(field) && isVisible(field)) {
-        if (isPasswordField(field)) {
+        if (isCurrentPasswordField(field)) {
           if (possibleUserName) {
             userPasswordPairs.push({
               u: possibleUserName,
@@ -166,15 +184,86 @@ var filler = (function () {
         } else {
           possibleUserName = field;
           lastFieldWasPassword = false;
+          if (isUsernameCandidate(field)) usernameCandidates.push(field);
         }
       }
     });
   }
 
-  function isPasswordField(field) {
-    let type_attr = field.getAttribute('type');
-    if (type_attr && type_attr.toLowerCase() == 'password') return true;
-    return false;
+  // Parse autocomplete as a whitespace-separated, lowercased token list so e.g.
+  // "section-x shipping username webauthn" still matches "username".
+  function autocompleteTokens(field) {
+    var raw = field.getAttribute('autocomplete');
+    if (!raw) return [];
+    return raw.toLowerCase().split(/\s+/).filter(Boolean);
+  }
+
+  // Fields the page marks as not-our-credentials: never a fill target and never
+  // usable as the password half of a pair.
+  function isNeverFill(field) {
+    var tokens = autocompleteTokens(field);
+    return tokens.indexOf('new-password') >= 0 || tokens.indexOf('one-time-code') >= 0;
+  }
+
+  // Obvious non-credential text inputs (search/newsletter/comment boxes etc.)
+  // that must never be filled on any path.
+  function isExcludedField(field) {
+    var type = (field.getAttribute('type') || '').toLowerCase();
+    if (type === 'search' || type === 'hidden' || type === 'number') return true;
+    if (field.disabled || field.readOnly) return true;
+    var nameId = ((field.getAttribute('name') || '') + ' ' + (field.id || '')).toLowerCase();
+    return /search|query|keyword|newsletter|subscribe|comment|message|captcha/.test(nameId);
+  }
+
+  function isFillableField(field) {
+    return !isExcludedField(field) && !isNeverFill(field);
+  }
+
+  // Current password comes from the page's own declaration; a bare password type
+  // is a current password unless the page marks it new-password.
+  function isCurrentPasswordField(field) {
+    var tokens = autocompleteTokens(field);
+    if (tokens.indexOf('current-password') >= 0) return true;
+    if (tokens.indexOf('new-password') >= 0) return false;
+    return (field.getAttribute('type') || '').toLowerCase() === 'password';
+  }
+
+  // Username-ish fields. An autocomplete value that carries no credential token
+  // (absent, "off", "on", "false", "section-x shipping", ...) falls back to the
+  // name/id allowlist, because real pages commonly pair autocomplete="off" with
+  // name="username". Never-fill and denylist checks run before this and win.
+  function isUsernameCandidate(field) {
+    var tokens = autocompleteTokens(field);
+    if (tokens.indexOf('username') >= 0 || tokens.indexOf('email') >= 0) return true;
+    if ((field.getAttribute('type') || '').toLowerCase() === 'email') return true;
+    var nameId = (field.getAttribute('name') || '') + ' ' + (field.id || '');
+    return /user|login|email|account|uname|uid/i.test(nameId);
+  }
+
+  // Two tiers of evidence for the username-only path. An explicit
+  // autocomplete="username" is a decisive page declaration, so it is strong no
+  // matter what else the field looks like. Email-ish signals are not
+  // login-specific (newsletter/contact boxes use them too), so an email-ish
+  // field that is not declared username is weak evidence: it only qualifies when
+  // its own form also holds a password input, visible or not. Everything else is
+  // login-specific and strong. `type="email"` alone is not login-specific, but an
+  // explicit autocomplete="username" declaration is decisive, so it is checked
+  // before the email-ish classification — this keeps Google's sign-in identifier
+  // field (`type="email" autocomplete="username"` with no password) filling.
+  function qualifiesForUsernameOnly(field) {
+    var tokens = autocompleteTokens(field);
+    if (tokens.indexOf('username') >= 0) return true;
+
+    var nameId = ((field.getAttribute('name') || '') + ' ' + (field.id || '')).toLowerCase();
+    var emailIsh =
+      tokens.indexOf('email') >= 0 ||
+      (field.getAttribute('type') || '').toLowerCase() === 'email' ||
+      nameId.indexOf('email') >= 0;
+
+    if (emailIsh) {
+      return !!(field.form && field.form.querySelector('input[type="password"]'));
+    }
+    return /user|login|account|uname|uid/i.test(nameId);
   }
 
   function fillPassword(username, password) {
@@ -220,6 +309,25 @@ var filler = (function () {
         if (!filled && isElementInViewport(lonelyPassword) && isVisible(lonelyPassword)) {
           filled = fillField(lonelyPassword, password);
         }
+      }
+    }
+
+    // No fillable password field on this step (e.g. a two-step login whose
+    // password input is still hidden). Consider only the candidates with enough
+    // evidence (see qualifiesForUsernameOnly) and fill just the username when
+    // exactly one qualifies. Two or more means we cannot know which is the login
+    // field, so fill nothing. Unlike the pair path, never overwrite typed text.
+    var qualifyingCandidates = usernameCandidates.filter(qualifiesForUsernameOnly);
+    if (
+      !filled &&
+      userPasswordPairs.length === 0 &&
+      lonelyPasswords.length === 0 &&
+      qualifyingCandidates.length === 1 &&
+      username != null
+    ) {
+      var candidate = qualifyingCandidates[0];
+      if (candidate.value === '') {
+        fillField(candidate, username);
       }
     }
   }
