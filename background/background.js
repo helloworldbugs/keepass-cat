@@ -197,19 +197,6 @@ function Background(protectedMemory, localMemory, settings, notifications) {
     }
   }
 
-  // function to determine if the content script is already injected, so we don't do it twice
-  function alreadyInjected(tabId) {
-    return new Promise((resolve, reject) => {
-      chrome.tabs.sendMessage(tabId, { m: 'ping' }, (response) => {
-        if (response) resolve(true);
-        else {
-          let err = chrome.runtime.lastError;
-          resolve(false);
-        }
-      });
-    });
-  }
-
   //listen for "autofill" message:
   chrome.runtime.onMessage.addListener(handleMessage);
 

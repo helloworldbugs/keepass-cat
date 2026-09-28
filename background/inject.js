@@ -5,7 +5,19 @@ Inject script
 - Invoked when Keepass Cat popup 'autofill' action is selected.
 - Background will attempt to inject this script into the page, and the script will listen for a user/pass combo from background.
 */
-chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+// A fresh copy of this script is injected on every autofill, and each copy would
+// register its own chrome.runtime.onMessage listener, so one trigger could run
+// that many fill passes. Keep the live listener on the content script's own
+// window (the isolated world) and detach the previous one before installing the
+// new one. We only ever remove - never skip registration - because after an
+// extension reload a stale flag must not leave the frame with no live listener.
+try {
+  if (window.__keepassCatMessageListener) {
+    chrome.runtime.onMessage.removeListener(window.__keepassCatMessageListener);
+  }
+} catch (e) {}
+
+window.__keepassCatMessageListener = function (message, sender, sendResponse) {
   'use strict';
 
   if (!message || !message.m) return; //unrecognized message format
@@ -66,7 +78,9 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
       document.body.removeChild(ta);
     }
   }
-});
+};
+
+chrome.runtime.onMessage.addListener(window.__keepassCatMessageListener);
 
 var filler = (function () {
   'use strict';
@@ -80,8 +94,6 @@ var filler = (function () {
     userPasswordPairs = [];
     lonelyPasswords = [];
     priorityPair = null;
-    var inputPattern =
-      "input[type='text'], input[type='email'], input[type='password'], input:not([type])";
     var inputList = Array.from(document.getElementsByTagName('INPUT'));
 
     // Method 1 - based on focused field (the thing your cursor is in)
