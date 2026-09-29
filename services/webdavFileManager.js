@@ -28,11 +28,16 @@ Object DirMap {
 
 */
 import * as Base64 from 'base64-arraybuffer';
-import { AuthType, createClient } from 'webdav';
+import { AuthType, createClient, getPatcher } from 'webdav';
 import { guid } from '@/lib/utils.js';
 import { ChromePromiseApi } from '@/lib/chrome-api-promise.js';
 
 const chromePromise = ChromePromiseApi();
+
+/**
+ * Force 'omit' on every request the library makes.
+ */
+getPatcher().patch('fetch', (url, options) => fetch(url, { ...options, credentials: 'omit' }));
 const SEARCH_DEPTH = 5;
 
 function WebdavFileManager(settings) {
