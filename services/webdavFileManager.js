@@ -35,9 +35,24 @@ import { ChromePromiseApi } from '@/lib/chrome-api-promise.js';
 const chromePromise = ChromePromiseApi();
 
 /**
- * Force 'omit' on every request the library makes.
+ * Keep browser cookies out of every WebDAV request.
+ *
+ * webdav@5 silently drops a per-call `credentials` option (its request builder
+ * only forwards headers/data/signal) and maps its own `withCredentials` flag to
+ * `credentials: "include"` only - there is no supported way to ask for `omit`.
+ * So override the library's internal fetch, which every operation funnels
+ * through (confirmed in the built bundle: a single copy of the library, shared
+ * by the patcher and every client).
+ *
+ * NOTE: this leans on the library's patcher internals. If a future webdav
+ * release changes them, the override would silently stop applying and cookies
+ * would come back - re-check this on every webdav upgrade.
  */
-getPatcher().patch('fetch', (url, options) => fetch(url, { ...options, credentials: 'omit' }));
+const nativeFetch = globalThis.fetch.bind(globalThis);
+getPatcher().patch('fetch', (url, options = {}) =>
+  nativeFetch(url, { ...options, credentials: 'omit' })
+);
+
 const SEARCH_DEPTH = 5;
 
 function WebdavFileManager(settings) {
