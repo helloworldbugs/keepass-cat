@@ -5,7 +5,17 @@
  */
 import zhCN from '@/locales/zh-CN';
 
-const isZh = typeof navigator !== 'undefined' && navigator.language.startsWith('zh');
+// Follow the browser's *UI* language. In Firefox `navigator.language` tracks the
+// "preferred language for displaying pages" setting (intl.accept_languages), which
+// can disagree with the UI language the user actually changed - so read the
+// extension i18n API first, and only fall back to navigator.language.
+const g: any = globalThis;
+const uiLanguage: string =
+  (g.browser && g.browser.i18n && g.browser.i18n.getUILanguage && g.browser.i18n.getUILanguage()) ||
+  (g.chrome && g.chrome.i18n && g.chrome.i18n.getUILanguage && g.chrome.i18n.getUILanguage()) ||
+  (typeof navigator !== 'undefined' ? navigator.language : '');
+
+const isZh = String(uiLanguage).toLowerCase().startsWith('zh');
 
 // Lookups normalize the source string's whitespace (see t() below), so the
 // dictionary must be normalized the same way. Without this, any entry whose key
