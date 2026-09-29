@@ -333,18 +333,13 @@ jobs:
               echo "| Firefox (AMO) | $(describe "$AMO_OUTCOME" "$AMO_CONFIGURED" "Publish to Firefox (AMO)") |"
               echo "| Chrome Web Store | $(describe "$CWS_OUTCOME" "$CWS_CONFIGURED" "Publish to Chrome Web Store") |"
               echo
-              if [ "$PUBLISH" = "true" ]; then
-                echo "The GitHub release **$TAG** was created with both zips attached."
-              elif [ "$RUN" = "true" ]; then
+              if [ "$RUN" = "true" ]; then
                 echo "Dry run: no release was created and nothing was uploaded."
-              else
+              elif [ "$PUBLISH" != "true" ]; then
                 echo "No release was created — the tag **$TAG** already exists."
               fi
             } >> "$GITHUB_STEP_SUMMARY"
           fi
-
-          echo >> "$GITHUB_STEP_SUMMARY"
-          echo "Store uploads are best-effort — an upload that shows \`❌\` above does not mean the GitHub release failed." >> "$GITHUB_STEP_SUMMARY"
 
           # There is no REST endpoint for job summaries, so echo it too: this
           # makes the summary readable from the job log as well as from the UI.
