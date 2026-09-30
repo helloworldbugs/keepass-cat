@@ -198,11 +198,35 @@ var filler = (function () {
     return raw.toLowerCase().split(/\s+/).filter(Boolean);
   }
 
+  // A password input the page did NOT mark new-password is a genuine
+  // current-password declaration. Its presence means the page really is a
+  // change-password/registration shape, so new-password must be honoured. When
+  // every password input is new-password (or there is only one), the page is far
+  // more likely a login that mislabels its fields — some sites mark every input
+  // new-password to defeat browser password managers — so new-password is
+  // treated as usable. Document-wide by design, like the email-ish evidence
+  // check below.
+  function hasGenuineCurrentPasswordField() {
+    var inputs = document.getElementsByTagName('INPUT');
+    for (var i = 0; i < inputs.length; i++) {
+      var field = inputs[i];
+      if ((field.getAttribute('type') || '').toLowerCase() !== 'password') continue;
+      if (autocompleteTokens(field).indexOf('new-password') >= 0) continue;
+      return true;
+    }
+    return false;
+  }
+
   // Fields the page marks as not-our-credentials: never a fill target and never
-  // usable as the password half of a pair.
+  // usable as the password half of a pair. one-time-code is unconditional;
+  // new-password is only an exclusion when a genuine current-password field also
+  // exists (the change-password shape), so a page whose every password input is
+  // new-password stays fillable.
   function isNeverFill(field) {
     var tokens = autocompleteTokens(field);
-    return tokens.indexOf('new-password') >= 0 || tokens.indexOf('one-time-code') >= 0;
+    if (tokens.indexOf('one-time-code') >= 0) return true;
+    if (tokens.indexOf('new-password') >= 0) return hasGenuineCurrentPasswordField();
+    return false;
   }
 
   // Obvious non-credential text inputs (search/newsletter/comment boxes etc.)
@@ -219,13 +243,34 @@ var filler = (function () {
     return !isExcludedField(field) && !isNeverFill(field);
   }
 
-  // Current password comes from the page's own declaration; a bare password type
-  // is a current password unless the page marks it new-password.
+  // A visible password the fill paths could target means the page is already at
+  // (or may be at) the password step, so the username-only path must stay out.
+  // It exists for two-step logins whose password input is hidden or not yet
+  // rendered; sign-up/registration steps have a visible one and must not get the
+  // username filled.
+  function hasVisibleFillablePasswordField() {
+    var inputs = document.getElementsByTagName('INPUT');
+    for (var i = 0; i < inputs.length; i++) {
+      var field = inputs[i];
+      if ((field.getAttribute('type') || '').toLowerCase() !== 'password') continue;
+      if (isFillableField(field) && isVisible(field)) return true;
+    }
+    return false;
+  }
+
+  // Current password comes from the page's own declaration. new-password only
+  // means "not current" when a genuine current-password field also exists; when
+  // every password input on the page is new-password it is a mislabelled login,
+  // so a real password input still counts (the token must never turn a text
+  // username into a password).
   function isCurrentPasswordField(field) {
     var tokens = autocompleteTokens(field);
     if (tokens.indexOf('current-password') >= 0) return true;
-    if (tokens.indexOf('new-password') >= 0) return false;
-    return (field.getAttribute('type') || '').toLowerCase() === 'password';
+    var isPasswordType = (field.getAttribute('type') || '').toLowerCase() === 'password';
+    if (tokens.indexOf('new-password') >= 0) {
+      return isPasswordType && !hasGenuineCurrentPasswordField();
+    }
+    return isPasswordType;
   }
 
   // Username-ish fields. An autocomplete value that carries no credential token
@@ -312,16 +357,18 @@ var filler = (function () {
       }
     }
 
-    // No fillable password field on this step (e.g. a two-step login whose
-    // password input is still hidden). Consider only the candidates with enough
-    // evidence (see qualifiesForUsernameOnly) and fill just the username when
-    // exactly one qualifies. Two or more means we cannot know which is the login
-    // field, so fill nothing. Unlike the pair path, never overwrite typed text.
+    // No visible fillable password field on this step (e.g. a two-step login
+    // whose password input is still hidden or not yet rendered). Consider only
+    // the candidates with enough evidence (see qualifiesForUsernameOnly) and fill
+    // just the username when exactly one qualifies. Two or more means we cannot
+    // know which is the login field, so fill nothing. Unlike the pair path, never
+    // overwrite typed text.
     var qualifyingCandidates = usernameCandidates.filter(qualifiesForUsernameOnly);
     if (
       !filled &&
       userPasswordPairs.length === 0 &&
       lonelyPasswords.length === 0 &&
+      !hasVisibleFillablePasswordField() &&
       qualifyingCandidates.length === 1 &&
       username != null
     ) {
