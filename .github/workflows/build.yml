@@ -333,10 +333,12 @@ jobs:
               echo "| Firefox (AMO) | $(describe "$AMO_OUTCOME" "$AMO_CONFIGURED" "Publish to Firefox (AMO)") |"
               echo "| Chrome Web Store | $(describe "$CWS_OUTCOME" "$CWS_CONFIGURED" "Publish to Chrome Web Store") |"
               echo
-              if [ "$RUN" = "true" ]; then
-                echo "Dry run: no release was created and nothing was uploaded."
-              elif [ "$PUBLISH" != "true" ]; then
-                echo "No release was created — the tag **$TAG** already exists."
+              if [ "$PUBLISH" != "true" ]; then
+                if [ "$RUN" = "true" ]; then
+                  echo "Dry run: no release was created and nothing was uploaded."
+                else
+                  echo "No release was created — the tag **$TAG** already exists."
+                fi
               fi
             } >> "$GITHUB_STEP_SUMMARY"
           fi
