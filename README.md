@@ -55,14 +55,14 @@ English | [中文](README_CN.md)
 |---------|-------------|
 | 🕐 **Forget Timer** | Configurable unlock remember period: 30 minutes → forever, auto-clears on expiry |
 | 🔢 **Badge Count** | Real-time count of matching password entries shown on the extension icon |
-| ⚡ **One-Click Autofill** | Click an entry to autofill username and password |
+| ⚡ **One-Click Autofill** | Click an entry to autofill username and password; two-step logins (username first, password after the next step) fill one field per trigger |
 | 🧠 **4-Level Matching** | Original 4-level URL matching (with regex support) that ranks the best-matching entry |
 | ✏️ **CRUD** | Edit title, username, password (with strong password generator), URL, notes, custom fields, and TOTP right in the popup; saves back to the KDBX file on WebDAV |
 | 🧩 **Custom Fields** | Arbitrary per-entry name/value fields with an optional **Protect** flag, stored as KDBX protected strings |
 | 📂 **Group Management** | Create, rename, and delete groups; move entries between groups |
 | 🔐 **TOTP 2FA** | One-click copy of TOTP codes (with countdown), with edit support (`otpauth://`) |
 | 🔄 **WebDAV Sync** | WebDAV cloud sync (Jianguoyun / Nextcloud and other self-hosted services), auto-writes changes back |
-| 🌍 **i18n (EN & ZH)** | Full English/Chinese UI, auto-detects browser language |
+| 🌍 **i18n (EN & ZH)** | Full English/Chinese UI, follows the browser's UI language |
 | 🛡️ **Manifest V3** | Full Chrome MV3 support, plus Firefox MV2 |
 
 ---
@@ -130,10 +130,10 @@ English | [中文](README_CN.md)
 
 | Shortcut | Command | Description |
 |----------|---------|-------------|
-| `Ctrl+Shift+Space` | Open popup | Open the Keepass Cat popup |
-| `Ctrl+Shift+X` | Best-match autofill | Autofill the best-matching entry on the current page |
+| `Ctrl+Shift+Space` | Best-match autofill | Autofill the best-matching entry on the current page |
+| *(not assigned by default)* | Open popup | Assign your own at `chrome://extensions/shortcuts` |
 
-> Shortcuts can be customized at `chrome://extensions/shortcuts`.
+> `Ctrl+Shift+Space` is only a suggested default — the browser leaves it unassigned if another extension already uses that key. Shortcuts can be changed at `chrome://extensions/shortcuts`.
 
 ---
 
@@ -193,11 +193,19 @@ regex:192\.168\.\d+\.\d+:8080  →  matches a specific subnet and port
 | Method | Action | Use Case |
 |--------|--------|----------|
 | 🖱️ **Popup click** | Open the Keepass Cat popup and click an entry | Most common; browse and choose |
-| ⌨️ **Shortcut** | `Ctrl+Shift+X` | Fast autofill, no mouse |
+| ⌨️ **Shortcut** | `Ctrl+Shift+Space` | Fast autofill, no mouse (default key) |
 
 ### Field Detection Algorithm
 
-Keepass Cat uses a **dual-method detection** to locate username/password fields on the page:
+Keepass Cat uses a **fillable-field filter** plus **two detection methods** to locate username/password fields on the page.
+
+**Never filled on any path**
+
+A field the page marks as not-our-credentials, or that is obviously not a login input, is never written to:
+
+- `autocomplete="new-password"` (registration and change-password forms) and `autocomplete="one-time-code"` (OTP / 2FA code boxes)
+- `type="search"`, `type="number"`, `type="hidden"`, disabled or readonly inputs
+- fields whose `name` / `id` looks non-credential (`search`, `query`, `keyword`, `newsletter`, `subscribe`, `comment`, `message`, `captcha`)
 
 **Method 1: Focus (preferred)**
 ```
@@ -213,6 +221,14 @@ Iterate all visible inputs → pair by type → generate username-password pair 
 ```
 - Detect registration forms (two consecutive password fields) and exclude them
 - Handle standalone password fields (no username pairing)
+
+**Two-step logins (username-only first step)**
+
+Some login pages show only the username and reveal the password after a **Next** step (e.g. Alibaba Cloud RAM, Google sign-in). When there is no fillable password field on this step, Keepass Cat fills the username instead, and you trigger autofill again once the password appears:
+
+- There must be exactly **one** candidate on the page; two or more candidates means nothing is filled rather than guessing
+- The field must be **empty** — text you already typed is never overwritten
+- Evidence: `autocomplete="username"` (or a user/login/account/uname/uid naming style) is strong on its own; email-ish evidence (`autocomplete="email"`, `type="email"`, or an email-ish name/id) only counts when a password field exists in the same form — this is what keeps newsletter and contact boxes from being filled
 
 ### Iframe Cross-Origin Autofill
 
@@ -239,6 +255,10 @@ Keepass Cat syncs KeePass databases via the **WebDAV** protocol:
 | Backend | Type | Description |
 |---------|------|-------------|
 | 🔗 **WebDAV** | Self-hosted | Supports Jianguoyun and other WebDAV services; scans directories to auto-discover `.kdbx` files, with upload/save support |
+
+Every WebDAV request is forced to `credentials: 'omit'`, so it **never carries the browser's cookies**. A request can therefore never authenticate as whoever happens to be signed in to the server's web UI in the same browser — the connection always uses the account configured in the extension.
+
+> **Limitation:** servers that only expose WebDAV to an existing web session (for example an SSO/SAML-fronted Nextcloud or ownCloud that does not offer app passwords) are not supported by this path. Use an account with an app password instead.
 
 ### Storage Backend Architecture
 
