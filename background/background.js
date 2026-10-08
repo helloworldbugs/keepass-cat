@@ -101,8 +101,6 @@ function Background(protectedMemory, localMemory, settings, notifications) {
         if (!enabled) return;
         var otpUrl = decryptProtectedField(entry, 'otp');
         if (!otpUrl) return;
-        // Strict: only the literal 'true' enables TOTP; a missing key or any other value disables it.
-        if (entry['keepassCatTotpEnabled'] !== 'true') return;
         try {
           Otp.parseUrl(otpUrl).next(function (err, code) {
             if (err || !code) return;

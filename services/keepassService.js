@@ -46,7 +46,6 @@ const KDBX_FIELD_NAMES = {
   url: 'URL',
   notes: 'Notes',
   otp: 'otp',
-  keepassCatTotpEnabled: 'keepassCatTotpEnabled',
 };
 
 /* KDBX field names whose values are stored as kdbxweb ProtectedValues. */

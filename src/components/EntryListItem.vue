@@ -18,13 +18,12 @@ export default {
       if (this.entry.title.length > 0) return this.entry.title;
       return this.entry.url;
     },
+    // TOTP is enabled iff the entry has a non-empty `otp` value, whether it is
+    // stored as a protected field (protectedData.otp) or a plain-text field.
     hasTotp: function () {
-      return (
-        this.entry.protectedData !== undefined &&
-        'otp' in this.entry.protectedData &&
-        // Strict: only the literal 'true' enables TOTP; a missing key or any other value disables it.
-        this.entry['keepassCatTotpEnabled'] === 'true'
-      );
+      const protectedOtp = this.entry.protectedData && this.entry.protectedData.otp;
+      if (protectedOtp) return !!(protectedOtp.value && protectedOtp.value.length > 0);
+      return !!this.entry.otp;
     },
   },
   mounted() {

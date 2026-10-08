@@ -140,8 +140,7 @@ function UnlockedState(keepassReference, settings, notifications) {
     // Optionally auto-copy the entry's TOTP code to the clipboard
     settings.getSetCopyTotpOnAutofill().then(function (enabled) {
       var otpUrl = enabled ? my.getDecryptedAttribute(entry, 'otp') : '';
-      // Strict: only the literal 'true' enables TOTP; a missing key or any other value disables it.
-      if (otpUrl && entry['keepassCatTotpEnabled'] === 'true') {
+      if (otpUrl) {
         my.copyTotpUrl(otpUrl, false);
       } else {
         window.close(); //close the popup

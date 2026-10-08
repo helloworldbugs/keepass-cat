@@ -108,14 +108,12 @@ export default {
     copyEntryTotp(entry) {
       this.unlockedState.copyTotp(entry);
     },
-    // Same condition as the match list (EntryListItem.vue).
+    // Same condition as the match list (EntryListItem.vue): TOTP is enabled iff
+    // the entry has a non-empty `otp` value, protected or plain-text.
     hasTotp(entry) {
-      return (
-        entry.protectedData !== undefined &&
-        'otp' in entry.protectedData &&
-        // Strict: only the literal 'true' enables TOTP; a missing key or any other value disables it.
-        entry['keepassCatTotpEnabled'] === 'true'
-      );
+      const protectedOtp = entry.protectedData && entry.protectedData.otp;
+      if (protectedOtp) return !!(protectedOtp.value && protectedOtp.value.length > 0);
+      return !!entry.otp;
     },
     // Resolve an entry's OTP period once, then reuse it. Never decrypt on a tick.
     totpPeriod(entry) {
