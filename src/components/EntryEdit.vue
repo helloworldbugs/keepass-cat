@@ -320,9 +320,10 @@ export default {
           }
           this.editFields.otp = otpUrl;
         } else {
-          // Hidden or left empty → no change; keep the stored value (an empty
-          // value would otherwise tell the service to delete the field).
-          this.editFields.otp = this.loadedOtp || '';
+          // Hidden or left empty → no change. Pass whatever the entry had, or
+          // null when it had none, so the service deletes the field instead of
+          // storing an empty one.
+          this.editFields.otp = this.loadedOtp || null;
         }
       }
 

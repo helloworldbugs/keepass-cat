@@ -131,11 +131,14 @@ function readKdbxFieldValue(value) {
 /*
  * Writes a single field onto a kdbxweb entry, translating the extension's
  * lowerCamelCase key to KDBX's built-in name, applying protection for secret
- * fields, deleting on null/undefined, and dropping any legacy lowerCamel twin
- * of the built-in field just written.
+ * fields, deleting on null/undefined or on an empty protected value, and
+ * dropping any legacy lowerCamel twin of the built-in field just written.
  */
 function setKdbxEntryField(kdbxEntry, key, value) {
   var mappedKey = KDBX_FIELD_NAMES[key] || key;
+  // An empty protected value stores no secret, so treat it as "no field" rather
+  // than writing a zero-length ProtectedValue into the database.
+  if (value === '' && KDBX_PROTECTED_FIELDS.indexOf(mappedKey) >= 0) value = null;
   if (value === null || value === undefined) {
     kdbxEntry.fields.delete(mappedKey);
   } else if (KDBX_PROTECTED_FIELDS.indexOf(mappedKey) >= 0) {
