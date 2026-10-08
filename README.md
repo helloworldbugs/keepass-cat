@@ -80,7 +80,7 @@ English | [中文](README_CN.md)
 | 📋 **Copy** | One-click copy of username or password to the clipboard |
 | 🔗 **Open URL** | Click the icon to open the entry URL in a new tab |
 | 🔑 **Generate Password** | Click the key icon to generate a 16-20 character mixed password |
-| 🔐 **TOTP** | Clock icon on list items copies the current code (with countdown); enable via `otpauth://` in the edit page |
+| 🔐 **TOTP** | Clock icon on list items copies the current code (with countdown); added via `otpauth://` in the edit page |
 
 ### 🧩 Custom Fields
 
@@ -119,10 +119,10 @@ English | [中文](README_CN.md)
 
 - Supports the `otpauth://` standard (SHA1 / SHA256 / SHA512, 6-8 digit codes, including Steam format)
 - Password list shows a clock icon + plain-text countdown (e.g. `24s`); click to copy the current code
-- Edit page toggles "Enable TOTP" to add/modify the `otpauth://` URL
-- TOTP is enabled per entry by the `keepassCatTotpEnabled` field in the KDBX file, and only the exact value `true` counts — a missing, empty, or any other value means off
+- **Add OTP** in the edit page reveals an `otpauth://` URL field; the trash icon beside it removes the OTP when you save
+- TOTP is enabled per entry by the presence of the `otp` field: any non-empty value turns it on, and removing the field turns it off
 - The seed is written to the entry's lowercase `otp` field as an `otpauth://` URI
-- Databases coming from the original Tusk extension keep their `otp` seeds, but the old `tuskTotpEnabled` flag is no longer read — flip "Enable TOTP" once and save to switch those entries back on
+- Databases coming from the original Tusk extension keep their `otp` seeds, so those entries show their codes without any extra step
 
 ---
 
