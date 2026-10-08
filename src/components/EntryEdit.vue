@@ -20,7 +20,15 @@ export default {
       entry: null,
       isNew: false,
       editFields: {},
-      totpEnabled: false,
+      // OTP block state. `otpEditing` shows the input row; `otpRemoved`
+      // records that the user pressed the block's delete button this session,
+      // which means "remove the stored OTP on save". `loadedOtp` keeps the
+      // value the entry had when the form opened, so an empty input can mean
+      // "no change". `hasSavedOtp` restores the button+hint after a delete.
+      otpEditing: false,
+      otpRemoved: false,
+      loadedOtp: '',
+      hasSavedOtp: false,
       groups: [],
       selectedGroup: '',
       saving: false,
@@ -127,8 +135,16 @@ export default {
         // TOTP
         let otpUrl = this.unlockedState.getDecryptedAttribute(this.entry, 'otp') || '';
         this.editFields.otp = otpUrl;
-        // Strict: only the literal 'true' enables TOTP; a missing key or any other value disables it.
-        this.totpEnabled = !!otpUrl && this.entry['keepassCatTotpEnabled'] === 'true';
+        this.loadedOtp = otpUrl;
+        // The entry has an OTP iff it has a non-empty `otp` value, whether
+        // stored as a protected field (protectedData.otp) or a plain field -
+        // the same rule the entry lists use. The input is shown from the start
+        // when there is one, otherwise the "Add OTP" button is.
+        let protectedOtp = this.entry.protectedData && this.entry.protectedData.otp;
+        this.hasSavedOtp = protectedOtp
+          ? !!(protectedOtp.value && protectedOtp.value.length > 0)
+          : !!this.entry.otp;
+        this.otpEditing = this.hasSavedOtp;
       }
     }
     // Load sorted groups from cached entries + keepassService
@@ -268,26 +284,46 @@ export default {
       });
       return { customFields, removedFieldNames, invalidCount };
     },
+    // Reveal the OTP input row and focus it. Starting a fresh add also clears
+    // any earlier delete, so a new value is saved normally.
+    startOtp() {
+      this.otpEditing = true;
+      this.otpRemoved = false;
+      this.$nextTick(() => {
+        const el = this.$refs.otpInput;
+        if (el && el.focus) el.focus();
+      });
+    },
+    // Hide the input and remember the delete, so saving removes the stored OTP.
+    removeOtp() {
+      this.otpEditing = false;
+      this.otpRemoved = true;
+      this.editFields.otp = '';
+    },
     async save() {
       this.saving = true;
       this.showMessage('progress', this.$t('Saving...'));
 
-      // Prepare TOTP fields
-      let otpUrl = (this.editFields.otp || '').trim();
-      if (otpUrl) {
-        try {
-          Otp.parseUrl(otpUrl);
-        } catch (e) {
-          this.showMessage('error', this.$t('Invalid otpauth URL'));
-          this.saving = false;
-          return;
-        }
-        this.editFields.otp = otpUrl;
-        this.editFields.keepassCatTotpEnabled = this.totpEnabled ? 'true' : 'false';
-      } else {
-        // empty URL → remove TOTP (only manual clear triggers delete)
+      // OTP: what gets written depends on what the user did in this session.
+      if (this.otpRemoved) {
+        // The block's delete button was pressed → remove the stored field.
         this.editFields.otp = null;
-        this.editFields.keepassCatTotpEnabled = null;
+      } else {
+        let otpUrl = (this.editFields.otp || '').trim();
+        if (otpUrl) {
+          try {
+            Otp.parseUrl(otpUrl);
+          } catch (e) {
+            this.showMessage('error', this.$t('Invalid otpauth URL'));
+            this.saving = false;
+            return;
+          }
+          this.editFields.otp = otpUrl;
+        } else {
+          // Hidden or left empty → no change; keep the stored value (an empty
+          // value would otherwise tell the service to delete the field).
+          this.editFields.otp = this.loadedOtp || '';
+        }
       }
 
       // Validate custom fields up front so a bad row is reported rather than
@@ -434,16 +470,30 @@ export default {
         <textarea v-model="editFields.notes" rows="4"></textarea>
       </div>
       <div class="edit-field">
-        <label class="totp-toggle">
-          <input type="checkbox" v-model="totpEnabled" />
-          <span>{{ $t('Enable TOTP') }}</span>
-        </label>
-        <input
-          v-if="totpEnabled"
-          v-model="editFields.otp"
-          type="text"
-          placeholder="otpauth://totp/...?secret=..."
-        />
+        <div v-if="otpEditing" class="otp-row">
+          <input
+            ref="otpInput"
+            v-model="editFields.otp"
+            type="text"
+            placeholder="otpauth://totp/...?secret=..."
+          />
+          <span
+            class="otp-remove selectable"
+            :title="$t('Remove OTP')"
+            :aria-label="$t('Remove OTP')"
+            @click="removeOtp"
+          >
+            <i class="fa fa-trash" />
+          </span>
+        </div>
+        <template v-else>
+          <div class="otp-add-btn selectable" @click="startOtp">
+            <i class="fa fa-plus" /> {{ $t('Add OTP') }}
+          </div>
+          <p v-if="otpRemoved && hasSavedOtp" class="otp-hint">
+            {{ $t('OTP will be removed when you save.') }}
+          </p>
+        </template>
       </div>
       <div class="custom-fields-section">
         <div class="custom-fields-header">
@@ -696,15 +746,46 @@ export default {
 
 .error { color: red; }
 
-.totp-toggle {
+// OTP block: an input with a destructive delete button, or the "Add OTP"
+// button that reveals it. Mirrors the input + remove-btn row used for custom
+// fields, and the blue "add" button language used elsewhere in the app.
+.otp-row {
   display: flex;
   align-items: center;
   gap: 6px;
-  cursor: pointer;
-  input[type='checkbox'] {
-    width: auto;
-    cursor: pointer;
+  input {
+    flex: 1;
+    min-width: 0;
   }
+  .otp-remove {
+    flex: 0 0 auto;
+    padding: 6px 8px;
+    border-radius: 3px;
+    font-size: 15px;
+    color: var(--keepass-cat-red);
+    cursor: pointer;
+    &:hover {
+      background: $light-gray;
+      opacity: 0.8;
+    }
+  }
+}
+
+.otp-add-btn {
+  padding: 8px;
+  text-align: center;
+  font-size: 13px;
+  color: $blue;
+  cursor: pointer;
+  &:hover { background: var(--keepass-cat-bg-hover); }
+  .fa { margin-right: 4px; }
+}
+
+.otp-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--keepass-cat-text-muted);
 }
 
 .custom-fields-section {
@@ -780,7 +861,7 @@ export default {
     min-width: 0;
   }
 
-  // Same checkbox + label language as the TOTP toggle above.
+  // Checkbox + label language shared with the rest of the app.
   .protect-toggle {
     display: flex;
     align-items: center;
