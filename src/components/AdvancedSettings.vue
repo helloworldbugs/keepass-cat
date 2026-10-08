@@ -182,13 +182,13 @@ export default {
     </div>
 
     <div class="box-bar roomy">
-      <h4>{{ $t('TOTP Automation') }}</h4>
-      <p>{{ $t('Choose how Keepass Cat automates one-time passwords (TOTP).') }}</p>
+      <h4>{{ $t('OTP Automation') }}</h4>
+      <p>{{ $t('Choose how Keepass Cat automates one-time passwords (OTP).') }}</p>
     </div>
     <div class="box-bar roomy lighter">
       <div>
         <p class="totp-note">
-          {{ $t('Copies the code and also fills it into the focused input field on the current page when you click the TOTP button.') }}
+          {{ $t('Copies the code and also fills it into the focused input field on the current page when you click the OTP button.') }}
         </p>
         <div class="switch">
           <label>
@@ -197,11 +197,11 @@ export default {
               type="checkbox"
             >
             <span class="lever" />
-            {{ $t('Fill TOTP at cursor') }}
+            {{ $t('Fill OTP at cursor') }}
           </label>
         </div>
         <p class="totp-note">
-          {{ $t('Copies the code to the clipboard whenever you autofill an entry that has a TOTP.') }}
+          {{ $t('Copies the code to the clipboard whenever you autofill an entry that has an OTP.') }}
         </p>
         <div class="switch">
           <label>
@@ -210,7 +210,7 @@ export default {
               type="checkbox"
             >
             <span class="lever" />
-            {{ $t('Copy TOTP on autofill') }}
+            {{ $t('Copy OTP on autofill') }}
           </label>
         </div>
       </div>

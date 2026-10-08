@@ -18,7 +18,7 @@ export default {
       busy: false,
       message: '',
       entriesVersion: 0,
-      // entry.id -> seconds left on its TOTP code, refreshed by the shared ticker.
+      // entry.id -> seconds left on its OTP code, refreshed by the shared ticker.
       otpCountdowns: {},
     };
   },
@@ -108,7 +108,7 @@ export default {
     copyEntryTotp(entry) {
       this.unlockedState.copyTotp(entry);
     },
-    // Same condition as the match list (EntryListItem.vue): TOTP is enabled iff
+    // Same condition as the match list (EntryListItem.vue): OTP is enabled iff
     // the entry has a non-empty `otp` value, protected or plain-text.
     hasTotp(entry) {
       const protectedOtp = entry.protectedData && entry.protectedData.otp;
@@ -294,7 +294,7 @@ export default {
               >{{ entry.userName || '' }}</span>
             </div>
             <span v-if="hasTotp(entry)" class="otp-countdown">{{ otpCountdowns[entry.id] }}s</span>
-            <span v-if="hasTotp(entry)" class="fa-stack entry-copy-otp" @click.stop="copyEntryTotp(entry)" :title="$t('Copy TOTP code')">
+            <span v-if="hasTotp(entry)" class="fa-stack entry-copy-otp" @click.stop="copyEntryTotp(entry)" :title="$t('Copy OTP code')">
               <i class="fa fa-circle fa-stack-2x" />
               <i class="fa fa-clock-o fa-stack-1x fa-inverse" />
             </span>

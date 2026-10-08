@@ -74,7 +74,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
       });
     };
     // Resolves once the content script has been injected, so callers that need to
-    // send it another message (e.g. the TOTP clipboard copy) can wait for it.
+    // send it another message (e.g. the OTP clipboard copy) can wait for it.
     return new Promise(function (resolve) {
       chrome.scripting.executeScript(
         {
@@ -90,8 +90,8 @@ function Background(protectedMemory, localMemory, settings, notifications) {
     });
   }
 
-  // Mirror the popup autofill path for the shortcut flow: when "copy TOTP on
-  // autofill" is enabled, compute the entry's TOTP and have the content script
+  // Mirror the popup autofill path for the shortcut flow: when "copy OTP on
+  // autofill" is enabled, compute the entry's OTP and have the content script
   // copy it to the clipboard (a service worker has no document/clipboard access).
   // Every failure here is silent and never affects the password fill itself.
   function copyTotpForShortcut(tabId, entry) {
@@ -104,21 +104,21 @@ function Background(protectedMemory, localMemory, settings, notifications) {
         try {
           Otp.parseUrl(otpUrl).next(function (err, code) {
             if (err || !code) return;
-            chrome.tabs.sendMessage(tabId, { m: 'copyToClipboard', code: code, label: 'TOTP' });
+            chrome.tabs.sendMessage(tabId, { m: 'copyToClipboard', code: code, label: 'OTP' });
             settings.getSetClipboardExpireInterval().then(function (interval) {
               settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
               notifications.push({
-                text: 'TOTP' + i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval),
+                text: 'OTP' + i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval),
                 type: 'clipboard',
               });
             });
           });
         } catch (e) {
-          console.warn('[shortcut] TOTP failed:', e);
+          console.warn('[shortcut] OTP failed:', e);
         }
       })
       .catch(function (e) {
-        console.warn('[shortcut] TOTP setting lookup failed:', e);
+        console.warn('[shortcut] OTP setting lookup failed:', e);
       });
   }
 

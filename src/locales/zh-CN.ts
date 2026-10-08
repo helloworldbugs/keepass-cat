@@ -194,16 +194,16 @@ const zhCN: Record<string, string> = {
 
   // ===== Autofill Shortcut =====
   'Autofill Shortcut': '自动填充快捷键',
-  'Fill TOTP at cursor': '在光标处填充 TOTP',
-  'Copy TOTP on autofill': '填充时自动复制 TOTP',
+  'Fill OTP at cursor': '在光标处填充 OTP',
+  'Copy OTP on autofill': '填充时自动复制 OTP',
   'Open Chrome shortcut settings': '打开 Chrome 快捷键设置',
   'Customize shortcuts in Firefox: toolbar menu (top-right) → Add-ons and themes → gear icon (top-right) → Manage Extension Shortcuts.': '在 Firefox 中自定义快捷键：右上角工具栏菜单 → 扩展和主题 → 右上角齿轮图标 → 管理扩展快捷键。',
 
-  // ===== TOTP Automation =====
-  'TOTP Automation': 'TOTP 自动化',
-  'Choose how Keepass Cat automates one-time passwords (TOTP).': '设置 Keepass Cat 自动处理一次性密码（TOTP）的方式。',
-  'Copies the code and also fills it into the focused input field on the current page when you click the TOTP button.': '点击 TOTP 按钮时，会复制验证码并自动填充到当前页面光标所在的输入框。',
-  'Copies the code to the clipboard whenever you autofill an entry that has a TOTP.': '触发自动填充含 TOTP 的密码条目时，会自动将 TOTP 验证码复制到剪贴板。',
+  // ===== OTP Automation =====
+  'OTP Automation': 'OTP 自动化',
+  'Choose how Keepass Cat automates one-time passwords (OTP).': '设置 Keepass Cat 自动处理一次性密码（OTP）的方式。',
+  'Copies the code and also fills it into the focused input field on the current page when you click the OTP button.': '点击 OTP 按钮时，会复制验证码并自动填充到当前页面光标所在的输入框。',
+  'Copies the code to the clipboard whenever you autofill an entry that has an OTP.': '触发自动填充含 OTP 的密码条目时，会自动将 OTP 验证码复制到剪贴板。',
 
   ' or ': ' 或 ',
 
@@ -218,12 +218,12 @@ const zhCN: Record<string, string> = {
   ' so we can make Keepass Cat better.': '，以便我们改进 Keepass Cat。',
   '. If you find a problem or are dissatisfied, please instead open an issue on the ': '。如果你遇到问题或不满意，请在 ',
 
-  // ===== TOTP =====
+  // ===== OTP =====
   'Add OTP': '添加 OTP',
   'Remove OTP': '移除 OTP',
   'OTP will be removed when you save.': '保存后将移除 OTP。',
   'Invalid otpauth URL': '无效的 otpauth URL',
-  'Copy TOTP code': '复制TOTP验证码',
+  'Copy OTP code': '复制OTP验证码',
 };
 
 export default zhCN;

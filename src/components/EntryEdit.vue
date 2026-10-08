@@ -132,7 +132,7 @@ export default {
             this.editFields[key] = this.entry[key] || '';
           }
         }
-        // TOTP
+        // OTP
         let otpUrl = this.unlockedState.getDecryptedAttribute(this.entry, 'otp') || '';
         this.editFields.otp = otpUrl;
         this.loadedOtp = otpUrl;

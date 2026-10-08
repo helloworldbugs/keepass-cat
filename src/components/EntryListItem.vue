@@ -18,7 +18,7 @@ export default {
       if (this.entry.title.length > 0) return this.entry.title;
       return this.entry.url;
     },
-    // TOTP is enabled iff the entry has a non-empty `otp` value, whether it is
+    // OTP is enabled iff the entry has a non-empty `otp` value, whether it is
     // stored as a protected field (protectedData.otp) or a plain-text field.
     hasTotp: function () {
       const protectedOtp = this.entry.protectedData && this.entry.protectedData.otp;
@@ -96,7 +96,7 @@ export default {
     </div>
     <div class="buttons" :class="{ 'no-otp': !hasTotp }">
       <span v-if="hasTotp" class="otp-countdown">{{ otpTimeleft }}s</span>
-      <span v-if="hasTotp" class="fa-stack copy-otp" @click="copyOtp" :title="$t('Copy TOTP code')">
+      <span v-if="hasTotp" class="fa-stack copy-otp" @click="copyOtp" :title="$t('Copy OTP code')">
         <i class="fa fa-circle fa-stack-2x" />
         <i class="fa fa-clock-o fa-stack-1x fa-inverse" />
       </span>

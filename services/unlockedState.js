@@ -137,7 +137,7 @@ function UnlockedState(keepassReference, settings, notifications) {
       },
     });
 
-    // Optionally auto-copy the entry's TOTP code to the clipboard
+    // Optionally auto-copy the entry's OTP code to the clipboard
     settings.getSetCopyTotpOnAutofill().then(function (enabled) {
       var otpUrl = enabled ? my.getDecryptedAttribute(entry, 'otp') : '';
       if (otpUrl) {
@@ -159,7 +159,7 @@ function UnlockedState(keepassReference, settings, notifications) {
         settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
         notifications
           .push({
-            text: 'TOTP' + i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval),
+            text: 'OTP' + i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval),
             type: 'clipboard',
           })
           .then(function () {
