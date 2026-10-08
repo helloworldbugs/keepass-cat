@@ -471,6 +471,7 @@ export default {
         <textarea v-model="editFields.notes" rows="4"></textarea>
       </div>
       <div class="edit-field">
+        <label>{{ $t('OTP') }}</label>
         <div v-if="otpEditing" class="otp-row">
           <input
             ref="otpInput"
