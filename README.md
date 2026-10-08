@@ -23,7 +23,7 @@ English | [中文](README_CN.md)
     - [🧩 Custom Fields](#-custom-fields)
     - [✏️ Editing an Entry](#️-editing-an-entry)
     - [📁 Group Management](#-group-management)
-    - [🔐 TOTP Two-Factor Authentication](#-totp-two-factor-authentication)
+    - [🔐 OTP Two-Factor Authentication](#-otp-two-factor-authentication)
   - [⌨️ Keyboard Shortcuts](#️-keyboard-shortcuts)
   - [🧠 4-Level URL Matching](#-4-level-url-matching)
     - [Matching Levels](#matching-levels)
@@ -57,10 +57,10 @@ English | [中文](README_CN.md)
 | 🔢 **Badge Count** | Real-time count of matching password entries shown on the extension icon |
 | ⚡ **One-Click Autofill** | Click an entry to autofill username and password; two-step logins (username first, password after the next step) fill one field per trigger |
 | 🧠 **4-Level Matching** | Original 4-level URL matching (with regex support) that ranks the best-matching entry |
-| ✏️ **CRUD** | Edit title, username, password (with strong password generator), URL, notes, custom fields, and TOTP right in the popup; saves back to the KDBX file on WebDAV |
+| ✏️ **CRUD** | Edit title, username, password (with strong password generator), URL, notes, custom fields, and OTP right in the popup; saves back to the KDBX file on WebDAV |
 | 🧩 **Custom Fields** | Arbitrary per-entry name/value fields with an optional **Protect** flag, stored as KDBX protected strings |
 | 📂 **Group Management** | Create, rename, and delete groups; move entries between groups |
-| 🔐 **TOTP 2FA** | One-click copy of TOTP codes (with countdown), with edit support (`otpauth://`) |
+| 🔐 **OTP 2FA** | One-click copy of OTP codes (with countdown), with edit support (`otpauth://`) |
 | 🔄 **WebDAV Sync** | WebDAV cloud sync (Jianguoyun / Nextcloud and other self-hosted services), auto-writes changes back |
 | 🌍 **i18n (EN & ZH)** | Full English/Chinese UI, follows the browser's UI language |
 | 🛡️ **Manifest V3** | Full Chrome MV3 support, plus Firefox MV2 |
@@ -80,7 +80,7 @@ English | [中文](README_CN.md)
 | 📋 **Copy** | One-click copy of username or password to the clipboard |
 | 🔗 **Open URL** | Click the icon to open the entry URL in a new tab |
 | 🔑 **Generate Password** | Click the key icon to generate a 16-20 character mixed password |
-| 🔐 **TOTP** | Clock icon on list items copies the current code (with countdown); added via `otpauth://` in the edit page |
+| 🔐 **OTP** | Clock icon on list items copies the current code (with countdown); added via `otpauth://` in the edit page |
 
 ### 🧩 Custom Fields
 
@@ -115,12 +115,12 @@ English | [中文](README_CN.md)
 - Move entries freely between groups
 - Tree-style browsing with expand/collapse
 
-### 🔐 TOTP Two-Factor Authentication
+### 🔐 OTP Two-Factor Authentication
 
 - Supports the `otpauth://` standard (SHA1 / SHA256 / SHA512, 6-8 digit codes, including Steam format)
 - Password list shows a clock icon + plain-text countdown (e.g. `24s`); click to copy the current code
 - **Add OTP** in the edit page reveals an `otpauth://` URL field; the trash icon beside it removes the OTP when you save
-- TOTP is enabled per entry by the presence of the `otp` field: any non-empty value turns it on, and removing the field turns it off
+- OTP is enabled per entry by the presence of the `otp` field: any non-empty value turns it on, and removing the field turns it off
 - The seed is written to the entry's lowercase `otp` field as an `otpauth://` URI
 - Databases coming from the original Tusk extension keep their `otp` seeds, so those entries show their codes without any extra step
 
