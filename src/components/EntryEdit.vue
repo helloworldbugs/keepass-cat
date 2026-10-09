@@ -58,7 +58,7 @@ export default {
     customFieldErrors() {
       const builtin = { title: true, username: true, password: true, url: true, notes: true };
       // Internal bookkeeping fields that must not be shadowed by a custom field.
-      const internal = { otp: true, keepasscattotpenabled: true, keepasscaturls: true };
+      const internal = { otp: true };
       const errors = {};
       const seen = Object.create(null);
       for (const row of this.customFields) {

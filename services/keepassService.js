@@ -66,12 +66,11 @@ const KDBX_LEGACY_FIELD_TWINS = {
 };
 
 /*
- * Custom string fields the extension itself reads/writes (TOTP plus the extra
- * reference URLs used by keepassReference.js). They are never user-editable:
- * excluded from the custom-field list and impossible to write or delete through
- * the custom-field path, even if the UI asks.
+ * The extension-owned custom string field: the OTP seed. It is never
+ * user-editable - excluded from the custom-field list and impossible to write or
+ * delete through the custom-field path, even if the UI asks.
  */
-const KDBX_OWNED_FIELDS = ['otp', 'keepassCatTotpEnabled', 'keepassCatUrls'];
+const KDBX_OWNED_FIELDS = ['otp'];
 
 /*
  * The built-in KDBX field names and their legacy lowerCamel twins, derived from
@@ -321,14 +320,6 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
   my.rankEntries = (entries, siteUrl) => {
     entries.forEach(function (entry) {
       var level = matchLevel(siteUrl.href, entry);
-      // Also check keepassCatUrls field for additional URL matches
-      if (level === 0 && entry.keys && entry.keys.indexOf('keepassCatUrls') >= 0) {
-        var urls = entry.keepassCatUrls.split(',');
-        for (var i = 0; i < urls.length; i++) {
-          var altLevel = matchLevel(siteUrl.href, { url: urls[i].trim() });
-          if (altLevel > level) level = altLevel;
-        }
-      }
       entry.matchRank = level * 25; // 100, 75, 50, 25 for levels 4,3,2,1
     });
   };

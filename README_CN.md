@@ -86,7 +86,7 @@
 
 - 条目除标题 / 用户名 / 密码 / URL / 备注之外，还可携带任意「名称/值」自定义字段，可在编辑页新增、改名、修改、删除
 - 每个字段都有「保护」勾选框；勾选后该值写入 KDBX 文件时是受保护字符串 —— 与 KeePass 的「在进程内存中保护该值」是同一种存储方式；取消勾选会降级为明文
-- 字段名与内置字段（`Title`、`UserName`、`Password`、`URL`、`Notes`、`otp`、`keepassCatTotpEnabled`、`keepassCatUrls`）冲突时会被拒绝，不区分大小写
+- 字段名与内置字段（`Title`、`UserName`、`Password`、`URL`、`Notes`）、`otp` 种子字段、以及它们的历史小驼峰孪生名（`title`、`userName`、`password`、`url`、`notes`）冲突时会被拒绝，不区分大小写
 - 改名时会写入新名并删除旧名，KeePass 侧不会出现重名残留
 
 ### ✏️ 编辑条目

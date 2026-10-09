@@ -86,7 +86,7 @@ English | [中文](README_CN.md)
 
 - Any entry can carry extra name/value fields alongside Title / Username / Password / URL / Notes; add, rename, edit and remove them in the edit page
 - Every field has a **Protect** checkbox; when it is on, the value is written to the KDBX file as a protected string — the same flag KeePass uses for "Protect value in process memory" — and turning it off rewrites the value as plain text
-- Names that collide with built-in fields (`Title`, `UserName`, `Password`, `URL`, `Notes`, `otp`, `keepassCatTotpEnabled`, `keepassCatUrls`) are rejected, case-insensitively
+- Names that collide with built-in fields (`Title`, `UserName`, `Password`, `URL`, `Notes`), the `otp` seed field, or their legacy lowerCamel twins (`title`, `userName`, `password`, `url`, `notes`) are rejected, case-insensitively
 - Renaming writes the new name and removes the old one, so KeePass never sees a duplicate
 
 ### ✏️ Editing an Entry
