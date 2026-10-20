@@ -148,8 +148,8 @@ export default {
         <tr>
           <th>{{ $t('User') }}</th>
           <th>{{ $t('URL') }}</th>
-          <th>{{ $t('Actions') }}</th>
-          <th />
+          <!-- Scan and remove share one heading, so there is no empty cell. -->
+          <th colspan="2">{{ $t('Actions') }}</th>
         </tr>
         <tr v-for="(server, index) in serverList">
           <td :title="server.username">{{ server.username }}</td>
@@ -250,10 +250,8 @@ table {
   td:nth-child(4) {
     width: 15%;
   }
-  // The remove action has no heading, so keep its header cell invisible.
-  th:empty {
-    background-color: transparent;
-  }
+  // The remove action has no heading of its own, so "Actions" spans both
+  // action columns; there is no empty header cell to style.
   // Long usernames / URLs must not blow the table out: one line, softly faded
   // at the cut. The full value stays available through the tooltip.
   td:nth-child(1),
