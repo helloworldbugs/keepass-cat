@@ -48,6 +48,8 @@ const zhCN: Record<string, string> = {
   'Title': '标题',
   'Username': '用户名',
   'Password': '密码',
+  'Show password': '显示密码',
+  'Hide password': '隐藏密码',
   'URL': '网址',
   'Notes': '备注',
   'Save': '保存',

@@ -20,6 +20,10 @@ export default {
       entry: null,
       isNew: false,
       editFields: {},
+      // Password field starts masked on every open and only reveals when the
+      // user asks for it (or a generated password is written into the field).
+      // Kept out of editFields so a toggle never looks like a value change.
+      isPasswordVisible: false,
       // OTP block state. `otpEditing` shows the input row; `otpRemoved`
       // records that the user pressed the block's delete button this session,
       // which means "remove the stored OTP on save". `loadedOtp` keeps the
@@ -93,6 +97,9 @@ export default {
     },
   },
   mounted() {
+    // The form is remounted per entry, but reset explicitly as well so a
+    // revealed password can never carry over to the next entry.
+    this.isPasswordVisible = false;
     let route = this.$router.getRoute();
     let rawEntryId = route.entryId || '';
     // Strip query params from entryId (e.g. "abc123?from=browse" → "abc123")
@@ -186,6 +193,11 @@ export default {
         }, autoHideMs);
       }
     },
+    // Reveal/hide the password. Only the input's `type` changes, so the value
+    // in editFields is never touched and no change event is emitted.
+    togglePasswordVisibility() {
+      this.isPasswordVisible = !this.isPasswordVisible;
+    },
     generatePassword() {
       var upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
       var lower = 'abcdefghijklmnopqrstuvwxyz';
@@ -217,6 +229,9 @@ export default {
         password = arr.join('');
       } while (hasConsecutiveDup(password));
       this.editFields.password = password;
+      // Show what was generated. Stays visible until the user hides it; the
+      // next manual toggle is respected as usual.
+      this.isPasswordVisible = true;
     },
     // Load the entry's stored custom string fields. Runs async so the form
     // above is usable immediately; the section shows a small loading state.
@@ -456,7 +471,29 @@ export default {
       <div class="edit-field">
         <label>{{ $t('Password') }}</label>
         <div class="password-row">
-          <input v-model="editFields.password" type="text" />
+          <div class="password-input-wrap">
+            <input
+              v-model="editFields.password"
+              :type="isPasswordVisible ? 'text' : 'password'"
+              spellcheck="false"
+            />
+            <!-- Floats inside the input's right edge; the input reserves room
+                 for it with padding-right so typing never runs underneath. -->
+            <button
+              type="button"
+              class="password-toggle"
+              :class="{ 'is-visible': isPasswordVisible }"
+              :aria-label="isPasswordVisible ? $t('Hide password') : $t('Show password')"
+              :title="isPasswordVisible ? $t('Hide password') : $t('Show password')"
+              :aria-pressed="isPasswordVisible ? 'true' : 'false'"
+              @click="togglePasswordVisibility"
+            >
+              <i
+                :class="['fa', isPasswordVisible ? 'fa-eye-slash' : 'fa-eye', 'fa-fw']"
+                aria-hidden="true"
+              />
+            </button>
+          </div>
           <span class="generate-btn selectable" @click="generatePassword" :title="$t('Generate strong password')">
             <i class="fa fa-key" />
           </span>
@@ -690,7 +727,6 @@ export default {
 
 .password-row {
   display: flex; align-items: center; gap: 6px;
-  input { flex: 1; }
   .generate-btn {
     color: $green;
     font-size: 16px;
@@ -700,6 +736,54 @@ export default {
     flex-shrink: 0;
     &:hover { background: $light-gray; }
   }
+}
+
+// Wraps just the password input so the eye button can float inside its right
+// edge without affecting the generate-key button beside it.
+.password-input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+
+  // 30px button + a 4px gap keeps the caret and text clear of the icon.
+  input { padding-right: 34px; }
+  // Edge/IE draw their own reveal control in the same corner; ours replaces it.
+  input::-ms-reveal,
+  input::-ms-clear { display: none; }
+}
+
+// Floats over the input, vertically centred by the 2px inset. Absolutely
+// positioned so flipping fa-eye/fa-eye-slash shifts nothing in the form.
+.password-toggle {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  bottom: 2px;
+  width: 30px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--keepass-cat-icon-muted, #888);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  &:hover {
+    background: var(--keepass-cat-bg-hover, #eef0f2);
+    color: $text-color;
+  }
+  // Visible keyboard ring only; mouse clicks keep the quiet look.
+  &:focus-visible {
+    outline: 2px solid $blue;
+    outline-offset: 1px;
+  }
+  // Plaintext mode is "on": the icon picks up the app accent.
+  &.is-visible { color: $blue; }
+  .fa { line-height: 1; }
 }
 
 // The form now ends with Delete; Save moved to the top bar's #extra slot.
