@@ -389,17 +389,83 @@ function Background(protectedMemory, localMemory, settings, notifications) {
   }
 
   function clearClipboard() {
-    // No longer have access to document in this context.
-    // https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.offscreen-clipboard-write
+    // Best-effort only: every failure below is swallowed so the expiry timer
+    // and its notifications are never affected.
     console.info('Clearing clipboard');
-    // var clearClipboard = function(e) {
-    // 	e.clipboardData.setData('text/plain', "");
-    // 	e.preventDefault();
-    // 	document.removeEventListener('copy', clearClipboard); //don't listen anymore
-    // }
 
-    // document.addEventListener('copy', clearClipboard);
-    // document.execCommand('copy');
+    // Chrome MV3: the service worker has no DOM, so delegate to an offscreen
+    // document. https://developer.chrome.com/docs/extensions/reference/api/offscreen
+    if (chrome.offscreen && typeof chrome.offscreen.createDocument === 'function') {
+      return clearClipboardOffscreen();
+    }
+
+    // Firefox MV2: the background is a page, so clear it directly.
+    emptyClipboardWithDom();
+  }
+
+  function emptyClipboardWithDom() {
+    try {
+      var textarea = document.createElement('textarea');
+      textarea.value = '';
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      textarea.style.top = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    } catch (e) {
+      console.warn('[clearClipboard] Could not clear clipboard:', e);
+    }
+  }
+
+  function clearClipboardOffscreen() {
+    var created = false;
+
+    function close() {
+      if (!created) return Promise.resolve();
+      try {
+        return chrome.offscreen.closeDocument().catch(function () {});
+      } catch (e) {
+        return Promise.resolve();
+      }
+    }
+
+    var ensureDocument = function () {
+      if (typeof chrome.offscreen.hasDocument === 'function') {
+        return chrome.offscreen.hasDocument().then(function (exists) {
+          return exists;
+        });
+      }
+      // hasDocument() is unavailable before Chrome 116; just try to create it.
+      return Promise.resolve(false);
+    };
+
+    return ensureDocument()
+      .then(function (exists) {
+        if (exists) return;
+        return chrome.offscreen
+          .createDocument({
+            url: 'offscreen.html',
+            reasons: ['CLIPBOARD'],
+            justification: 'Clear the clipboard after the configured expiry interval',
+          })
+          .then(function () {
+            created = true;
+          })
+          .catch(function () {
+            // "Only a single offscreen document may be created" means one
+            // already exists, which is fine for our purposes.
+          });
+      })
+      .then(function () {
+        return chrome.runtime.sendMessage({ m: 'clearClipboard' });
+      })
+      .catch(function (e) {
+        console.warn('[clearClipboard] Offscreen clear failed:', e);
+      })
+      .then(close, close);
   }
 
   function forgetPassword() {

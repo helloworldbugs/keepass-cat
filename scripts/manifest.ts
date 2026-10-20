@@ -51,7 +51,8 @@ function chromeManifestV3(): Manifest.WebExtensionManifest {
   return Object.assign({}, baseManifest, {
     manifest_version: 3,
     minimum_chrome_version: '102',
-    permissions,
+    // `offscreen` is Chrome-only; Firefox MV2 gets the shared permissions as-is.
+    permissions: [...permissions, 'offscreen'],
     content_security_policy: {
       extension_pages: isDev
         ? // this is required on dev for Vite script to load
