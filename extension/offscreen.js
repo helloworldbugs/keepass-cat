@@ -7,17 +7,24 @@
   function emptyClipboardFallback() {
     try {
       var textarea = document.createElement('textarea');
-      textarea.value = '';
+      // A collapsed (empty) selection makes the copy command a no-op, so the
+      // clipboard kept its previous contents. Copying a single space actually
+      // replaces the clipboard content (the async Clipboard API is unavailable
+      // here, see below, and the browser refuses to write an empty string).
+      textarea.value = ' ';
       textarea.setAttribute('readonly', '');
       textarea.style.position = 'fixed';
       textarea.style.left = '-9999px';
       textarea.style.top = '0';
       document.body.appendChild(textarea);
+      textarea.focus();
       textarea.select();
-      document.execCommand('copy');
+      var ok = document.execCommand('copy');
       document.body.removeChild(textarea);
+      return ok === true;
     } catch (e) {
       // Silent: clearing the clipboard is best-effort.
+      return false;
     }
   }
 
@@ -25,19 +32,18 @@
     if (!message || message.m !== 'clearClipboard') return;
 
     var done = false;
-    function respond() {
+    function respond(ok) {
       if (done) return;
       done = true;
       try {
-        sendResponse({ ok: true });
+        sendResponse({ ok: ok === true });
       } catch (e) {
         // The caller may already be gone; ignore.
       }
     }
 
     function fallback() {
-      emptyClipboardFallback();
-      respond();
+      respond(emptyClipboardFallback());
     }
 
     // `navigator.clipboard` is unavailable in offscreen documents: the async

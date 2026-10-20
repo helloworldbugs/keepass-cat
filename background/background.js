@@ -107,10 +107,10 @@ function Background(protectedMemory, localMemory, settings, notifications) {
             chrome.tabs.sendMessage(tabId, { m: 'copyToClipboard', code: code, label: 'OTP' });
             settings.getSetClipboardExpireInterval().then(function (interval) {
               settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
-              notifications.push({
-                text: i18n.t('OTP') + i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval),
-                type: 'clipboard',
-              });
+              pushNotification(
+                i18n.t('OTP') + i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval),
+                'clipboard'
+              );
             });
           });
         } catch (e) {
@@ -122,23 +122,42 @@ function Background(protectedMemory, localMemory, settings, notifications) {
       });
   }
 
+  function showSystemNotification(text, expireSeconds) {
+    const expire = typeof expireSeconds !== 'undefined' ? expireSeconds * 1000 : 60000;
+    chrome.notifications.create(
+      null,
+      {
+        type: 'basic',
+        iconUrl: '/assets/48x48.png',
+        title: 'Keepass Cat',
+        message: text,
+      },
+      function (notificationId) {
+        setTimeout(() => chrome.notifications.clear(notificationId), expire);
+      }
+    );
+  }
+
+  // Notifications raised *inside* the background must not go through
+  // Notifications.push(): that helper uses chrome.runtime.sendMessage, and a
+  // runtime message is never delivered back to the context that sent it, so the
+  // background's own onMessage listener would never fire and nothing would be
+  // shown. Same gating as Notifications.push, applied locally.
+  function pushNotification(text, type, expireSeconds) {
+    return settings
+      .getSetNotificationsEnabled()
+      .then(function (enabled) {
+        if (!enabled || enabled.indexOf(type) === -1) return;
+        showSystemNotification(text, expireSeconds);
+      })
+      .catch(function () {});
+  }
+
   function handleMessage(message, sender, sendResponse) {
     if (!message || !message.m) return; //message format unrecognized
 
     if (message.m == 'showMessage') {
-      const expire = typeof message.expire !== 'undefined' ? message.expire * 1000 : 60000;
-      chrome.notifications.create(
-        null,
-        {
-          type: 'basic',
-          iconUrl: '/assets/48x48.png',
-          title: 'Keepass Cat',
-          message: message.text,
-        },
-        function (notificationId) {
-          setTimeout(() => chrome.notifications.clear(notificationId), expire);
-        }
-      );
+      showSystemNotification(message.text, message.expire);
     }
 
     if (message.m == 'requestPermission') {
@@ -362,19 +381,12 @@ function Background(protectedMemory, localMemory, settings, notifications) {
           switch (key) {
             case 'clearClipboard':
               clearClipboard();
-              notifications.push({
-                text: i18n.t('Clipboard cleared'),
-                type: 'expiration',
-                expire: 2,
-              });
+              pushNotification(i18n.t('Clipboard cleared'), 'expiration', 5);
               break;
             default:
               if (key.indexOf('password') >= 0) {
                 forgetPassword().then(() => {
-                  notifications.push({
-                    text: i18n.t('Remember password expired'),
-                    type: 'expiration',
-                  });
+                  pushNotification(i18n.t('Remember password expired'), 'expiration');
                 });
               } else {
                 console.error("I don't know what to do with key", key);
@@ -406,12 +418,15 @@ function Background(protectedMemory, localMemory, settings, notifications) {
   function emptyClipboardWithDom() {
     try {
       var textarea = document.createElement('textarea');
-      textarea.value = '';
+      // Same as the offscreen path: an empty selection makes the copy command a
+      // no-op, so copy a single space to actually replace the clipboard.
+      textarea.value = ' ';
       textarea.setAttribute('readonly', '');
       textarea.style.position = 'fixed';
       textarea.style.left = '-9999px';
       textarea.style.top = '0';
       document.body.appendChild(textarea);
+      textarea.focus();
       textarea.select();
       document.execCommand('copy');
       document.body.removeChild(textarea);
@@ -442,6 +457,19 @@ function Background(protectedMemory, localMemory, settings, notifications) {
       return Promise.resolve(false);
     };
 
+    // The offscreen document may not have registered its onMessage listener the
+    // instant createDocument() resolves, so retry a few times before giving up.
+    function sendClearMessage(attempt) {
+      return chrome.runtime.sendMessage({ m: 'clearClipboard' }).catch(function (e) {
+        if (attempt >= 3) throw e;
+        return new Promise(function (resolve) {
+          setTimeout(resolve, 150);
+        }).then(function () {
+          return sendClearMessage(attempt + 1);
+        });
+      });
+    }
+
     return ensureDocument()
       .then(function (exists) {
         if (exists) return;
@@ -460,7 +488,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
           });
       })
       .then(function () {
-        return chrome.runtime.sendMessage({ m: 'clearClipboard' });
+        return sendClearMessage(0);
       })
       .catch(function (e) {
         console.warn('[clearClipboard] Offscreen clear failed:', e);
