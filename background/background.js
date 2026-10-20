@@ -227,7 +227,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
     if (cmd !== 'autofill_best_match') return;
     console.log('[shortcut] triggered:', cmd, 'tab:', tab?.url);
     chrome.storage.local.get('autofillShortcut', function(items) {
-      if (!items.autofillShortcut) { console.log('[shortcut] disabled'); return; }
+      if (items.autofillShortcut === false) { console.log('[shortcut] disabled'); return; }
       protectedMemory.getData('secureCache.entries').then(function(entries) {
         if (typeof entries === 'string') entries = protectedMemory.deserialize(entries);
         if (!entries || !Array.isArray(entries) || !entries.length) { fallbackToPopup(); return; }

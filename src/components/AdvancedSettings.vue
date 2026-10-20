@@ -9,10 +9,10 @@ export default {
   data() {
     return {
       expireTime: 2,
-      autofillShortcut: false,
-      fillTotpEnabled: false,
-      copyTotpOnAutofill: false,
-      notificationsEnabled: [],
+      autofillShortcut: true,
+      fillTotpEnabled: true,
+      copyTotpOnAutofill: true,
+      notificationsEnabled: ['expiration', 'clipboard'],
       jsonState: [{
         k: 'databaseUsages',                      // key
         f: this.settings.getSetDatabaseUsages,    // getter

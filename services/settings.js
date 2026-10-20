@@ -260,22 +260,22 @@ function Settings(secureCache) {
   };
 
   exports.getSetAutofillShortcut = function (enabled) {
-    return keyGetSetter('autofillShortcut', enabled, false, 'boolean');
+    return keyGetSetter('autofillShortcut', enabled, true, 'boolean');
   };
 
   exports.getSetFillTotpEnabled = function (enabled) {
-    return keyGetSetter('fillTotpEnabled', enabled, false, 'boolean');
+    return keyGetSetter('fillTotpEnabled', enabled, true, 'boolean');
   };
 
   exports.getSetCopyTotpOnAutofill = function (enabled) {
-    return keyGetSetter('copyTotpOnAutofill', enabled, false, 'boolean');
+    return keyGetSetter('copyTotpOnAutofill', enabled, true, 'boolean');
   };
 
   exports.getSetNotificationsEnabled = function (enabledTypes) {
     return keyGetSetter(
       'notificationsEnabled',
       enabledTypes,
-      [],
+      ['expiration', 'clipboard'],
       'object'
     );
   };
