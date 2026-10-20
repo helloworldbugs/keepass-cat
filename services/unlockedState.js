@@ -159,7 +159,7 @@ function UnlockedState(keepassReference, settings, notifications) {
         settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
         notifications
           .push({
-            text: 'OTP' + i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval),
+            text: i18n.t('OTP') + i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval),
             type: 'clipboard',
           })
           .then(function () {
@@ -233,7 +233,7 @@ function UnlockedState(keepassReference, settings, notifications) {
       settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
       notifications
         .push({
-          text: fieldName + i18n.t(' copied to clipboard.  Clipboard will clear in ', interval) + interval + i18n.t(' minute(s).'),
+          text: i18n.t(fieldName) + i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval),
           type: 'clipboard',
         })
         .then(() => window.close());

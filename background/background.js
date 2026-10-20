@@ -108,7 +108,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
             settings.getSetClipboardExpireInterval().then(function (interval) {
               settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
               notifications.push({
-                text: 'OTP' + i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval),
+                text: i18n.t('OTP') + i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval),
                 type: 'clipboard',
               });
             });
