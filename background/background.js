@@ -393,7 +393,10 @@ function Background(protectedMemory, localMemory, settings, notifications) {
           switch (key) {
             case 'clearClipboard':
               clearClipboard();
-              pushNotification(i18n.t('Clipboard cleared'), 'expiration', 5);
+              // "Clipboard cleared" is a clipboard event, not a password
+              // expiration: gating it on 'expiration' hid it from anyone who
+              // left the password-expiration toggle off.
+              pushNotification(i18n.t('Clipboard cleared'), 'clipboard', 5);
               break;
             default:
               if (key.indexOf('password') >= 0) {
