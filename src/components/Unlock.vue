@@ -628,6 +628,15 @@ export default defineComponent({
       right: 10px;
       cursor: pointer;
     }
+
+    // The generic rule below leaves a 1em strip on the right, which showed the
+    // row background as a mismatched patch next to the eye icon. Fill the row
+    // and pad for the icon instead.
+    input[type='text'],
+    input[type='password'] {
+      width: 100%;
+      padding-right: 36px;
+    }
   }
 
   input[type='text'],
