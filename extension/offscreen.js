@@ -8,10 +8,10 @@
     try {
       var textarea = document.createElement('textarea');
       // A collapsed (empty) selection makes the copy command a no-op, so the
-      // clipboard kept its previous contents. Copying a zero-width space
-      // replaces the clipboard with something that pastes as nothing; a truly
+      // clipboard kept its previous contents. Copying a single space replaces
+      // the clipboard with something harmless that is at least visible; a truly
       // empty clipboard cannot be written from an unfocused document.
-      textarea.value = '\u200B';
+      textarea.value = ' ';
       textarea.setAttribute('readonly', '');
       textarea.style.position = 'fixed';
       textarea.style.left = '-9999px';

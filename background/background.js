@@ -431,8 +431,8 @@ function Background(protectedMemory, localMemory, settings, notifications) {
     try {
       var textarea = document.createElement('textarea');
       // Same as the offscreen path: an empty selection makes the copy command a
-      // no-op, so copy a zero-width space to actually replace the clipboard.
-      textarea.value = '\u200B';
+      // no-op, so copy a single space to actually replace the clipboard.
+      textarea.value = ' ';
       textarea.setAttribute('readonly', '');
       textarea.style.position = 'fixed';
       textarea.style.left = '-9999px';
