@@ -124,18 +124,30 @@ function Background(protectedMemory, localMemory, settings, notifications) {
 
   function showSystemNotification(text, expireSeconds) {
     const expire = typeof expireSeconds !== 'undefined' ? expireSeconds * 1000 : 60000;
-    chrome.notifications.create(
-      null,
-      {
-        type: 'basic',
-        iconUrl: '/assets/48x48.png',
-        title: 'Keepass Cat',
-        message: text,
-      },
-      function (notificationId) {
-        setTimeout(() => chrome.notifications.clear(notificationId), expire);
-      }
-    );
+    // Firefox rejects a null notification id (Chrome tolerates it), so always
+    // pass a real one.
+    const notificationId =
+      'keepasscat-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    try {
+      chrome.notifications.create(
+        notificationId,
+        {
+          type: 'basic',
+          iconUrl: '/assets/48x48.png',
+          title: 'Keepass Cat',
+          message: text,
+        },
+        function () {
+          if (chrome.runtime.lastError) {
+            console.warn('[notify] create failed:', chrome.runtime.lastError.message);
+            return;
+          }
+          setTimeout(() => chrome.notifications.clear(notificationId), expire);
+        }
+      );
+    } catch (e) {
+      console.warn('[notify] create threw:', e);
+    }
   }
 
   // Notifications raised *inside* the background must not go through
@@ -419,8 +431,8 @@ function Background(protectedMemory, localMemory, settings, notifications) {
     try {
       var textarea = document.createElement('textarea');
       // Same as the offscreen path: an empty selection makes the copy command a
-      // no-op, so copy a single space to actually replace the clipboard.
-      textarea.value = ' ';
+      // no-op, so copy a zero-width space to actually replace the clipboard.
+      textarea.value = '\u200B';
       textarea.setAttribute('readonly', '');
       textarea.style.position = 'fixed';
       textarea.style.left = '-9999px';
