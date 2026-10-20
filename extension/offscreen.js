@@ -40,15 +40,11 @@
       respond();
     }
 
-    try {
-      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-        navigator.clipboard.writeText('').then(respond, fallback);
-      } else {
-        fallback();
-      }
-    } catch (e) {
-      fallback();
-    }
+    // `navigator.clipboard` is unavailable in offscreen documents: the async
+    // Clipboard API requires a focused document and an offscreen page can never
+    // be focused (crbug 40276502). The deprecated execCommand path is the
+    // documented way to write the clipboard from here, so use it directly.
+    fallback();
 
     return true; // keep the channel open for the async response
   });
