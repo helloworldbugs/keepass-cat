@@ -138,6 +138,14 @@ body {
   width: 100%;
   background-color: $background-color;
   color: $text-color;
+  /* The popup is a control surface, not a document: dragging across entries should
+     never produce a text selection. Form controls keep normal selection so text
+     inside them can still be edited and copied. */
   user-select: none;
+
+  input,
+  textarea {
+    user-select: text;
+  }
 }
 </style>

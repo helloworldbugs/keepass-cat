@@ -129,7 +129,9 @@ export default {
 
 body {
   background-color: $background-color;
-  user-select: none;
+  /* The settings page is where users copy URLs, paths and state, so text stays
+     selectable here. The popup (Popup.vue) is the one that disables selection. */
+  user-select: text;
 }
 
 #overflowbox {
