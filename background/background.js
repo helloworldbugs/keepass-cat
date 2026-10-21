@@ -105,12 +105,19 @@ function Background(protectedMemory, localMemory, settings, notifications) {
           Otp.parseUrl(otpUrl).next(function (err, code) {
             if (err || !code) return;
             chrome.tabs.sendMessage(tabId, { m: 'copyToClipboard', code: code, label: 'OTP' });
-            settings.getSetClipboardExpireInterval().then(function (interval) {
-              settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
-              pushNotification(
-                i18n.t('OTP') + i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval),
-                'clipboard'
-              );
+            settings.getSetClipboardExpireEnabled().then(function (clearEnabled) {
+              settings.getSetClipboardExpireInterval().then(function (interval) {
+                if (clearEnabled) {
+                  settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
+                }
+                pushNotification(
+                  i18n.t('OTP') +
+                    (clearEnabled
+                      ? i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval)
+                      : i18n.t(' copied to clipboard.')),
+                  'clipboard'
+                );
+              });
             });
           });
         } catch (e) {

@@ -243,6 +243,12 @@ function Settings(secureCache) {
     return keyGetSetter('expireInterval', interval, 2, 'number');
   };
 
+  // Master switch for the clipboard expiry feature: when off, copying never
+  // schedules a clear and never announces one.
+  exports.getSetClipboardExpireEnabled = function (enabled) {
+    return keyGetSetter('clipboardExpireEnabled', enabled, true, 'boolean');
+  };
+
   exports.getSetDatabaseUsages = function (usages) {
     return keyGetSetter('databaseUsages', usages, {}, 'object');
   };

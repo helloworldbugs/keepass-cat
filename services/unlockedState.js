@@ -155,20 +155,28 @@ function UnlockedState(keepassReference, settings, notifications) {
 
   function copyTotpCode(code, alsoFill) {
     var finish = function () {
-      settings.getSetClipboardExpireInterval().then(function (interval) {
-        settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
-        notifications
-          .push({
-            text: i18n.t('OTP') + i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval),
-            type: 'clipboard',
-          })
-          .then(function () {
-          settings.getSetFillTotpEnabled().then(function (enabled) {
-            if (alsoFill && enabled) {
-              chrome.runtime.sendMessage({ m: 'fillTotp', tabId: my.tabId, code: code });
-            }
-            window.close();
-          });
+      settings.getSetClipboardExpireEnabled().then(function (clearEnabled) {
+        settings.getSetClipboardExpireInterval().then(function (interval) {
+          if (clearEnabled) {
+            settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
+          }
+          notifications
+            .push({
+              text:
+                i18n.t('OTP') +
+                (clearEnabled
+                  ? i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval)
+                  : i18n.t(' copied to clipboard.')),
+              type: 'clipboard',
+            })
+            .then(function () {
+              settings.getSetFillTotpEnabled().then(function (enabled) {
+                if (alsoFill && enabled) {
+                  chrome.runtime.sendMessage({ m: 'fillTotp', tabId: my.tabId, code: code });
+                }
+                window.close();
+              });
+            });
         });
       });
     };
@@ -229,14 +237,22 @@ function UnlockedState(keepassReference, settings, notifications) {
     e.clipboardData.setData('text/plain', textToPutOnClipboard);
     e.preventDefault();
 
-    settings.getSetClipboardExpireInterval().then((interval) => {
-      settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
-      notifications
-        .push({
-          text: i18n.t(fieldName) + i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval),
-          type: 'clipboard',
-        })
-        .then(() => window.close());
+    settings.getSetClipboardExpireEnabled().then((clearEnabled) => {
+      settings.getSetClipboardExpireInterval().then((interval) => {
+        if (clearEnabled) {
+          settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
+        }
+        notifications
+          .push({
+            text:
+              i18n.t(fieldName) +
+              (clearEnabled
+                ? i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval)
+                : i18n.t(' copied to clipboard.')),
+            type: 'clipboard',
+          })
+          .then(() => window.close());
+      });
     });
   });
 

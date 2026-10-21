@@ -177,6 +177,9 @@ const zhCN: Record<string, string> = {
   'Clipboard cleared': '剪贴板已清除',
   'Remember password expired': '记住密码已过期',
   ' copied to clipboard. Clipboard will clear in {0} minute(s).': ' 已复制到剪贴板，将在 {0} 分钟后清除。',
+  ' copied to clipboard.': ' 已复制到剪贴板。',
+  'Enable clipboard expiration clearing': '启用过期清空剪贴板',
+  'Expiration time': '过期时间',
 
   // ===== Providers: WebDAV extras =====
   'URL points to a file, not a folder. Please enter the parent folder path instead.': 'URL 指向的是文件而非文件夹，请输入父文件夹路径',

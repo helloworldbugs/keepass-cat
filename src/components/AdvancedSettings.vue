@@ -9,6 +9,7 @@ export default {
   data() {
     return {
       expireTime: 2,
+      clipboardExpireEnabled: true,
       autofillShortcut: true,
       fillTotpEnabled: true,
       copyTotpOnAutofill: true,
@@ -69,6 +70,11 @@ export default {
     expireTime(newval, oldval) {
       this.settings.getSetClipboardExpireInterval(parseInt(newval))
     },
+    clipboardExpireEnabled(newval) {
+      this.settings.getSetClipboardExpireEnabled(newval)
+      // Turning the feature off must not leave a pending clear behind.
+      if (!newval) this.settings.clearForgetTimes(['clearClipboard'])
+    },
     fillTotpEnabled(newval) {
       this.settings.getSetFillTotpEnabled(newval)
     },
@@ -93,6 +99,9 @@ export default {
     init() {
       this.settings.getSetClipboardExpireInterval().then(val => {
         this.expireTime = val
+      })
+      this.settings.getSetClipboardExpireEnabled().then(val => {
+        this.clipboardExpireEnabled = val
       })
       this.settings.getSetAutofillShortcut().then(val => {
         this.autofillShortcut = val
@@ -131,11 +140,28 @@ export default {
         {{ $t('When you copy a value to the clipboard, Keepass Cat will set a timeout to automatically clear it again. You can choose how long this timeout will last.') }}
       </p>
     </div>
-    <div class="box-bar roomy lighter">
-      <select
-        v-model="expireTime"
-        style="display: inline-block;"
-      >
+    <div
+      class="box-bar roomy lighter clipboard-expire-controls"
+      :class="{ 'is-disabled': !clipboardExpireEnabled }"
+    >
+      <div class="switch">
+        <label>
+          <input
+            v-model="clipboardExpireEnabled"
+            type="checkbox"
+            :aria-label="$t('Clipboard Expiration Time')"
+          >
+          <span class="lever" />
+          <span class="switch-text">{{ $t('Enable clipboard expiration clearing') }}</span>
+        </label>
+      </div>
+      <div class="expire-row">
+        <span class="expire-label">{{ $t('Expiration time') }}</span>
+        <select
+          v-model="expireTime"
+          :disabled="!clipboardExpireEnabled"
+          style="display: inline-block;"
+        >
         <option value="1">
           {{ $t('1 minute') }}
         </option>
@@ -151,7 +177,8 @@ export default {
         <option value="8">
           {{ $t('8 minutes') }}
         </option>
-      </select>
+        </select>
+      </div>
     </div>
 
     <div class="box-bar roomy">
@@ -274,6 +301,39 @@ export default {
 </template>
 
 <style lang="scss">
+// The interval picker is meaningless while the feature is switched off.
+.clipboard-expire-controls {
+  transition: opacity 0.15s ease;
+
+  // The master switch sits on its own line, directly above the interval picker.
+  .switch {
+    display: block;
+    margin: 0 0 8px;
+  }
+
+  .switch-text {
+    vertical-align: middle;
+  }
+
+  .expire-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .expire-label {
+    flex-shrink: 0;
+  }
+
+  &.is-disabled {
+    opacity: 0.5;
+
+    select {
+      pointer-events: none;
+    }
+  }
+}
+
 .json {
 	font-size: 12px;
 	/* The JSON viewer renders strings with `white-space: pre`, which never
