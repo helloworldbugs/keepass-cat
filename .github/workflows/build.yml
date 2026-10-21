@@ -346,3 +346,24 @@ jobs:
           # There is no REST endpoint for job summaries, so echo it too: this
           # makes the summary readable from the job log as well as from the UI.
           cat "$GITHUB_STEP_SUMMARY"
+
+      # The store steps are continue-on-error so a store problem can never cost the
+      # release its artifacts, but a store upload that genuinely *failed* must not
+      # leave the run green: that is how a 1.2.0 draft sat unpublished while the
+      # workflow looked successful. Skips (unconfigured / no release) stay green.
+      - name: Fail when a store upload failed
+        if: always() && steps.ver.outputs.stores == 'true'
+        env:
+          AMO_OUTCOME: ${{ steps.amo.outcome }}
+          CWS_OUTCOME: ${{ steps.cws.outcome }}
+        run: |
+          failed=0
+          if [ "$AMO_OUTCOME" = "failure" ]; then
+            echo "::error title=Firefox (AMO) upload failed::See the \"Publish to Firefox (AMO)\" step log. After fixing it, re-run this workflow manually with publish_stores=true."
+            failed=1
+          fi
+          if [ "$CWS_OUTCOME" = "failure" ]; then
+            echo "::error title=Chrome Web Store upload failed::See the \"Publish to Chrome Web Store\" step log. A 400 usually means a new permission still needs a justification in the Privacy practices tab. After fixing it, re-run this workflow manually with publish_stores=true."
+            failed=1
+          fi
+          exit $failed

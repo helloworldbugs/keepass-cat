@@ -51,6 +51,14 @@ const readBody = async (response, label) => {
   if (!response.ok) {
     console.error(`HTTP ${response.status} ${response.statusText} — ${label}`);
     console.error(text);
+    if (response.status === 400) {
+      console.error(
+        '\nHint: a 400 on :publish usually means the store still needs something from the\n' +
+          'developer dashboard before it will accept this version — most often a\n' +
+          'justification for a newly added permission ("Privacy practices" tab), or an\n' +
+          'unresolved policy warning. The item stays a draft until that is fixed.',
+      );
+    }
     process.exit(1);
   }
   return text;
@@ -208,7 +216,24 @@ async function main() {
   });
   const publishText = await readBody(publishResponse, `POST ${publishUrl}`);
   const publishJson = JSON.parse(publishText);
-  console.log(`Publish requested: state=${publishJson.state ?? 'unknown'}`);
+  const publishState = publishJson.state ?? 'unknown';
+  console.log(`Publish requested: state=${publishState}`);
+  if (publishJson.warningInfo) {
+    console.log(`Publish warnings: ${JSON.stringify(publishJson.warningInfo)}`);
+  }
+
+  // A 200 does not by itself mean the version was queued for review: the store can
+  // accept the call and still leave the item as a draft. Only these states mean
+  // the submission actually went through.
+  const ACCEPTED_STATES = ['PENDING_REVIEW', 'STAGED', 'PUBLISHED', 'PUBLISHED_TO_TESTERS'];
+  if (!ACCEPTED_STATES.includes(publishState)) {
+    fail(
+      `The store did not queue this version for review (state: ${publishState}).\n` +
+        'The item is still a draft. Check the developer dashboard for unresolved\n' +
+        'warnings — most often a missing justification for a newly added permission in\n' +
+        'the "Privacy practices" tab.',
+    );
+  }
 }
 
 main().catch((error) => {
