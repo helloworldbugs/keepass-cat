@@ -183,7 +183,20 @@ export default {
 
     <div class="box-bar roomy">
       <h4>{{ $t('Autofill Shortcut') }}</h4>
-      <p>
+    </div>
+    <div class="box-bar roomy lighter">
+      <div class="switch">
+        <label>
+          <input
+            v-model="autofillShortcut"
+            type="checkbox"
+            @change="saveAutofillShortcut"
+          >
+          <span class="lever" />
+          {{ $t('Autofill Shortcut') }}
+        </label>
+      </div>
+      <p class="shortcut-hint">
         <template v-if="isFirefox()">
           {{ $t('Customize shortcuts in Firefox: toolbar menu (top-right) → Add-ons and themes → gear icon (top-right) → Manage Extension Shortcuts.') }}
         </template>
@@ -191,21 +204,6 @@ export default {
           <a href="#" @click.prevent="openShortcuts">{{ $t('Open Chrome shortcut settings') }}</a>
         </template>
       </p>
-    </div>
-    <div class="box-bar roomy lighter">
-      <div>
-        <div class="switch">
-          <label>
-            <input
-              v-model="autofillShortcut"
-              type="checkbox"
-              @change="saveAutofillShortcut"
-            >
-            <span class="lever" />
-            {{ $t('Autofill Shortcut') }}
-          </label>
-        </div>
-      </div>
     </div>
 
     <div class="box-bar roomy">
@@ -301,6 +299,11 @@ export default {
 </template>
 
 <style lang="scss">
+// The shortcut hint sits directly under the switch it explains.
+.shortcut-hint {
+  margin: 8px 0 0;
+}
+
 // The interval picker is meaningless while the feature is switched off.
 .clipboard-expire-controls {
   transition: opacity 0.15s ease;
