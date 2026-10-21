@@ -147,7 +147,7 @@ An original **4-level URL matching algorithm** that drives both **badge count** 
 |:---:|---|---|:---:|
 | **4** | Same origin (protocol + host + port) **and** the page's `path + query` starts with the entry's `path + query` (left-to-right, with a boundary check) | `https://a.com/admin` → `https://a.com/admin/login`<br>`https://a.com` → `https://a.com/any` (entry has no path, equivalent to `/`) | **100** |
 | **3** | Same origin (protocol + host + port), any path | `https://a.com/admin` → `https://a.com/login` (same origin but the prefix does not hold)<br>`https://a.com/admin` → `https://a.com/administrator` (boundary check) | **75** |
-| **2** | Same domain (last two segments) **and** same port (**protocol ignored**) | `http://a.com:8080` → `https://a.com:8080/x` (same domain + port, different protocol still matches) | **50** |
+| **2** | Same **registrable domain** (eTLD+1, the label right before the public suffix) **and** same port (**protocol ignored**) | `http://a.com:8080` → `https://a.com:8080/x` (same domain + port, different protocol still matches)<br>`webvpn.fjut.edu.cn` ↔ `fjut.edu.cn` (same institution, matches); `mhsc.bnu.edu.cn` ↔ `fjut.edu.cn` (`edu.cn` is a public suffix, does not match) | **50** |
 | **1** | Regular expression fallback (`regex:` prefix) | `regex:login` → `https://evil.com/login` | **25** |
 | **0** | No match | `https://evil.com/?u=https://a.com/x` (a domain appearing mid-URL does **not** match) | **0** |
 
@@ -158,7 +158,7 @@ Page URL  ──→  Level 4: same-origin + path prefix?  ──→  ✅ show fi
     │              │
     │              └──→  Level 3: same-origin?  ──→  ✅ second priority
     │                       │
-    │                       └──→  Level 2: same domain + port?  ──→  ✅ third priority
+    │                       └──→  Level 2: same registrable domain + port?  ──→  ✅ third priority
     │                                │
     │                                └──→  Level 1: regex?  ──→  ✅ fallback
     │                                         │

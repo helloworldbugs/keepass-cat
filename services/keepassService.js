@@ -27,7 +27,8 @@ kdbxweb.CryptoEngine.setArgon2Impl(
   }
 );
 
-import { parseUrl, matchLevel } from '@/lib/utils.js';
+import { parseUrl } from '@/lib/utils.js';
+import { matchLevel } from '@/lib/matchLevel.js';
 
 /*
  * KDBX stores its built-in entry fields under exact, capitalized keys:

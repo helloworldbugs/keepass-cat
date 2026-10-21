@@ -12,7 +12,7 @@ import { Settings } from '$services/settings.js';
 import { Notifications } from '$services/notifications';
 import { i18n } from '@/services/i18n';
 import { openPopup, setBadgeText, setBadgeBackgroundColor } from '@/lib/browser.js';
-import { matchLevel } from '@/lib/utils.js';
+import { matchLevel } from '@/lib/matchLevel.js';
 import { Otp } from '@/lib/otp.js';
 
 function Background(protectedMemory, localMemory, settings, notifications) {
