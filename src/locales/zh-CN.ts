@@ -185,9 +185,6 @@ const zhCN: Record<string, string> = {
   'URL points to a file, not a folder. Please enter the parent folder path instead.': 'URL 指向的是文件而非文件夹，请输入父文件夹路径',
 
   // ===== Misc link & segment texts =====
-  'leaving a review on the google web store': '在 Chrome 网上应用店留下评价',
-  'firefox addon store': 'Firefox 附加组件商店',
-  'issue tracker': 'issue 追踪器',
   'optional authentication method': '可选认证方式',
   'KeePass site': 'KeePass 网站',
   'stored unencrypted': '以未加密形式存储',
@@ -218,10 +215,16 @@ const zhCN: Record<string, string> = {
   'Keepass Cat can store your key files locally in your browser\'s storage, and apply them when opening your password database. Websites and other browser extensions do not have access to these files. However, they are ': 'Keepass Cat 可以将密钥文件存储在浏览器本地，在打开数据库时使用。网站和其他扩展无法访问这些文件，但它们会 ',
   ' in your local browser profile and someone with access to your device could read them.': ' 在你的浏览器本地配置文件中，有设备访问权限的人可以读取。',
 
-  // ===== Support fragments =====
-  'If you like Keepass Cat, please consider ': '如果你喜欢 Keepass Cat，请考虑在 ',
-  ' so we can make Keepass Cat better.': '，以便我们改进 Keepass Cat。',
-  '. If you find a problem or are dissatisfied, please instead open an issue on the ': '。如果你遇到问题或不满意，请在 ',
+  // ===== Support =====
+  'If the Keepass Cat project helps you, please consider leaving a review on the ': '如果 Keepass Cat 项目帮助到你，请考虑在 ',
+  'Chrome Web Store': 'Chrome 应用商店',
+  ' or the ': ' 或 ',
+  'Firefox add-on store': 'Firefox 附加组件商店',
+  ', or clicking a Star on my ': ' 留下一个评价，或者在我的 ',
+  'GitHub repo': 'GitHub 仓库',
+  '. If you run into any problem, please open an ': ' 点击一个 Star。如果你遇到任何问题，请提 ',
+  'issue': 'issue',
+  ' so we can improve Keepass Cat.': '，以便我们改进 Keepass Cat。',
 
   // ===== OTP =====
   'OTP': 'OTP',

@@ -40,18 +40,33 @@ export default {
     <div class="box-bar roomy lighter">
       <h4>{{ $t('Support Keepass Cat') }}</h4>
       <p>
-        {{ $t('If you like Keepass Cat, please consider ') }}
+        {{ $t('If the Keepass Cat project helps you, please consider leaving a review on the ') }}
         <a
           href="https://chromewebstore.google.com/detail/keepass-cat/mafedpebfdpojojcgdmgkljcboehlegf"
-          >{{ $t('leaving a review on the google web store') }}</a
+          target="_blank"
+          rel="noopener noreferrer"
+          >{{ $t('Chrome Web Store') }}</a
         >
-        {{ $t(' or ') }}
-        <a href="https://addons.mozilla.org/firefox/addon/keepass-cat/"
-          >{{ $t('firefox addon store') }}</a
+        {{ $t(' or the ') }}
+        <a
+          href="https://addons.mozilla.org/firefox/addon/keepass-cat/"
+          target="_blank"
+          rel="noopener noreferrer"
+          >{{ $t('Firefox add-on store') }}</a
         >
-        {{ $t('. If you find a problem or are dissatisfied, please instead open an issue on the ') }}
-        <a href="https://github.com/helloworldbugs/keepass-cat/issues">{{ $t('issue tracker') }}</a>
-        {{ $t(' so we can make Keepass Cat better.') }}
+        {{ $t(', or clicking a Star on my ') }}
+        <a
+          href="https://github.com/helloworldbugs/keepass-cat"
+          target="_blank"
+          rel="noopener noreferrer"
+          >{{ $t('GitHub repo') }}</a
+        >{{ $t('. If you run into any problem, please open an ') }}
+        <a
+          href="https://github.com/helloworldbugs/keepass-cat/issues"
+          target="_blank"
+          rel="noopener noreferrer"
+          >{{ $t('issue') }}</a
+        >{{ $t(' so we can improve Keepass Cat.') }}
       </p>
     </div>
   </div>
