@@ -1,6 +1,7 @@
 <script>
 import GoBack from '@/components/GoBack.vue';
 import { Otp } from '@/lib/otp.js';
+import { scanVisibleTabForOtpUrl } from '@/lib/qrScan.js';
 
 // An error toast clears itself after this long, leaving the user on the form so
 // they can fix the problem. Success/progress toasts are driven elsewhere.
@@ -31,6 +32,7 @@ export default {
       // "no change". `hasSavedOtp` restores the button+hint after a delete.
       otpEditing: false,
       otpRemoved: false,
+      qrScanning: false,
       loadedOtp: '',
       hasSavedOtp: false,
       groups: [],
@@ -315,6 +317,40 @@ export default {
       this.otpRemoved = true;
       this.editFields.otp = '';
     },
+    // Capture the visible part of the page and pull the otpauth:// URL out of a
+    // QR code, so the user does not need a third-party scanner (which can hand
+    // over a truncated URL). Best-effort: every failure becomes a toast.
+    async scanOtpQr() {
+      if (this.qrScanning) return;
+      this.qrScanning = true;
+      try {
+        const result = await scanVisibleTabForOtpUrl();
+        if (result.url) {
+          this.editFields.otp = result.url;
+          this.$nextTick(() => {
+            const el = this.$refs.otpInput;
+            if (el && el.focus) el.focus();
+          });
+          return;
+        }
+        const messages = {
+          'no-qr': 'No QR code found on the page. Scroll the QR code into view and try again.',
+          'not-otpauth': 'The QR code on the page is not an otpauth:// link.',
+          'invalid-otpauth': 'The QR code contains an invalid otpauth:// link.',
+        };
+        this.showMessage(
+          'error',
+          this.$t(
+            messages[result.reason] ||
+              'Could not capture this page for scanning.'
+          )
+        );
+      } catch (e) {
+        this.showMessage('error', this.$t('Could not capture this page for scanning.'));
+      } finally {
+        this.qrScanning = false;
+      }
+    },
     async save() {
       this.saving = true;
       this.showMessage('progress', this.$t('Saving...'));
@@ -516,6 +552,15 @@ export default {
             type="text"
             placeholder="otpauth://totp/...?secret=..."
           />
+          <span
+            class="otp-qr selectable"
+            :class="{ 'is-busy': qrScanning }"
+            :title="$t('Scan the page for a QR code')"
+            :aria-label="$t('Scan the page for a QR code')"
+            @click="scanOtpQr"
+          >
+            <i :class="['fa', qrScanning ? 'fa-spinner fa-pulse' : 'fa-qrcode']" />
+          </span>
           <span
             class="otp-remove selectable"
             :title="$t('Remove OTP')"
@@ -842,6 +887,24 @@ export default {
   input {
     flex: 1;
     min-width: 0;
+  }
+  .otp-qr {
+    flex: 0 0 auto;
+    padding: 6px 8px;
+    border-radius: 3px;
+    font-size: 15px;
+    color: $blue;
+    cursor: pointer;
+    &:hover {
+      background: $light-gray;
+    }
+    &.is-busy {
+      cursor: default;
+      opacity: 0.7;
+    }
+    &.is-busy:hover {
+      background: transparent;
+    }
   }
   .otp-remove {
     flex: 0 0 auto;

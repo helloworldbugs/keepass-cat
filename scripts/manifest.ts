@@ -22,6 +22,10 @@ const permissions = [
   'clipboardWrite',
   'alarms',
   'notifications',
+  // Needed by tabs.captureVisibleTab (QR scanning of the current page). Grants
+  // no warning prompt: it is granted by the browser-action click that opens the
+  // popup, which is exactly when the scan runs.
+  'activeTab',
 ];
 
 // `manifest_version` is injected by chromeManifestV3()/firefoxManifestV2()
