@@ -372,7 +372,16 @@ function Background(protectedMemory, localMemory, settings, notifications) {
     }
   });
 
+  // forgetStuff has four triggers (the top-level call on service-worker start, the
+  // alarm, onStartup and a port message) and they overlap: waking the worker for
+  // the alarm also runs the top-level call. Without this guard each concurrent run
+  // re-read the same expired key before clearForgetTimes had landed, so one expiry
+  // fired one "Clipboard cleared" notification per run.
+  var forgetInFlight = false;
+
   function forgetStuff() {
+    if (forgetInFlight) return;
+    forgetInFlight = true;
     console.log('Alarm Handler -- Check if we should clear Cache --', new Date());
     chrome.storage.local.get('rememberPeriod', function(items) {
       if (items.rememberPeriod === -2) {
@@ -392,33 +401,46 @@ function Background(protectedMemory, localMemory, settings, notifications) {
     });
     settings.getAllForgetTimes().then(function (allTimes) {
       var now = Date.now();
-      var forgottenKeys = [];
+      var forgotten = [];
       for (var key in allTimes) {
         // If the time has passed but is still positive...
         if (allTimes[key] < now && allTimes[key] > 0) {
-          forgottenKeys.push(key);
-          switch (key) {
-            case 'clearClipboard':
-              clearClipboard();
-              // "Clipboard cleared" is a clipboard event, not a password
-              // expiration: gating it on 'expiration' hid it from anyone who
-              // left the password-expiration toggle off.
-              pushNotification(i18n.t('Clipboard cleared'), 'clipboard', 5);
-              break;
-            default:
-              if (key.indexOf('password') >= 0) {
-                forgetPassword().then(() => {
-                  pushNotification(i18n.t('Remember password expired'), 'expiration');
-                });
-              } else {
-                console.error("I don't know what to do with key", key);
-              }
-          }
+          forgotten.push(key);
         }
       }
+      if (!forgotten.length) return;
 
-      //remove stuff
-      settings.clearForgetTimes(forgottenKeys);
+      // Claim the expired keys *before* acting. clearForgetTimes is a read-modify-
+      // write on storage, so a second run starting in the same tick would still see
+      // them and repeat every action below.
+      return settings
+        .clearForgetTimes(forgotten)
+        .catch(function () {})
+        .then(function () {
+          forgotten.forEach(function (key) {
+            switch (key) {
+              case 'clearClipboard':
+                clearClipboard();
+                // "Clipboard cleared" is a clipboard event, not a password
+                // expiration: gating it on 'expiration' hid it from anyone who
+                // left the password-expiration toggle off.
+                pushNotification(i18n.t('Clipboard cleared'), 'clipboard', 5);
+                break;
+              default:
+                if (key.indexOf('password') >= 0) {
+                  forgetPassword().then(() => {
+                    pushNotification(i18n.t('Remember password expired'), 'expiration');
+                  });
+                } else {
+                  console.error("I don't know what to do with key", key);
+                }
+            }
+          });
+        });
+    }).catch(function (e) {
+      console.warn('[forgetStuff] failed:', e);
+    }).then(function () {
+      forgetInFlight = false;
     });
   }
 
