@@ -531,7 +531,7 @@ export default {
             </button>
           </div>
           <span class="generate-btn selectable" @click="generatePassword" :title="$t('Generate strong password')">
-            <i class="fa fa-key" />
+            <i class="fa fa-refresh" />
           </span>
         </div>
       </div>
