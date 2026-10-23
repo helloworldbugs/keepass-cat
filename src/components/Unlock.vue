@@ -104,7 +104,6 @@ export default defineComponent({
 
     if (!this.isUnlocked) {
       let try_autounlock = () => {
-        this.busy = true;
         this.settings
           .getKeyFiles()
           .then((keyFiles) => {
@@ -122,13 +121,13 @@ export default defineComponent({
             this.setRememberPeriod(usage.rememberPeriod);
 
             if (usage.passwordKey !== undefined && usage.requiresKeyfile === false) {
-              this.unlock(usage.passwordKey);
+              this.unlock(usage.passwordKey, true);
             } else if (usage.keyFileName !== undefined) {
               let matches = this.keyFiles.filter((kf) => kf.name === usage.keyFileName);
               if (matches.length > 0) {
                 this.selectedKeyFile = matches[0];
                 if (this.hidePassword === true || usage.passwordKey !== undefined)
-                  this.unlock(usage.passwordKey);
+                  this.unlock(usage.passwordKey, true);
               }
             } else {
               // No cached credentials — show unlock UI
@@ -165,7 +164,6 @@ export default defineComponent({
         focusWhenReady();
       };
 
-      this.busy = true;
       console.log('[unlock-mount] starting, session get...');
       try {
         let entries = await this.secureCache.get('secureCache.entries');
@@ -373,8 +371,11 @@ export default defineComponent({
       event.preventDefault();
       this.unlock();
     },
-    unlock(passwordKey) {
-      this.busy = true;
+    unlock(passwordKey, quiet) {
+      // `quiet` is used by the silent auto-unlock on open: the form stays on screen
+      // (and the popup keeps its size) instead of swapping to the "Unlocking ..."
+      // spinner for a fraction of a second.
+      if (!quiet) this.busy = true;
       this.unlockedMessages.error = '';
       let passwordKeyPromise;
       let bufferPromise = this.keepassService.getChosenDatabaseFile();
@@ -421,7 +422,7 @@ export default defineComponent({
               this.settings.saveCurrentDatabaseUsage(dbUsage);
               this.settings.getSetDefaultRememberPeriod(this.rememberPeriod);
               this.showResults(entries);
-              this.busy = false;
+              if (!quiet) this.busy = false;
               this.masterPassword = '';
             });
         })
@@ -435,8 +436,7 @@ export default defineComponent({
           }
           this.unlockedMessages['error'] = translated || this.$t('invalid keyfile or KDBX file');
           this.busy = false;
-          throw err;
-        });
+          throw err;        });
     },
   },
 });
