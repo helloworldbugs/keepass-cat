@@ -326,8 +326,9 @@ export default defineComponent({
         var last = items.lastSync || 0;
         if (now - last < 30000) return; // throttled: at most once per 30s
         self.keepassService
-          .refreshFromServer()
+          .refreshIfChanged()
           .then(function (fresh) {
+            if (fresh === null) return chrome.storage.local.set({ lastSync: Date.now() }); // file unchanged
             var siteUrl = parseUrl(self.unlockedState.fullUrl || self.unlockedState.url);
             self.keepassService.rankEntries(fresh, siteUrl);
             if (!self.entriesEqual(fresh, cachedEntries)) {

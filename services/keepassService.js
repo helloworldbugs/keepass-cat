@@ -8,6 +8,7 @@ import * as Case from 'case';
 import * as kdbxweb from 'kdbxweb';
 import argon2 from 'argon2-browser/dist/argon2-bundled.min.js';
 import { i18n } from '@/services/i18n';
+import browser from 'webextension-polyfill';
 
 kdbxweb.CryptoEngine.setArgon2Impl(
   (password, salt, memory, iterations, length, parallelism, type, version) => {
@@ -213,6 +214,34 @@ function deleteKdbxCustomField(kdbxEntry, name) {
   return true;
 }
 
+/*
+ * What we know about the database file the cached entries were parsed from:
+ * its SHA-256 and the server's ETag, kept in storage.session. refreshIfChanged()
+ * uses them to skip the download (304 Not Modified) and, failing that, the
+ * expensive, UI-blocking Kdbx.load (identical bytes).
+ */
+const LAST_DB_KEY = 'keepassService.lastDb';
+
+function sha256Hex(buf) {
+  return globalThis.crypto.subtle
+    .digest('SHA-256', buf)
+    .then((d) => Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, '0')).join(''))
+    .catch(() => null);
+}
+
+function getLastDb() {
+  if (!browser.storage.session) return Promise.resolve({});
+  return browser.storage.session
+    .get(LAST_DB_KEY)
+    .then((items) => items[LAST_DB_KEY] || {})
+    .catch(() => ({}));
+}
+
+function setLastDb(state) {
+  if (!browser.storage.session) return;
+  browser.storage.session.set({ [LAST_DB_KEY]: state }).catch(() => {});
+}
+
 function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keepassReference) {
   var my = {};
   var _db = null; // raw kdbx db reference for save operations
@@ -299,8 +328,10 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
           // KDBX - use kdbxweb library
           _masterKey = masterKey; // store for save operations
           var kdbxCreds = jsonCredentialsToKdbx(masterKey);
+          var hashPromise = sha256Hex(buf); // digest copies the bytes up front
           return kdbxweb.Kdbx.load(buf, kdbxCreds).then((db) => {
             _db = db; // store for save operations
+            hashPromise.then((hash) => setLastDb({ hash: hash, etag: null }));
             var entries = parseKdbxDb(db.groups);
             majorVersion = db.header.versionMajor;
             return processReferences(entries, majorVersion);
@@ -503,7 +534,7 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     return creds;
   }
 
-  my.ensureDbLoaded = function () {
+  my.ensureDbLoaded = function (preloadedBuf) {
     if (_db) return Promise.resolve();
     console.log('[keepassService] _db is null, re-loading...');
     // Try to get masterKey from cached password first
@@ -516,7 +547,7 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
       });
     return keyPromise.then(function(mk) {
         if (!mk) throw new Error(i18n.t('Session expired. Please re-unlock the database.'));
-      return my.getChosenDatabaseFile().then(function (buf) {
+      return (preloadedBuf ? Promise.resolve(preloadedBuf) : my.getChosenDatabaseFile()).then(function (buf) {
         var kdbxCreds = jsonCredentialsToKdbx(mk);
         return kdbxweb.Kdbx.load(buf, kdbxCreds).then((db) => {
           _db = db;
@@ -622,6 +653,42 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     return my.ensureDbLoaded().then(function () {
       var entries = parseKdbxDb(_db.groups);
       return processReferences(entries, _db.header.versionMajor);
+    });
+  };
+
+  /* Conditional download where the file manager supports it, else a plain one. */
+  function downloadIfChanged(etag) {
+    return settings.getCurrentDatabaseChoice().then(function (choice) {
+      var fm = passwordFileStoreRegistry.listFileManagers().filter(function (f) {
+        return f.key == choice.providerKey && f.getChosenDatabaseFileIfChanged;
+      })[0];
+      if (!fm) return my.getChosenDatabaseFile().then((data) => ({ data: data, etag: null }));
+      return fm.getChosenDatabaseFileIfChanged(choice.passwordFile, etag);
+    });
+  }
+
+  /*
+   * Like refreshFromServer(), but resolves to null (keep the cached entries)
+   * when the server answers 304 Not Modified, or when the downloaded bytes are
+   * identical to the file the cached entries came from.
+   */
+  my.refreshIfChanged = function () {
+    return getLastDb().then(function (last) {
+      return downloadIfChanged(last.etag).then(function (res) {
+        if (res.data === null) return null; // 304: unchanged, nothing downloaded
+        return sha256Hex(res.data).then(function (hash) {
+          var state = { hash: hash, etag: res.etag };
+          if (hash !== null && hash === last.hash) {
+            setLastDb(state); // same file; remember its ETag for next time
+            return null;
+          }
+          _db = null;
+          return my.ensureDbLoaded(res.data).then(function () {
+            setLastDb(state);
+            return processReferences(parseKdbxDb(_db.groups), _db.header.versionMajor);
+          });
+        });
+      });
     });
   };
 

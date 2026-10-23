@@ -61,6 +61,7 @@ function WebdavFileManager(settings) {
     listDatabases: listDatabases,
     getDatabaseChoiceData: getDatabaseChoiceData,
     getChosenDatabaseFile: getChosenDatabaseFile,
+    getChosenDatabaseFileIfChanged: getChosenDatabaseFileIfChanged,
     supportedFeatures: ['incognito', 'listDatabases'],
     title: 'WebDAV',
     icon: 'icon-folder',
@@ -197,6 +198,33 @@ function WebdavFileManager(settings) {
         authType: AuthType.Auto,
       });
       return client.getFileContents(dbInfo.path, { credentials: 'omit' });
+    });
+  }
+
+  /**
+   * Conditional download (If-None-Match). Returns promise ->
+   * { data: ArrayBuffer, or null on 304 Not Modified, etag: string or null }
+   * @param {object:DBInfo} dbInfo
+   * @param {string} etag  ETag of the copy the caller already has, if any
+   */
+  function getChosenDatabaseFileIfChanged(dbInfo, etag) {
+    return getServer(dbInfo.serverId).then((serverInfo) => {
+      if (serverInfo === null) throw 'Database no longer exists';
+      let client = createClient(serverInfo.url, {
+        username: serverInfo.username,
+        password: serverInfo.password,
+        authType: AuthType.Auto,
+      });
+      return client
+        .getFileContents(dbInfo.path, {
+          details: true,
+          headers: etag ? { 'If-None-Match': etag } : {},
+        })
+        .then((res) => ({
+          data: res.status === 304 ? null : res.data,
+          // filter any preffix/suffix, if case, from the server's modules
+          etag: (res.headers.etag || '').replace(/^W\//, '').replace(/-(br|gzip)"$/, '"') || null,
+        }));
     });
   }
 
