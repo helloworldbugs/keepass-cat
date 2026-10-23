@@ -153,44 +153,72 @@ function UnlockedState(keepassReference, settings, notifications) {
     return my.getDecryptedAttribute(entry, attr);
   }
 
+  // A two-step login fires autofill once per step, and each pass would copy the
+  // same OTP again: two clipboard writes and two notifications. Remember the last
+  // copied code in storage (the popup closes between passes, so in-memory state is
+  // useless) and skip a repeat of the same code inside this window.
+  const OTP_COPY_DEDUPE_MS = 8000;
+  const OTP_COPY_KEY = 'lastOtpCopy';
+
+  function fillTotpAtCursor(code) {
+    settings.getSetFillTotpEnabled().then(function (enabled) {
+      if (enabled) chrome.runtime.sendMessage({ m: 'fillTotp', tabId: my.tabId, code: code });
+    });
+  }
+
   function copyTotpCode(code, alsoFill) {
-    var finish = function () {
-      settings.getSetClipboardExpireEnabled().then(function (clearEnabled) {
-        settings.getSetClipboardExpireInterval().then(function (interval) {
-          if (clearEnabled) {
-            settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
-          }
-          notifications
-            .push({
-              text:
-                i18n.t('OTP') +
-                (clearEnabled
-                  ? i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval)
-                  : i18n.t(' copied to clipboard.')),
-              type: 'clipboard',
-            })
-            .then(function () {
-              settings.getSetFillTotpEnabled().then(function (enabled) {
-                if (alsoFill && enabled) {
-                  chrome.runtime.sendMessage({ m: 'fillTotp', tabId: my.tabId, code: code });
-                }
-                window.close();
+    chrome.storage.local.get(OTP_COPY_KEY, function (items) {
+      var last = items[OTP_COPY_KEY];
+      var now = Date.now();
+      if (last && last.code === code && now - last.at < OTP_COPY_DEDUPE_MS) {
+        // Repeat trigger for the same entry: the code is already on the clipboard,
+        // so only keep the (idempotent) fill-at-cursor behaviour.
+        if (alsoFill) fillTotpAtCursor(code);
+        window.close();
+        return;
+      }
+      var stamp = {};
+      stamp[OTP_COPY_KEY] = { code: code, at: now };
+      chrome.storage.local.set(stamp);
+
+      var finish = function () {
+        settings.getSetClipboardExpireEnabled().then(function (clearEnabled) {
+          settings.getSetClipboardExpireInterval().then(function (interval) {
+            if (clearEnabled) {
+              settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
+            }
+            notifications
+              .push({
+                text:
+                  i18n.t('OTP') +
+                  (clearEnabled
+                    ? i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval)
+                    : i18n.t(' copied to clipboard.')),
+                type: 'clipboard',
+              })
+              .then(function () {
+                settings.getSetFillTotpEnabled().then(function (enabled) {
+                  if (alsoFill && enabled) {
+                    chrome.runtime.sendMessage({ m: 'fillTotp', tabId: my.tabId, code: code });
+                  }
+                  window.close();
+                });
               });
-            });
+          });
         });
-      });
-    };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(code).then(finish).catch(function () {});
-    } else {
-      var ta = document.createElement('textarea');
-      ta.value = code;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-      finish();
-    }
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(finish).catch(function () {});
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = code;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        finish();
+      }
+    });
   }
 
   my.copyPassword = function (entry) {

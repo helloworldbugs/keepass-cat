@@ -104,19 +104,29 @@ function Background(protectedMemory, localMemory, settings, notifications) {
         try {
           Otp.parseUrl(otpUrl).next(function (err, code) {
             if (err || !code) return;
-            chrome.tabs.sendMessage(tabId, { m: 'copyToClipboard', code: code, label: 'OTP' });
-            settings.getSetClipboardExpireEnabled().then(function (clearEnabled) {
-              settings.getSetClipboardExpireInterval().then(function (interval) {
-                if (clearEnabled) {
-                  settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
-                }
-                pushNotification(
-                  i18n.t('OTP') +
-                    (clearEnabled
-                      ? i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval)
-                      : i18n.t(' copied to clipboard.')),
-                  'clipboard'
-                );
+            // Two-step logins run this twice for the same entry; the second pass
+            // must not copy or notify again (same rule as the popup path, shared
+            // through the same storage key).
+            chrome.storage.local.get('lastOtpCopy', function (items) {
+              var last = items.lastOtpCopy;
+              var now = Date.now();
+              if (last && last.code === code && now - last.at < 8000) return;
+              chrome.storage.local.set({ lastOtpCopy: { code: code, at: now } });
+
+              chrome.tabs.sendMessage(tabId, { m: 'copyToClipboard', code: code, label: 'OTP' });
+              settings.getSetClipboardExpireEnabled().then(function (clearEnabled) {
+                settings.getSetClipboardExpireInterval().then(function (interval) {
+                  if (clearEnabled) {
+                    settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
+                  }
+                  pushNotification(
+                    i18n.t('OTP') +
+                      (clearEnabled
+                        ? i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval)
+                        : i18n.t(' copied to clipboard.')),
+                    'clipboard'
+                  );
+                });
               });
             });
           });
