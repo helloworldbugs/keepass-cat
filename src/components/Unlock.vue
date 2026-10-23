@@ -31,6 +31,10 @@ export default defineComponent({
         error: '',
       },
       busy: false,
+      // True from mount until we know whether to show the unlock form or jump
+      // straight to the entries. The template keeps the layout but hides it, so
+      // the form never flashes for a remembered password.
+      initializing: true,
       isUnlocked: false,
       masterPassword: '',
       isMasterPasswordInputVisible: false,
@@ -132,11 +136,13 @@ export default defineComponent({
             } else {
               // No cached credentials — show unlock UI
               this.busy = false;
+              this.initializing = false;
             }
           })
           .catch((err) => {
             console.error('[autounlock] failed:', err);
             this.busy = false;
+            this.initializing = false;
           });
       };
 
@@ -267,6 +273,9 @@ export default defineComponent({
       });
     },
     showResults(entries, fromCache) {
+      // Results are on screen: the initial veil (which keeps the unlock form from
+      // flashing for users whose password is remembered) can go.
+      this.initializing = false;
       console.log('[showResults] entries:', entries ? entries.length : 0, 'fromCache:', fromCache);
       this.unlockedMessages.warn = '';
       this.unlockedMessages.error = '';
@@ -436,6 +445,7 @@ export default defineComponent({
           }
           this.unlockedMessages['error'] = translated || this.$t('invalid keyfile or KDBX file');
           this.busy = false;
+          this.initializing = false;
           throw err;        });
     },
   },
@@ -443,7 +453,7 @@ export default defineComponent({
 </script>
 
 <template>
-  <div>
+  <div :class="{ 'is-initializing': initializing }">
     <!-- Busy Spinner -->
     <div v-if="busy" class="spinner">
       <spinner size="medium" :message="$t('Unlocking ') + databaseFileName" />
@@ -568,6 +578,13 @@ export default defineComponent({
 
 <style lang="scss">
 @import '../styles/settings.scss';
+
+/* Hidden rather than removed: the layout keeps its size while the auto-unlock
+   decision is pending, so the popup opens at the right size and the unlock form
+   never flashes for users whose password is remembered. */
+.is-initializing {
+  visibility: hidden;
+}
 
 #masterPasswordGroup {
   .keyfile-picker {
