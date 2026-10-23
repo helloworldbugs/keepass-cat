@@ -9,6 +9,17 @@ export default function () {
   this.route = (path) => {
     let parsed = this.parse(path);
     if (parsed !== false) {
+      // Remember the unlock screen the user last opened (with its resolved title)
+      // so the popup can render it on the first paint instead of flashing a
+      // spinner-sized window while the async choice lookup runs.
+      if (parsed._path === '/unlock/:provider/:title') {
+        try {
+          localStorage.setItem(
+            'keepassCat.lastUnlockRoute',
+            '/unlock/' + parsed.provider + '/' + parsed.title
+          );
+        } catch (e) {}
+      }
       this.routeStack.push(parsed);
       this.show(parsed._path);
     } else {

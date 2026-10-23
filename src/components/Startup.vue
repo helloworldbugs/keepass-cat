@@ -52,28 +52,27 @@ export default {
 
 <template>
   <div>
-    <!-- Busy Spinner -->
-    <div v-if="busy" class="box-bar plain spinner">
-      <spinner size="large" />
+    <div class="box-bar plain">
+      <div class="unlockLogo stack-item">
+        <img src="@/assets/icons/exported/logo.png" />
+        <span>{{ $t('Keepass Cat') }}</span>
+      </div>
+      <p>
+        {{ $t("Keepass Cat is an extension that uses your existing KeePass database files to autofill passwords on websites. In order to continue, you must add your KeePass database file(s).") }}
+      </p>
     </div>
-    <div v-else>
-      <div class="box-bar plain">
-        <div class="unlockLogo stack-item">
-          <img src="@/assets/icons/exported/logo.png" />
-          <span>{{ $t('Keepass Cat') }}</span>
-        </div>
-        <p>
-          {{ $t("Keepass Cat is an extension that uses your existing KeePass database files to autofill passwords on websites. In order to continue, you must add your KeePass database file(s).") }}
-        </p>
-      </div>
-      <div class="stack-item selectable">
-        <button class="action-button selectable" @click="links.openOptions">
-          {{ $t('Add a KeePass database file') }}
-        </button>
-      </div>
-      <div class="box-bar plain">
-        <p>{{ $t("You can return here when you've enabled one of the database file providers.") }}</p>
-      </div>
+    <div class="stack-item selectable">
+      <button class="action-button selectable" :disabled="busy" @click="links.openOptions">
+        {{ $t('Add a KeePass database file') }}
+      </button>
+    </div>
+    <!-- The page keeps its full size while the database lookup runs; only this line
+         changes, so the popup never flashes a smaller, spinner-only window. -->
+    <div v-if="busy" class="box-bar plain startup-busy">
+      <spinner size="small" />
+    </div>
+    <div v-else class="box-bar plain">
+      <p>{{ $t("You can return here when you've enabled one of the database file providers.") }}</p>
     </div>
   </div>
 </template>
@@ -84,5 +83,12 @@ p {
   width: 100%;
   margin: 10px 0px 0px 0px;
   font-size: 14px;
+}
+
+.startup-busy {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 44px;
 }
 </style>

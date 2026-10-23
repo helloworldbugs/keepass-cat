@@ -119,7 +119,39 @@ $router.registerRoutes([
     var: show.entryEdit,
   },
 ]);
-$router.route('/');
+const LAST_UNLOCK_ROUTE_KEY = 'keepassCat.lastUnlockRoute';
+
+// Open straight into the unlock screen the user last used, so the popup is the
+// right size from the first paint. The choice is checked afterwards and only
+// corrected when it no longer matches (database removed / different file picked).
+let initialRoute = '/';
+try {
+  const stored = localStorage.getItem(LAST_UNLOCK_ROUTE_KEY);
+  if (stored && $router.parse(stored)) initialRoute = stored;
+} catch (e) {
+  // localStorage can be unavailable; fall back to the startup screen.
+}
+$router.route(initialRoute);
+
+if (initialRoute !== '/') {
+  settings
+    .getCurrentDatabaseChoice()
+    .then((info) => {
+      const current = $router.getRoute();
+      // The user already navigated somewhere else; never yank the screen.
+      if (!current || current._path !== '/unlock/:provider/:title') return;
+      if (!info) {
+        $router.route('/');
+        return;
+      }
+      const target =
+        '/unlock/' + info.providerKey + '/' + encodeURIComponent(info.passwordFile.title);
+      if ('/unlock/' + current.provider + '/' + current.title !== target) {
+        $router.route(target);
+      }
+    })
+    .catch(() => {});
+}
 </script>
 
 <style lang="scss">
