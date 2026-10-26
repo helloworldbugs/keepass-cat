@@ -36,7 +36,7 @@ export default {
       loadedOtp: '',
       hasSavedOtp: false,
       groups: [],
-      selectedGroup: '',
+      selectedGroupUuid: '',
       saving: false,
       message: '',
       // 'progress' | 'success' | 'error' - drives the status toast colour/icon.
@@ -156,15 +156,57 @@ export default {
         this.otpEditing = this.hasSavedOtp;
       }
     }
-    // Load sorted groups from cached entries + keepassService
+    // Load groups keyed by UUID (same-named groups stay distinct), merging in
+    // groups referenced by cached entries when the group cache is stale.
     let allEntries = this.unlockedState.cacheGet('allEntries') || [];
-    let groupNames = {};
-    allEntries.forEach(function(e) { if (e.groupName) groupNames[e.groupName] = true; });
-    let dbGroups = this.keepassService.getGroups() || [];
-    dbGroups.forEach(function(g) { groupNames[g.name] = true; });
-    this.groups = Object.keys(groupNames).sort();
-    this.selectedGroup = this.entry?.groupName || this.groups[0] || '';
-    if (this.isNew && this.groups[0]) this.selectedGroup = this.groups[0];
+    const byUuid = {};
+    const byName = {};
+    const addGroup = function(uuid, name, parentUuid, path) {
+      name = name || '';
+      path = path || name;
+      if (uuid) {
+        if (!byUuid[uuid]) {
+          byUuid[uuid] = { uuid: uuid, name: name, parentUuid: parentUuid || null, path: path };
+        } else if (!byUuid[uuid].name && name) {
+          byUuid[uuid].name = name;
+          if (!byUuid[uuid].path) byUuid[uuid].path = path;
+        }
+      } else if (name && !byName[name]) {
+        byName[name] = { uuid: null, name: name, parentUuid: parentUuid || null, path: path };
+      }
+    };
+    (this.keepassService.getGroups() || []).forEach(function(g) {
+      addGroup(g.uuid || null, g.name, g.parentUuid, g.path);
+    });
+    allEntries.forEach(function(e) {
+      if (e.groupUuid) addGroup(e.groupUuid, e.groupName, null, e.groupPath);
+      else if (e.groupName) addGroup(null, e.groupName, null, e.groupPath);
+    });
+    // A name-only legacy row is redundant when a UUID row already has that
+    // name/path; legacy entries are then resolved onto the UUID row.
+    const uuidNames = {};
+    const uuidPaths = {};
+    Object.keys(byUuid).forEach(function(uuid) {
+      const g = byUuid[uuid];
+      if (g.name) uuidNames[g.name] = true;
+      if (g.path) uuidPaths[g.path] = true;
+    });
+    let groupList = Object.keys(byUuid).map(function(uuid) { return byUuid[uuid]; });
+    Object.keys(byName).forEach(function(name) {
+      const g = byName[name];
+      if (!uuidNames[g.name] && !uuidPaths[g.path]) groupList.push(g);
+    });
+    groupList.sort(function(a, b) {
+      return (a.path || a.name || '').localeCompare(b.path || b.name || '');
+    });
+    this.groups = groupList;
+    if (this.isNew || !this.entry) {
+      this.selectedGroupUuid = this.groupOptionValue(this.groups[0]);
+    } else {
+      // Older cached entries have no groupUuid; resolve by name/path. When it
+      // cannot be resolved, keep it empty so save skips the move entirely.
+      this.selectedGroupUuid = this.resolveEntryGroupUuid(this.entry);
+    }
     // Custom fields only exist for saved entries; a new entry starts empty.
     if (!this.isNew && this.entry) {
       this.loadCustomFields(this.entry.id);
@@ -177,6 +219,34 @@ export default {
     this.navTimer = null;
   },
   methods: {
+    // Select value: the UUID when known, otherwise the legacy group name.
+    groupOptionValue(group) {
+      if (!group) return '';
+      return group.uuid || group.name || '';
+    },
+    // Resolve an entry's group UUID, falling back to its name/path for entries
+    // restored from a cache written before groupUuid existed.
+    resolveEntryGroupUuid(entry) {
+      if (!entry) return '';
+      if (entry.groupUuid) return entry.groupUuid;
+      return this.uuidForGroupName(entry.groupName, entry.groupPath);
+    },
+    uuidForGroupName(name, path) {
+      if (!name && !path) return '';
+      let byName = '';
+      for (const g of this.groups) {
+        if (!g.uuid) continue;
+        if (path && g.path === path) return g.uuid;
+        if (!path && name && g.name === name && !byName) byName = g.uuid;
+      }
+      if (byName) return byName;
+      if (path) {
+        for (const g of this.groups) {
+          if (g.uuid && name && g.name === name) return g.uuid;
+        }
+      }
+      return '';
+    },
     // Single entry point for the status toast. It clears any pending auto-hide
     // first, so a timer from an older message can never hide a newer one.
     // Errors clear themselves after ERROR_TOAST_MS; pass autoHideMs to override.
@@ -386,12 +456,19 @@ export default {
         let newBuffer;
         if (this.isNew) {
           newBuffer = await this.keepassService.addEntry(
-            this.selectedGroup, this.editFields, customPayload.customFields
+            this.selectedGroupUuid, this.editFields, customPayload.customFields
           );
         } else {
-          if (this.selectedGroup !== this.entry.groupName) {
-            await this.keepassService.moveEntryToGroup(this.entry.id, this.selectedGroup);
-            this.entry.groupName = this.selectedGroup;
+          // Skip the move when the legacy entry's group could not be resolved
+          // (empty value) rather than silently moving it to an arbitrary group.
+          if (this.selectedGroupUuid && this.selectedGroupUuid !== this.entry.groupUuid) {
+            await this.keepassService.moveEntryToGroup(this.entry.id, this.selectedGroupUuid);
+            const target = this.groups.filter(g => this.groupOptionValue(g) === this.selectedGroupUuid)[0];
+            if (target) {
+              if (target.uuid) this.entry.groupUuid = target.uuid;
+              this.entry.groupName = target.name || this.entry.groupName;
+              this.entry.groupPath = target.path || this.entry.groupPath;
+            }
           }
           newBuffer = await this.keepassService.saveEntry(
             this.entry.id, this.editFields,
@@ -492,8 +569,12 @@ export default {
     <div class="edit-form" v-if="entry || isNew">
       <div class="edit-field">
         <label>{{ $t('Group') }}</label>
-        <select v-model="selectedGroup">
-          <option v-for="g in groups" :key="g" :value="g">{{ g }}</option>
+        <select v-model="selectedGroupUuid">
+          <option
+            v-for="g in groups"
+            :key="groupOptionValue(g)"
+            :value="groupOptionValue(g)"
+          >{{ g.path || g.name }}</option>
         </select>
       </div>
       <div class="edit-field">

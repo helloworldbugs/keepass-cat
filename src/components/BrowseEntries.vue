@@ -15,6 +15,9 @@ export default {
       renameInput: '',
       showNewGroup: false,
       newGroupName: '',
+      // Parent UUID for the new-group form. Null keeps the historical default
+      // (the database's default group); threaded through for nested creation.
+      newGroupParentUuid: null,
       busy: false,
       message: '',
       entriesVersion: 0,
@@ -47,7 +50,7 @@ export default {
   mounted() {
     this.$nextTick(() => {
       if (this.groups.length === 1) {
-        this.$set(this.expandedGroups, this.groups[0].name, true);
+        this.$set(this.expandedGroups, this.groupKey(this.groups[0]), true);
       }
     });
     // One ticker for the whole list, not one per row: the browse view can hold
@@ -66,29 +69,123 @@ export default {
     },
     groups() {
       this.entriesVersion;
-      let names = {};
-      this.allEntries.forEach(e => { if (e.groupName) names[e.groupName] = true; });
-      (this.keepassService.getGroups() || []).forEach(function(g) { names[g.name] = true; });
-      return Object.keys(names).sort().map(function(n) { return { name: n }; });
+      // Key by UUID so same-named groups stay distinct. Legacy cached entries
+      // (no groupUuid) and legacy group caches (uuid: null) fall back to names.
+      const byUuid = {};
+      const byName = {};
+      const addGroup = function(uuid, name, parentUuid, path) {
+        name = name || '';
+        path = path || name;
+        if (uuid) {
+          if (!byUuid[uuid]) {
+            byUuid[uuid] = { uuid: uuid, name: name, parentUuid: parentUuid || null, path: path };
+          } else if (!byUuid[uuid].name && name) {
+            byUuid[uuid].name = name;
+            if (!byUuid[uuid].path) byUuid[uuid].path = path;
+          }
+        } else if (name && !byName[name]) {
+          byName[name] = { uuid: null, name: name, parentUuid: parentUuid || null, path: path };
+        }
+      };
+      (this.keepassService.getGroups() || []).forEach(function(g) {
+        addGroup(g.uuid || null, g.name, g.parentUuid, g.path);
+      });
+      this.allEntries.forEach(function(e) {
+        if (e.groupUuid) {
+          // A group the cached group list does not know about (stale cache).
+          addGroup(e.groupUuid, e.groupName, null, e.groupPath);
+        } else if (e.groupName) {
+          addGroup(null, e.groupName, null, e.groupPath);
+        }
+      });
+      // Drop a legacy name-only row when a UUID row has the same name/path:
+      // its entries are still shown by the UUID row (see getGroupEntries).
+      const uuidNames = {};
+      const uuidPaths = {};
+      Object.keys(byUuid).forEach(function(uuid) {
+        const g = byUuid[uuid];
+        if (g.name) uuidNames[g.name] = true;
+        if (g.path) uuidPaths[g.path] = true;
+      });
+      let result = Object.keys(byUuid).map(function(uuid) { return byUuid[uuid]; });
+      Object.keys(byName).forEach(function(name) {
+        const g = byName[name];
+        if (!uuidNames[g.name] && !uuidPaths[g.path]) result.push(g);
+      });
+      result.sort(function(a, b) {
+        return (a.path || a.name || '').localeCompare(b.path || b.name || '');
+      });
+      return result;
     },
   },
   methods: {
-    toggleGroup(name) {
-      this.$set(this.expandedGroups, name, !this.expandedGroups[name]);
+    // Stable expansion/rename key. UUID when available, name for legacy rows.
+    groupKey(group) {
+      return (group && (group.uuid || group.name)) || '';
+    },
+    toggleGroup(group) {
+      const key = this.groupKey(group);
+      this.$set(this.expandedGroups, key, !this.expandedGroups[key]);
     },
     autoExpandGroups() {
       this.groups.forEach(g => {
-        const hasMatches = this.getGroupEntries(g.name).length > 0;
-        this.$set(this.expandedGroups, g.name, hasMatches);
+        const hasMatches = this.getGroupEntries(g).length > 0;
+        this.$set(this.expandedGroups, this.groupKey(g), hasMatches);
       });
     },
-    getGroupEntries(name) {
-      let result = this.allEntries.filter(e => e.groupName === name);
+    // Entries belonging to a UUID group, with a name path fallback for entries
+    // restored from an older cache that predates groupUuid.
+    getGroupEntries(group) {
+      let uuid = null;
+      let name = null;
+      let path = null;
+      if (group && typeof group === 'object') {
+        uuid = group.uuid || null;
+        name = group.name || null;
+        path = group.path || name;
+      } else if (group) {
+        // Backwards-compatible call with a bare uuid or name. Resolve a known
+        // UUID to its group so entries are matched by identity, not label.
+        const known = this.groups.filter(function(g) { return g.uuid === group; })[0];
+        if (known) {
+          uuid = known.uuid;
+          name = known.name;
+          path = known.path || known.name;
+        } else {
+          name = group;
+          path = group;
+        }
+      }
+      let result = this.allEntries.filter(e => {
+        if (uuid && e.groupUuid) return e.groupUuid === uuid;
+        if (e.groupUuid) return false;
+        // Legacy entry: only the first matching UUID group owns it, so it is
+        // never duplicated across same-named groups.
+        if (uuid) return this.legacyGroupUuid(e) === uuid;
+        if (path && e.groupPath) return e.groupPath === path;
+        return e.groupName === name;
+      });
       if (this.searchTerm.length > 0) {
         let term = this.searchTerm.toLowerCase();
         result = result.filter(e => (e.filterKey || '').indexOf(term) > -1);
       }
       return result;
+    },
+    // Resolve the UUID a legacy (uuid-less) entry belongs to, by path then name.
+    legacyGroupUuid(entry) {
+      let byName = null;
+      for (const g of this.groups) {
+        if (!g.uuid) continue;
+        if (entry.groupPath && g.path === entry.groupPath) return g.uuid;
+        if (!entry.groupPath && entry.groupName && g.name === entry.groupName) {
+          if (!byName) byName = g.uuid;
+        }
+      }
+      if (byName) return byName;
+      for (const g of this.groups) {
+        if (g.uuid && entry.groupName && g.name === entry.groupName) return g.uuid;
+      }
+      return null;
     },
     autofill(entry) {
       this.unlockedState.autofill(entry);
@@ -149,7 +246,7 @@ export default {
     },
     // --- Group management ---
     startRename(group) {
-      this.renamingGroup = group.name;
+      this.renamingGroup = this.groupKey(group);
       this.renameInput = group.name;
       this.$nextTick(() => this.$refs.renameInput?.focus());
     },
@@ -159,7 +256,8 @@ export default {
       this.busy = true;
       this.message = this.$t('Renaming...');
       try {
-        let buf = await this.keepassService.renameGroup(group.name, newName);
+        // UUID first; legacy name-only rows still fall back to the name.
+        let buf = await this.keepassService.renameGroup(group.uuid || group.name, newName);
         await this.keepassService.uploadDatabase(buf);
         let fresh = await this.keepassService.refreshFromServer();
         this.unlockedState.cacheSet('allEntries', fresh);
@@ -180,15 +278,16 @@ export default {
       this.renamingGroup = null;
     },
     async confirmDeleteGroup(group) {
-      let count = this.getGroupEntries(group.name).length;
+      let count = this.getGroupEntries(group).length;
+      let label = group.path || group.name;
       let msg = count > 0
-        ? this.$t('Delete group "{0}" and all {1} entries?', group.name, count)
-        : this.$t('Delete empty group "{0}"?', group.name);
+        ? this.$t('Delete group "{0}" and all {1} entries?', label, count)
+        : this.$t('Delete empty group "{0}"?', label);
       if (!confirm(msg)) return;
       this.busy = true;
       this.message = this.$t('Deleting...');
       try {
-        let buf = await this.keepassService.deleteGroup(group.name);
+        let buf = await this.keepassService.deleteGroup(group.uuid || group.name);
         await this.keepassService.uploadDatabase(buf);
         let fresh = await this.keepassService.refreshFromServer();
         this.unlockedState.cacheSet('allEntries', fresh);
@@ -205,9 +304,12 @@ export default {
       }
       this.busy = false;
     },
-    startNewGroup() {
+    // Optional parentGroup lets a caller nest the new group; without one the
+    // service keeps its historical default (the database's default group).
+    startNewGroup(parentGroup) {
       this.showNewGroup = true;
       this.newGroupName = '';
+      this.newGroupParentUuid = (parentGroup && parentGroup.uuid) || null;
       this.$nextTick(() => this.$refs.newGroupInput?.focus());
     },
     async confirmNewGroup() {
@@ -216,7 +318,7 @@ export default {
       this.busy = true;
       this.message = this.$t('Creating...');
       try {
-        let buf = await this.keepassService.createGroup(name);
+        let buf = await this.keepassService.createGroup(name, this.newGroupParentUuid);
         await this.keepassService.uploadDatabase(buf);
         // Refresh cache from server (same as entry save)
         let fresh = await this.keepassService.refreshFromServer();
@@ -250,14 +352,14 @@ export default {
       <i class="fa fa-plus add-entry" @click="newEntry" :title="$t('New entry')" />
     </div>
     <div class="browse-groups">
-      <div v-for="group in groups" :key="group.name" class="group-section">
-        <div class="group-header" @click="toggleGroup(group.name)">
-          <i :class="['fa', expandedGroups[group.name] ? 'fa-folder-open' : 'fa-folder', 'fa-fw']" />
+      <div v-for="group in groups" :key="groupKey(group)" class="group-section">
+        <div class="group-header" @click="toggleGroup(group)">
+          <i :class="['fa', expandedGroups[groupKey(group)] ? 'fa-folder-open' : 'fa-folder', 'fa-fw']" />
           <span
-            v-if="renamingGroup !== group.name"
+            v-if="renamingGroup !== groupKey(group)"
             class="group-name"
-            :title="group.name"
-          >{{ group.name }}</span>
+            :title="group.path || group.name"
+          >{{ group.path || group.name }}</span>
           <span v-else class="rename-field">
             <input
               ref="renameInput"
@@ -274,11 +376,11 @@ export default {
             <i class="fa fa-pencil group-edit-icon" @click="startRename(group)" :title="$t('Rename group')" />
             <i class="fa fa-trash group-delete-icon" @click="confirmDeleteGroup(group)" :title="$t('Delete group')" />
           </span>
-          <span class="group-count">{{ getGroupEntries(group.name).length }}</span>
+          <span class="group-count">{{ getGroupEntries(group).length }}</span>
         </div>
-        <div v-if="expandedGroups[group.name]" class="group-entries">
+        <div v-if="expandedGroups[groupKey(group)]" class="group-entries">
           <div
-            v-for="entry in getGroupEntries(group.name)"
+            v-for="entry in getGroupEntries(group)"
             :key="entry.id"
             class="entry-row selectable"
             @click="autofill(entry)"

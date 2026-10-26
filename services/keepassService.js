@@ -253,7 +253,17 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
   var _db = null; // raw kdbx db reference for save operations
   var _masterKey = null; // master key for save operations
 
-  /* Shared helper: recursively find a group by name */
+  /*
+   * A group's stable identity is its UUID. kdbxweb stringifies a KdbxUuid via
+   * `toString()` / `String(uuid)`; that value is opaque (not a display name) and
+   * is used everywhere groups need to be told apart, including same-named ones.
+   * `entry.groupName` remains for backwards compatibility only.
+   */
+  function groupUuidString(group) {
+    return group && group.uuid ? String(group.uuid) : null;
+  }
+
+  /* Shared helper: recursively find a group by name (legacy fallback only) */
   function findGroup(groups, name) {
     for (var i = 0; i < groups.length; i++) {
       if (groups[i].name === name) return groups[i];
@@ -261,6 +271,36 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
       if (found) return found;
     }
     return null;
+  }
+
+  /* Recursive search for a group by its UUID string. */
+  function findGroupByUuidIn(groups, uuidHex) {
+    if (!uuidHex) return null;
+    var target = String(uuidHex);
+    for (var i = 0; i < groups.length; i++) {
+      if (groupUuidString(groups[i]) === target) return groups[i];
+      var found = findGroupByUuidIn(groups[i].groups, uuidHex);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  /* Find a group in the loaded database by its UUID string. */
+  function findGroupByUuid(uuidHex) {
+    if (!_db || !uuidHex) return null;
+    return findGroupByUuidIn(_db.groups, uuidHex);
+  }
+
+  /*
+   * Resolves a group reference from the UI. New callers pass a UUID; older
+   * cached entries / callers may still pass a name. A UUID match always wins,
+   * and the name lookup is kept solely as a fallback for those legacy values.
+   */
+  function resolveGroup(uuidOrName) {
+    if (uuidOrName === null || uuidOrName === undefined || !_db) return null;
+    var byUuid = findGroupByUuid(String(uuidOrName));
+    if (byUuid) return byUuid;
+    return findGroup(_db.groups, String(uuidOrName));
   }
 
   /*
@@ -416,15 +456,33 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
   /*
    * Takes a kdbxweb group object and transforms it into a list of entries.
    **/
-  function parseKdbxDb(groups, repairCounter) {
+  function parseKdbxDb(groups, repairCounter, parentPath, rootGroup) {
     var isTopLevel = repairCounter === undefined;
-    if (isTopLevel) repairCounter = { count: 0 };
+    if (isTopLevel) {
+      repairCounter = { count: 0 };
+      parentPath = '';
+      // The default group is the tree root. It is itself skipped from the group
+      // pickers, so its name is not part of its children's paths.
+      rootGroup = _db ? _db.getDefaultGroup() : groups[0] || null;
+    }
     var results = [];
     for (var i = 0; i < groups.length; i++) {
       var group = groups[i];
+      var groupName = group.name || 'Root';
+      var isRoot = group === rootGroup;
+      // Entries directly in the root group still need a visible label; use the
+      // root's own name for them, but keep it out of descendants' paths.
+      var groupPath = isRoot
+        ? groupName
+        : parentPath
+          ? parentPath + '/' + groupName
+          : groupName;
+      var childPath = isRoot ? '' : groupPath;
       if (group.groups.length > 0) {
         // recursive case for subgroups.
-        results = results.concat(parseKdbxDb(group.groups, repairCounter));
+        results = results.concat(
+          parseKdbxDb(group.groups, repairCounter, childPath, rootGroup)
+        );
       }
       for (var j = 0; j < group.entries.length; j++) {
         var db_entry = group.entries[j];
@@ -437,7 +495,10 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
         if (group.enableSearching === false) entry.searchable = false;
         entry.groupIconId = group.icon;
         entry.keys.push('groupName');
-        entry.groupName = group.name;
+        entry.groupName = groupName;
+        // Stable group identity + display path, alongside the legacy name.
+        entry.groupUuid = groupUuidString(group);
+        entry.groupPath = groupPath;
         if (entry.searchable) results.push(entry);
         // Entry properties defined by the entry
         if (db_entry.uuid) {
@@ -698,40 +759,58 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     });
   };
 
-  // Group names mirrored to storage.local. The popup usually opens with the database
+  // Groups mirrored to storage.local. The popup usually opens with the database
   // not loaded (entries come from the cache), and getGroups() would then be empty:
   // a group with no entries exists in the file but never shows up in the pickers.
-  const KNOWN_GROUPS_KEY = 'keepassService.groupNames';
-  var _knownGroupNames = [];
+  // Objects (not names) are stored so UUID identity survives a popup reopen.
+  const KNOWN_GROUPS_KEY = 'keepassService.groups';
+  const LEGACY_KNOWN_GROUPS_KEY = 'keepassService.groupNames';
+  var _knownGroups = [];
 
-  function rememberGroupNames(names) {
-    var same =
-      names.length === _knownGroupNames.length &&
-      names.every(function (name, i) {
-        return name === _knownGroupNames[i];
-      });
+  function cachedGroup(group) {
+    return {
+      uuid: group.uuid || null,
+      name: group.name || '',
+      parentUuid: group.parentUuid || null,
+      path: group.path || group.name || '',
+    };
+  }
+
+  function rememberGroups(groups) {
+    var same = JSON.stringify(groups) === JSON.stringify(_knownGroups);
     if (same) return;
-    _knownGroupNames = names;
+    _knownGroups = groups;
     var payload = {};
-    payload[KNOWN_GROUPS_KEY] = names;
+    payload[KNOWN_GROUPS_KEY] = groups;
     browser.storage.local.set(payload).catch(function () {});
   }
 
   my.loadCachedGroups = function () {
     return browser.storage.local
-      .get(KNOWN_GROUPS_KEY)
+      .get([KNOWN_GROUPS_KEY, LEGACY_KNOWN_GROUPS_KEY])
       .then(function (items) {
-        var names = items[KNOWN_GROUPS_KEY];
-        if (Array.isArray(names)) _knownGroupNames = names;
+        var cached = items[KNOWN_GROUPS_KEY];
+        if (Array.isArray(cached) && (cached.length === 0 || typeof cached[0] === 'object')) {
+          _knownGroups = cached.map(cachedGroup);
+          return;
+        }
+        // Upgrade path: older installs stored a flat array of names. Keep those
+        // as nameless-UUID rows so the pickers still work until the DB is loaded.
+        var legacyNames = items[LEGACY_KNOWN_GROUPS_KEY];
+        if (Array.isArray(legacyNames)) {
+          _knownGroups = legacyNames.map(function (name) {
+            return { uuid: null, name: name, parentUuid: null, path: name };
+          });
+        }
       })
       .catch(function () {});
   };
 
   my.getGroups = function () {
     if (!_db) {
-      return _knownGroupNames.map(function (name) {
-        return { name: name };
-      });
+      // Preserve UUIDs captured from the last live parse; only legacy caches
+      // have uuid: null, which callers treat as the name-based fallback.
+      return _knownGroups.map(cachedGroup);
     }
     var result = [];
     var defaultGroup = _db.getDefaultGroup();
@@ -739,42 +818,56 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     function isRecycleBin(group) {
       return !!(recycleUuid && group.uuid && group.uuid.equals(recycleUuid));
     }
-    function collect(group) {
-      // Skip Root and recycle bin groups, but still traverse Root's children
-      if (group !== defaultGroup && !isRecycleBin(group)) {
-        result.push({ name: group.name || 'Root' });
+    function collect(group, parentUuid, parentPath) {
+      var name = group.name || 'Root';
+      var isRoot = group === defaultGroup;
+      var path = parentPath ? parentPath + '/' + name : name;
+      // Skip Root and recycle bin groups, but still traverse Root's children.
+      if (!isRoot && !isRecycleBin(group)) {
+        result.push({
+          uuid: groupUuidString(group),
+          name: name,
+          parentUuid: parentUuid,
+          path: path,
+        });
       }
-      if (group.groups) group.groups.forEach(collect);
+      // The root's own name is not part of its descendants' paths.
+      var childPath = isRoot ? '' : path;
+      var childParentUuid = groupUuidString(group);
+      if (group.groups) {
+        group.groups.forEach(function (child) {
+          collect(child, childParentUuid, childPath);
+        });
+      }
     }
-    _db.groups.forEach(collect);
-    rememberGroupNames(
-      result.map(function (g) {
-        return g.name;
-      })
-    );
+    _db.groups.forEach(function (group) {
+      collect(group, null, '');
+    });
+    rememberGroups(result);
     return result;
   };
 
-  my.createGroup = function (groupName) {
+  my.createGroup = function (groupName, parentUuid) {
     return my.ensureDbLoaded().then(function () {
-      var parent = _db.getDefaultGroup();
+      var parent = parentUuid ? findGroupByUuid(String(parentUuid)) : null;
+      if (!parent) parent = _db.getDefaultGroup();
       _db.createGroup(parent, groupName);
       return _db.save();
     });
   };
 
-  my.renameGroup = function (oldName, newName) {
+  my.renameGroup = function (uuidOrName, newName) {
     return my.ensureDbLoaded().then(function () {
-      var group = findGroup(_db.groups, oldName);
+      var group = resolveGroup(uuidOrName);
       if (!group) return Promise.reject(new Error(i18n.t('Group not found')));
       group.name = newName;
       return _db.save();
     });
   };
 
-  my.deleteGroup = function (groupName) {
+  my.deleteGroup = function (uuidOrName) {
     return my.ensureDbLoaded().then(function () {
-      var group = findGroup(_db.groups, groupName);
+      var group = resolveGroup(uuidOrName);
       if (!group) return Promise.reject(new Error(i18n.t('Group not found')));
       // Splice directly from parent to bypass recycle bin (same pattern as deleteEntry)
       var parent = group.parentGroup;
@@ -786,18 +879,11 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     });
   };
 
-  my.addEntry = function (groupName, fields, customFields) {
+  my.addEntry = function (uuidOrGroupName, fields, customFields) {
     customFields = customFields || [];
     return my.ensureDbLoaded().then(function () {
-      function findGroup(groups, name) {
-        for (var i = 0; i < groups.length; i++) {
-          if (groups[i].name === name) return groups[i];
-          var found = findGroup(groups[i].groups, name);
-          if (found) return found;
-        }
-        return null;
-      }
-      var group = findGroup(_db.groups, groupName) || _db.getDefaultGroup();
+      // UUID first (new callers), then the legacy name fallback.
+      var group = resolveGroup(uuidOrGroupName) || _db.getDefaultGroup();
       var entry = _db.createEntry(group);
       // Reuse the shared KDBX mapping so add and save cannot drift again.
       // Only non-empty values are written (createEntry already seeds the
@@ -844,16 +930,8 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     });
   };
 
-  my.moveEntryToGroup = function (entryId, groupName) {
+  my.moveEntryToGroup = function (entryId, uuidOrGroupName) {
     return my.ensureDbLoaded().then(function () {
-    function findGroup(groups, name) {
-      for (var i = 0; i < groups.length; i++) {
-        if (groups[i].name === name) return groups[i];
-        var found = findGroup(groups[i].groups, name);
-        if (found) return found;
-      }
-      return null;
-    }
     function findAndRemoveEntry(groups, id) {
       for (var i = 0; i < groups.length; i++) {
         for (var j = 0; j < groups[i].entries.length; j++) {
@@ -868,10 +946,12 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
       }
       return null;
     }
+    // Resolve the destination before detaching the entry, so an unknown group
+    // cannot leave the in-memory database missing it on a later save.
+    var target = resolveGroup(uuidOrGroupName);
+    if (!target) return Promise.reject(new Error('Group not found'));
     var entry = findAndRemoveEntry(_db.groups, entryId);
     if (!entry) return Promise.reject(new Error('Entry not found'));
-    var target = findGroup(_db.groups, groupName);
-    if (!target) return Promise.reject(new Error('Group not found'));
     target.entries.push(entry);
     return _db.save();
     });
