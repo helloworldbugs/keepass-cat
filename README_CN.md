@@ -250,11 +250,12 @@ Keepass Cat 使用一个**可填充字段过滤器**加**两种检测方法**来
 
 ## ☁️ 云端存储支持
 
-Keepass Cat 通过 **WebDAV** 协议同步 KeePass 数据库：
+Keepass Cat 可以从 **WebDAV** 服务器读取 KeePass 数据库，在 Chrome 下也可以**直接读取本地磁盘文件**：
 
 | 存储后端 | 类型 | 说明 |
 |----------|------|------|
 | 🔗 **WebDAV** | 私有部署 | 支持坚果云等 WebDAV 服务，扫描目录自动发现 `.kdbx` 文件，支持上传保存 |
+| 📄 **本地文件**（仅 Chrome） | 本地 | 打开本机的一个 `.kdbx` 文件，通过 File System Access API **原地读写** |
 
 每个 WebDAV 请求都强制使用 `credentials: 'omit'`，因此**不会携带浏览器的 Cookie**。请求不可能以「同一浏览器里恰好登录了该服务器网页端」的身份通过认证——连接始终使用的是扩展里配置的账号。
 
@@ -264,10 +265,24 @@ Keepass Cat 通过 **WebDAV** 协议同步 KeePass 数据库：
 
 ```
 PasswordFileStoreRegistry (注册中心)
-    └── WebdavFileManager (WebDAV)
+    ├── WebdavFileManager (WebDAV)
+    └── LocalFileManager  (本地 .kdbx，仅 Chrome — File System Access API)
 ```
 
 所有后端统一实现 `FileManager` 接口，通过 `PasswordFileStoreRegistry` 注册和调度。
+
+### 本地文件（仅 Chrome）
+
+可以直接使用本机上的 `.kdbx` 文件——不上传、不在扩展内复制副本：
+
+- **只需在设置页选一次**：管理数据库 → 本地文件 → 打开开关 → 点「选择 .kdbx 文件」。文件句柄保存在 IndexedDB 中，重启浏览器后仍然有效。
+- **原地读写**：保存时由页面本身直接写回同一个文件。MV3 的后台 service worker 没有 File System Access API，因此这条路径**不经过后台**。
+- **能发现外部修改**：每次保存前都会把文件的 SHA-256 与当前加载的字节比对；如果期间被其他客户端（KeePass、KeePassXC、同步工具）改过，则**拒绝保存**而不是覆盖。若在两边修改**同一条**条目，则以后写者为准——KeePass 本身也没有字段级合并。
+- **Chrome 可能再次要求授权**：File System Access API 需要用户手势，而每次打开的 popup 都是新文档。通常你在 popup 里允许一次后 Chrome 会记住；若失效，popup 里的第一次点击（或同步按钮）会再次询问。
+- **同步按钮**：本地文件库在底部栏上方有一个小刷新按钮。点一下会读取文件、更新列表，并提示更新了多少条（或「没有更新」）。
+- **关闭该 provider 会忘记密钥**：会清除缓存的主密码与条目，所以重新打开开关后必须重新输入密码。
+
+> **Firefox 不支持。** Firefox 没有 File System Access API——在 Firefox 上请使用 WebDAV；本地数据库请在 Chrome 中使用。
 
 ---
 

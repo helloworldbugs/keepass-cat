@@ -250,11 +250,12 @@ Some login pages show only the username and reveal the password after a **Next**
 
 ## ☁️ Cloud Storage
 
-Keepass Cat syncs KeePass databases via the **WebDAV** protocol:
+Keepass Cat opens KeePass databases from your **WebDAV** server or, in Chrome, **straight from disk**:
 
 | Backend | Type | Description |
 |---------|------|-------------|
 | 🔗 **WebDAV** | Self-hosted | Supports Jianguoyun and other WebDAV services; scans directories to auto-discover `.kdbx` files, with upload/save support |
+| 📄 **Local file** (Chrome only) | Local | Opens one `.kdbx` file on your computer and reads/writes it in place through the File System Access API |
 
 Every WebDAV request is forced to `credentials: 'omit'`, so it **never carries the browser's cookies**. A request can therefore never authenticate as whoever happens to be signed in to the server's web UI in the same browser — the connection always uses the account configured in the extension.
 
@@ -264,10 +265,24 @@ Every WebDAV request is forced to `credentials: 'omit'`, so it **never carries t
 
 ```
 PasswordFileStoreRegistry (registry)
-    └── WebdavFileManager (WebDAV)
+    ├── WebdavFileManager (WebDAV)
+    └── LocalFileManager  (local .kdbx, Chrome only — File System Access API)
 ```
 
 All backends implement the `FileManager` interface and are registered/dispatched via `PasswordFileStoreRegistry`.
+
+### Local file (Chrome only)
+
+A `.kdbx` file on your computer can be used directly — no upload, no copy inside the extension:
+
+- **Pick it once, from the settings page**: Manage databases → Local file → switch it on → *Choose .kdbx file*. The file handle is kept in IndexedDB, so the choice survives restarts.
+- **Read and written in place**: saves go back to the same file from the page itself. The MV3 service worker has no File System Access API, so this path never goes through the background.
+- **External changes are detected**: before every save the file's SHA-256 is compared with the bytes that were loaded. If another client (KeePass, KeePassXC, a sync tool) changed the file in the meantime, the save is refused instead of overwriting it. Editing the *same* entry in both places is last-writer-wins — KeePass has no field-level merge either.
+- **Chrome may ask for the file grant again**: the File System Access API needs a user gesture and every popup is a new document. Chrome normally remembers the grant once you allowed it from the popup; when it does not, the first click in the popup (or the sync button) asks again.
+- **Sync button**: local-file databases get a small refresh button above the footer. A click reads the file, updates the list and reports how many entries changed (or that nothing did).
+- **Switching the provider off forgets its secrets**: the cached master password and entries are cleared, so turning it back on asks for the password again.
+
+> **Not available in Firefox.** Firefox has no File System Access API — use WebDAV there, or run the extension in Chrome for a local database.
 
 ---
 
