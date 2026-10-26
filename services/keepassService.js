@@ -8,6 +8,9 @@ import * as Case from 'case';
 import * as kdbxweb from 'kdbxweb';
 import argon2 from 'argon2-browser/dist/argon2-bundled.min.js';
 import { i18n } from '@/services/i18n';
+// storage.session is used for the ETag/hash cache. The polyfill is kept on purpose:
+// its promises are guaranteed across the Chrome versions we support (minimum 102) and
+// on Firefox, while the raw chrome.* namespace is not promise-uniform there.
 import browser from 'webextension-polyfill';
 
 kdbxweb.CryptoEngine.setArgon2Impl(
@@ -230,6 +233,9 @@ function sha256Hex(buf) {
 }
 
 function getLastDb() {
+  // storage.session is in-memory and cleared with the browser session, which is
+  // exactly the lifetime we want. Available in Chrome MV3 and Firefox 115+; without
+  // it we simply always do the full download.
   if (!browser.storage.session) return Promise.resolve({});
   return browser.storage.session
     .get(LAST_DB_KEY)

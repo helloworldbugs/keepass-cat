@@ -191,7 +191,7 @@ function WebdavFileManager(settings) {
    */
   function getChosenDatabaseFile(dbInfo) {
     return getServer(dbInfo.serverId).then((serverInfo) => {
-      if (serverInfo === null) throw 'Database no longer exists';
+      if (serverInfo === null) throw new Error('Database no longer exists');
       let client = createClient(serverInfo.url, {
         username: serverInfo.username,
         password: serverInfo.password,
@@ -209,7 +209,7 @@ function WebdavFileManager(settings) {
    */
   function getChosenDatabaseFileIfChanged(dbInfo, etag) {
     return getServer(dbInfo.serverId).then((serverInfo) => {
-      if (serverInfo === null) throw 'Database no longer exists';
+      if (serverInfo === null) throw new Error('Database no longer exists');
       let client = createClient(serverInfo.url, {
         username: serverInfo.username,
         password: serverInfo.password,
@@ -218,12 +218,17 @@ function WebdavFileManager(settings) {
       return client
         .getFileContents(dbInfo.path, {
           details: true,
+          // Same belt-and-braces as getChosenDatabaseFile: the global fetch patch
+          // already forces credentials:'omit', but never rely on it alone.
+          credentials: 'omit',
           headers: etag ? { 'If-None-Match': etag } : {},
         })
         .then((res) => ({
           data: res.status === 304 ? null : res.data,
-          // filter any preffix/suffix, if case, from the server's modules
-          etag: (res.headers.etag || '').replace(/^W\//, '').replace(/-(br|gzip)"$/, '"') || null,
+          // Stored and sent back verbatim: If-None-Match only matches the exact tag
+          // the server produced (weak comparison still applies, so a W/ prefix is
+          // harmless, but rewriting the tag is not).
+          etag: res.headers.etag || null,
         }));
     });
   }
