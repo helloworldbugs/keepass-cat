@@ -101,6 +101,10 @@ export default defineComponent({
     },
   },
   async mounted() {
+    // Prime the group names from the last snapshot: the entries may come from the
+    // cache without the database being loaded, and a group with no entries must
+    // still appear in the group pickers.
+    this.keepassService.loadCachedGroups();
     // Restore browse state
     if (this.unlockedState.cacheGet('showBrowse')) this.showBrowse = true;
     // modify unlockedState internal state

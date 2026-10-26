@@ -698,8 +698,41 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     });
   };
 
+  // Group names mirrored to storage.local. The popup usually opens with the database
+  // not loaded (entries come from the cache), and getGroups() would then be empty:
+  // a group with no entries exists in the file but never shows up in the pickers.
+  const KNOWN_GROUPS_KEY = 'keepassService.groupNames';
+  var _knownGroupNames = [];
+
+  function rememberGroupNames(names) {
+    var same =
+      names.length === _knownGroupNames.length &&
+      names.every(function (name, i) {
+        return name === _knownGroupNames[i];
+      });
+    if (same) return;
+    _knownGroupNames = names;
+    var payload = {};
+    payload[KNOWN_GROUPS_KEY] = names;
+    browser.storage.local.set(payload).catch(function () {});
+  }
+
+  my.loadCachedGroups = function () {
+    return browser.storage.local
+      .get(KNOWN_GROUPS_KEY)
+      .then(function (items) {
+        var names = items[KNOWN_GROUPS_KEY];
+        if (Array.isArray(names)) _knownGroupNames = names;
+      })
+      .catch(function () {});
+  };
+
   my.getGroups = function () {
-    if (!_db) return [];
+    if (!_db) {
+      return _knownGroupNames.map(function (name) {
+        return { name: name };
+      });
+    }
     var result = [];
     var defaultGroup = _db.getDefaultGroup();
     var recycleUuid = _db.meta.recycleBinUuid;
@@ -714,6 +747,11 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
       if (group.groups) group.groups.forEach(collect);
     }
     _db.groups.forEach(collect);
+    rememberGroupNames(
+      result.map(function (g) {
+        return g.name;
+      })
+    );
     return result;
   };
 
