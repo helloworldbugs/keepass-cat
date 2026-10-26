@@ -8,7 +8,7 @@ English | [中文](README_CN.md)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![CI](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/helloworldbugs/keepass-cat/actions)
 
-> Keepass Cat is a lightweight, open-source KeePass browser extension that connects your existing KeePass database (.kdbx) on your WebDAV cloud directly to your browser, enabling password autofill and full entry management — create, read, edit, and delete. You can ditch local KeePass / KeePassXC clients entirely: a browser extension is all you need.
+> Keepass Cat is a lightweight, open-source KeePass browser extension that connects your existing KeePass database (.kdbx) directly to your browser, enabling password autofill and full entry management — create, read, edit, and delete. You can ditch local KeePass / KeePassXC clients entirely: a browser extension is all you need.
 
 ---
 
@@ -34,8 +34,9 @@ English | [中文](README_CN.md)
     - [Two Trigger Methods](#two-trigger-methods)
     - [Field Detection Algorithm](#field-detection-algorithm)
     - [Iframe Cross-Origin Autofill](#iframe-cross-origin-autofill)
-  - [☁️ Cloud Storage](#️-cloud-storage)
+  - [☁️ Storage Backends](#️-storage-backends)
     - [Storage Backend Architecture](#storage-backend-architecture)
+    - [Local file (Chrome only)](#local-file-chrome-only)
   - [🔐 Security Design](#-security-design)
     - [Encrypted Storage](#encrypted-storage)
     - [Two-Tier Memory System](#two-tier-memory-system)
@@ -57,11 +58,12 @@ English | [中文](README_CN.md)
 | 🔢 **Badge Count** | Real-time count of matching password entries shown on the extension icon |
 | ⚡ **One-Click Autofill** | Click an entry to autofill username and password; two-step logins (username first, password after the next step) fill one field per trigger |
 | 🧠 **4-Level Matching** | Original 4-level URL matching (with regex support) that ranks the best-matching entry |
-| ✏️ **CRUD** | Edit title, username, password (with strong password generator), URL, notes, custom fields, and OTP right in the popup; saves back to the KDBX file on WebDAV |
+| ✏️ **CRUD** | Edit title, username, password (with strong password generator), URL, notes, custom fields, and OTP right in the popup; saves back to the KDBX file (on WebDAV, or a local file in Chrome) |
 | 🧩 **Custom Fields** | Arbitrary per-entry name/value fields with an optional **Protect** flag, stored as KDBX protected strings |
 | 📂 **Group Management** | Create, rename, and delete groups; move entries between groups |
 | 🔐 **OTP 2FA** | One-click copy of OTP codes (with countdown), with edit support (`otpauth://`) |
 | 🔄 **WebDAV Sync** | WebDAV cloud sync (Jianguoyun / Nextcloud and other self-hosted services), auto-writes changes back |
+| 📄 **Local File** *(Chrome only)* | Open a `.kdbx` file from your computer and read/write it in place (File System Access API); no upload, and external changes are detected before saving |
 | 🌍 **i18n (EN & ZH)** | Full English/Chinese UI, follows the browser's UI language |
 | 🛡️ **Manifest V3** | Full Chrome MV3 support, plus Firefox MV2 |
 
@@ -248,13 +250,14 @@ Some login pages show only the username and reveal the password after a **Next**
 
 ---
 
-## ☁️ Cloud Storage
+## ☁️ Storage Backends
 
-Keepass Cat syncs KeePass databases via the **WebDAV** protocol:
+Keepass Cat opens KeePass databases from your **WebDAV** server or, in Chrome, **straight from disk**:
 
 | Backend | Type | Description |
 |---------|------|-------------|
 | 🔗 **WebDAV** | Self-hosted | Supports Jianguoyun and other WebDAV services; scans directories to auto-discover `.kdbx` files, with upload/save support |
+| 📄 **Local file** (Chrome only) | Local | Opens one `.kdbx` file on your computer and reads/writes it in place through the File System Access API |
 
 Every WebDAV request is forced to `credentials: 'omit'`, so it **never carries the browser's cookies**. A request can therefore never authenticate as whoever happens to be signed in to the server's web UI in the same browser — the connection always uses the account configured in the extension.
 
@@ -264,10 +267,24 @@ Every WebDAV request is forced to `credentials: 'omit'`, so it **never carries t
 
 ```
 PasswordFileStoreRegistry (registry)
-    └── WebdavFileManager (WebDAV)
+    ├── WebdavFileManager (WebDAV)
+    └── LocalFileManager  (local .kdbx, Chrome only — File System Access API)
 ```
 
 All backends implement the `FileManager` interface and are registered/dispatched via `PasswordFileStoreRegistry`.
+
+### Local file (Chrome only)
+
+A `.kdbx` file on your computer can be used directly — no upload, no copy inside the extension:
+
+- **Pick it once, from the settings page**: Manage databases → Local file → switch it on → *Choose .kdbx file*. The file handle is kept in IndexedDB, so the choice survives restarts.
+- **Read and written in place**: saves go back to the same file from the page itself. The MV3 service worker has no File System Access API, so this path never goes through the background.
+- **External changes are detected**: before every save the file's SHA-256 is compared with the bytes that were loaded. If another client (KeePass, KeePassXC, a sync tool) changed the file in the meantime, the save is refused instead of overwriting it. Editing the *same* entry in both places is last-writer-wins — KeePass has no field-level merge either.
+- **Chrome may ask for the file grant again**: the File System Access API needs a user gesture and every popup is a new document. Chrome normally remembers the grant once you allowed it from the popup; when it does not, the first click in the popup (or the sync button) asks again.
+- **Sync button**: local-file databases get a small refresh button above the footer. A click reads the file, updates the list and reports how many entries changed (or that nothing did).
+- **Switching the provider off forgets its secrets**: the cached master password and entries are cleared, so turning it back on asks for the password again.
+
+> **Not available in Firefox.** Firefox has no File System Access API — use WebDAV there, or run the extension in Chrome for a local database.
 
 ---
 

@@ -8,7 +8,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![CI](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/helloworldbugs/keepass-cat/actions)
 
->Keepass Cat 是一款开源、轻量的 KeePass 浏览器扩展，把你现有的 WebDAV 云端上的 KeePass 数据库（.kdbx）直接接入浏览器，实现密码自动填充、以及密码条目的增删改查。可彻底抛弃本地运行的Keepass、KeepassXC客户端，一个浏览器扩展足矣。
+>Keepass Cat 是一款开源、轻量的 KeePass 浏览器扩展，把你现有的 KeePass 数据库（.kdbx）接入浏览器，实现密码自动填充、以及密码条目的增删改查。可彻底抛弃本地运行的Keepass、KeepassXC客户端，一个浏览器扩展足矣。
 
 ---
 
@@ -34,8 +34,9 @@
     - [两种触发方式](#两种触发方式)
     - [字段检测算法](#字段检测算法)
     - [Iframe 跨域填充](#iframe-跨域填充)
-  - [☁️ 云端存储支持](#️-云端存储支持)
+  - [☁️ 存储后端支持](#️-存储后端支持)
     - [存储后端架构](#存储后端架构)
+    - [本地文件（仅 Chrome）](#本地文件仅-chrome)
   - [🔐 安全设计](#-安全设计)
     - [加密存储](#加密存储)
     - [双层记忆系统](#双层记忆系统)
@@ -57,11 +58,12 @@
 | 🔢 **徽章计数** | 扩展图标右下角实时显示当前页面匹配的密码条目数量 |
 | ⚡ **一键填充** | 点击条目即可自动填充用户名和密码；两步登录（先用户名、下一步再密码）每次触发只填一步 |
 | 🧠 **分级匹配** | 独创的 4 级 URL(支持正则表达式) 匹配算法，精准排序最佳匹配条目 |
-| ✏️ **增删改查** | 直接在弹窗中编辑标题、用户名、密码(支持随机生成强密码)、URL、备注、OTP、自定义字段，保存回 WebDAV 上的 KDBX 文件 |
+| ✏️ **增删改查** | 直接在弹窗中编辑标题、用户名、密码(支持随机生成强密码)、URL、备注、OTP、自定义字段，保存回 KDBX 文件（WebDAV 上的库，或 Chrome 下的本地文件） |
 | 🧩 **自定义字段** | 每个条目可挂任意「名称/值」字段，并可选**保护**标记，存储为 KDBX 受保护字符串 |
 | 📂 **分组管理** | 创建、重命名、删除分组，条目在分组间自由移动 |
 | 🔐 **OTP 双因素** | 一键复制 OTP 动态验证码（带倒计时），支持编辑保存（`otpauth://`） |
 | 🔄 **WebDAV 同步** | 支持 WebDAV 云端同步（坚果云 / Nextcloud 等私有部署），编辑后自动写回 |
+| 📄 **本地文件**（*仅 Chrome*） | 直接打开本机的 `.kdbx` 文件并原地读写（File System Access API），不上传；保存前会检测其他客户端的修改 |
 | 🌍 **中英文国际化** | 完整的中英文界面翻译，跟随浏览器的界面（UI）语言 |
 | 🛡️ **Manifest V3** | 完整兼容 Chrome MV3，同时支持 Firefox MV2 |
 
@@ -248,13 +250,14 @@ Keepass Cat 使用一个**可填充字段过滤器**加**两种检测方法**来
 
 ---
 
-## ☁️ 云端存储支持
+## ☁️ 存储后端支持
 
-Keepass Cat 通过 **WebDAV** 协议同步 KeePass 数据库：
+Keepass Cat 可以从 **WebDAV** 服务器读取 KeePass 数据库，在 Chrome 下也可以**直接读取本地磁盘文件**：
 
 | 存储后端 | 类型 | 说明 |
 |----------|------|------|
 | 🔗 **WebDAV** | 私有部署 | 支持坚果云等 WebDAV 服务，扫描目录自动发现 `.kdbx` 文件，支持上传保存 |
+| 📄 **本地文件**（仅 Chrome） | 本地 | 打开本机的一个 `.kdbx` 文件，通过 File System Access API **原地读写** |
 
 每个 WebDAV 请求都强制使用 `credentials: 'omit'`，因此**不会携带浏览器的 Cookie**。请求不可能以「同一浏览器里恰好登录了该服务器网页端」的身份通过认证——连接始终使用的是扩展里配置的账号。
 
@@ -264,10 +267,24 @@ Keepass Cat 通过 **WebDAV** 协议同步 KeePass 数据库：
 
 ```
 PasswordFileStoreRegistry (注册中心)
-    └── WebdavFileManager (WebDAV)
+    ├── WebdavFileManager (WebDAV)
+    └── LocalFileManager  (本地 .kdbx，仅 Chrome — File System Access API)
 ```
 
 所有后端统一实现 `FileManager` 接口，通过 `PasswordFileStoreRegistry` 注册和调度。
+
+### 本地文件（仅 Chrome）
+
+可以直接使用本机上的 `.kdbx` 文件——不上传、不在扩展内复制副本：
+
+- **只需在设置页选一次**：管理数据库 → 本地文件 → 打开开关 → 点「选择 .kdbx 文件」。文件句柄保存在 IndexedDB 中，重启浏览器后仍然有效。
+- **原地读写**：保存时由页面本身直接写回同一个文件。MV3 的后台 service worker 没有 File System Access API，因此这条路径**不经过后台**。
+- **能发现外部修改**：每次保存前都会把文件的 SHA-256 与当前加载的字节比对；如果期间被其他客户端（KeePass、KeePassXC、同步工具）改过，则**拒绝保存**而不是覆盖。若在两边修改**同一条**条目，则以后写者为准——KeePass 本身也没有字段级合并。
+- **Chrome 可能再次要求授权**：File System Access API 需要用户手势，而每次打开的 popup 都是新文档。通常你在 popup 里允许一次后 Chrome 会记住；若失效，popup 里的第一次点击（或同步按钮）会再次询问。
+- **同步按钮**：本地文件库在底部栏上方有一个小刷新按钮。点一下会读取文件、更新列表，并提示更新了多少条（或「没有更新」）。
+- **关闭该 provider 会忘记密钥**：会清除缓存的主密码与条目，所以重新打开开关后必须重新输入密码。
+
+> **Firefox 不支持。** Firefox 没有 File System Access API——在 Firefox 上请使用 WebDAV；本地数据库请在 Chrome 中使用。
 
 ---
 
