@@ -224,6 +224,7 @@ const zhCN: Record<string, string> = {
 
   // ===== Autofill Shortcut =====
   'Autofill Shortcut': '自动填充快捷键',
+  'Default shortcut:': '默认快捷键：',
   'Fill OTP at cursor': '在光标处填充 OTP',
   'Copy OTP on autofill': '填充时自动复制 OTP',
   'Open Chrome shortcut settings': '打开 Chrome 快捷键设置',

@@ -196,6 +196,9 @@ export default {
           {{ $t('Autofill Shortcut') }}
         </label>
       </div>
+      <p class="totp-note">
+        {{ $t('Default shortcut:') }} Ctrl + Shift + Space
+      </p>
       <p class="shortcut-hint">
         <template v-if="isFirefox()">
           {{ $t('Customize shortcuts in Firefox: toolbar menu (top-right) → Add-ons and themes → gear icon (top-right) → Manage Extension Shortcuts.') }}
