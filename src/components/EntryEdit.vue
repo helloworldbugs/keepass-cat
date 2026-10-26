@@ -481,7 +481,7 @@ export default {
         
         // Refresh cache from server to avoid re-unlock spinner
         try {
-          let freshEntries = await this.keepassService.refreshFromServer();
+          let freshEntries = await this.keepassService.reparseLocal();
           this.unlockedState.cacheSet('allEntries', freshEntries);
           if (this.secureCache) {
             this.secureCache.save('secureCache.entries', freshEntries);
@@ -521,7 +521,7 @@ export default {
         await this.keepassService.uploadDatabase(newBuffer);
         // Refresh cache from server
         try {
-          let freshEntries = await this.keepassService.refreshFromServer();
+          let freshEntries = await this.keepassService.reparseLocal();
           this.unlockedState.cacheSet('allEntries', freshEntries);
           if (this.secureCache) {
             this.secureCache.save('secureCache.entries', freshEntries);

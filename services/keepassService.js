@@ -715,6 +715,21 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     });
   };
 
+  /*
+   * Rebuild the entry/group view from the database already in memory.
+   *
+   * After a save the in-memory _db is authoritative. Re-downloading instead used to
+   * race WebDAV's eventual consistency: an upload can take a moment to become
+   * visible to the next GET, so the refresh brought back the *previous* revision and
+   * a freshly created group (or rename/delete) vanished until the popup was reopened.
+   */
+  my.reparseLocal = function () {
+    if (!_db) return Promise.resolve([]);
+    return Promise.resolve(
+      processReferences(parseKdbxDb(_db.groups), _db.header.versionMajor)
+    );
+  };
+
   my.refreshFromServer = function () {
     _db = null;
     return my.ensureDbLoaded().then(function () {

@@ -259,7 +259,7 @@ export default {
         // UUID first; legacy name-only rows still fall back to the name.
         let buf = await this.keepassService.renameGroup(group.uuid || group.name, newName);
         await this.keepassService.uploadDatabase(buf);
-        let fresh = await this.keepassService.refreshFromServer();
+        let fresh = await this.keepassService.reparseLocal();
         this.unlockedState.cacheSet('allEntries', fresh);
         if (this.$parent?.secureCache) {
           this.$parent.secureCache.save('secureCache.entries', fresh);
@@ -289,7 +289,7 @@ export default {
       try {
         let buf = await this.keepassService.deleteGroup(group.uuid || group.name);
         await this.keepassService.uploadDatabase(buf);
-        let fresh = await this.keepassService.refreshFromServer();
+        let fresh = await this.keepassService.reparseLocal();
         this.unlockedState.cacheSet('allEntries', fresh);
         if (this.$parent?.secureCache) {
           this.$parent.secureCache.save('secureCache.entries', fresh);
@@ -321,7 +321,7 @@ export default {
         let buf = await this.keepassService.createGroup(name, this.newGroupParentUuid);
         await this.keepassService.uploadDatabase(buf);
         // Refresh cache from server (same as entry save)
-        let fresh = await this.keepassService.refreshFromServer();
+        let fresh = await this.keepassService.reparseLocal();
         this.unlockedState.cacheSet('allEntries', fresh);
         if (this.$parent?.secureCache) {
           this.$parent.secureCache.save('secureCache.entries', fresh);
