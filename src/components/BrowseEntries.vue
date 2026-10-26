@@ -31,6 +31,12 @@ export default {
     this.otpPeriods = {};
   },
   watch: {
+    // The group list is a computed over the cached entries plus the service, so it can
+    // arrive *after* mount when the popup opens with an empty cache. Expanding in
+    // mounted() alone then ran against an empty list and never fired again.
+    groups(list) {
+      this.expandSingleGroup(list);
+    },
     searchTerm(val) {
       if (val.length > 0) {
         // Save current expansion state before modifying
@@ -49,9 +55,7 @@ export default {
   },
   mounted() {
     this.$nextTick(() => {
-      if (this.groups.length === 1) {
-        this.$set(this.expandedGroups, this.groupKey(this.groups[0]), true);
-      }
+      this.expandSingleGroup(this.groups);
     });
     // One ticker for the whole list, not one per row: the browse view can hold
     // hundreds of entries, so per-row intervals (as in the match list) would be
@@ -126,6 +130,13 @@ export default {
     toggleGroup(group) {
       const key = this.groupKey(group);
       this.$set(this.expandedGroups, key, !this.expandedGroups[key]);
+    },
+    // Expand a lone group so its entries are visible without a click. Idempotent and
+    // only ever turns expansion on, so it is safe to call whenever the list changes.
+    expandSingleGroup(list) {
+      if (!Array.isArray(list) || list.length !== 1) return;
+      const key = this.groupKey(list[0]);
+      if (!this.expandedGroups[key]) this.$set(this.expandedGroups, key, true);
     },
     autoExpandGroups() {
       this.groups.forEach(g => {

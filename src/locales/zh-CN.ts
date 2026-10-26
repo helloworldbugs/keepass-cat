@@ -159,6 +159,34 @@ const zhCN: Record<string, string> = {
 
   // ===== Provider Metadata =====
   'WebDAV': 'WebDAV',
+  'Local file': '本地文件',
+  'Open a .kdbx file on this computer. Keepass Cat reads and writes the same file in place, so changes made by other KeePass apps are detected before saving. Requires Chrome (File System Access API) and permission to access the file.': '打开此电脑上的 .kdbx 文件。Keepass Cat 会直接读写同一个文件，并在保存前检测其他 KeePass 应用所做的修改。需要 Chrome（File System Access API）以及访问该文件的权限。',
+  'KeePass database': 'KeePass 数据库',
+
+  // ===== Provider: Local file =====
+  'Choose .kdbx file': '选择 .kdbx 文件',
+  'Re-authorise': '重新授权',
+  'Forget file': '忘记文件',
+  'Selected file:': '已选文件：',
+  'File permission was denied. Choose the file again to grant access.': '文件权限已被拒绝。请重新选择文件以授予访问权限。',
+  'Local file access is not supported in this browser. Use Chrome or another browser with the File System Access API.': '当前浏览器不支持本地文件访问。请使用 Chrome 或其他支持 File System Access API 的浏览器。',
+  'This browser cannot request file permissions. Use Chrome or another browser with the File System Access API.': '当前浏览器无法请求文件权限。请使用 Chrome 或其他支持 File System Access API 的浏览器。',
+  'No local file selected. Choose a .kdbx file first.': '尚未选择本地文件。请先选择一个 .kdbx 文件。',
+  'Permission to read the local file was not granted. Re-authorise the file to continue.': '未获得本地文件的读取权限。请重新授权该文件后继续。',
+  'Permission to write the local file was not granted. Re-authorise the file to continue.': '未获得本地文件的写入权限。请重新授权该文件后继续。',
+  'Sync now': '立即同步',
+  'No changes': '没有更新',
+  'Synced {0} entries': '已同步 {0} 条更新',
+  'Sync failed. Try again.': '同步失败，请重试。',
+  'Local file writes are handled by the browser page, not the background service worker.': '本地文件写入由浏览器页面处理，而不是后台服务进程。',
+  'The file was modified outside Keepass Cat since it was opened. Save cancelled; reopen the database and try again.': '该文件在打开后已被 Keepass Cat 之外的程序修改，保存已取消；请重新打开数据库后再试。',
+  'Local file provider is unavailable.': '本地文件提供程序不可用。',
+  'IndexedDB is not available in this browser.': '当前浏览器不支持 IndexedDB。',
+  'Failed to open the file handle database.': '无法打开文件句柄数据库。',
+  'The file handle database is blocked by another tab.': '文件句柄数据库被其他标签页阻止。',
+  'Failed to read the stored file handle.': '无法读取已保存的文件句柄。',
+  'The file handle transaction failed.': '文件句柄事务失败。',
+  'The file handle transaction was aborted.': '文件句柄事务已中止。',
 
   // ===== Error Messages (services) =====
   'Failed to read file header': '文件头读取失败',

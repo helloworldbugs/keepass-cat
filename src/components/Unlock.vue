@@ -35,6 +35,17 @@ export default defineComponent({
       // straight to the entries. The template keeps the layout but hides it, so
       // the form never flashes for a remembered password.
       initializing: true,
+      // True when Chrome wants a fresh gesture before the local file can be read.
+      // Set when the background refresh could not read a local-file database because
+      // Chrome needs a user gesture; the first click retries it.
+      autoSyncPending: false,
+      // Local-file database: show the small floating sync button.
+      isLocalFile: false,
+      // Bumped whenever the cached entries change, so the list remounts and re-reads
+      // the (non-reactive) unlockedState cache.
+      listVersion: 0,
+      syncing: false,
+      syncToast: '',
       isUnlocked: false,
       masterPassword: '',
       isMasterPasswordInputVisible: false,
@@ -100,55 +111,49 @@ export default defineComponent({
       deep: true,
     },
   },
-  async mounted() {
-    // Prime the group names from the last snapshot: the entries may come from the
+  async mounted() {    // Prime the group names from the last snapshot: the entries may come from the
     // cache without the database being loaded, and a group with no entries must
     // still appear in the group pickers.
     this.keepassService.loadCachedGroups();
+    // Key files are needed by the form even when the database opens straight from the
+    // cache (no silent unlock runs then, and the picker used to be empty).
+    this.loadKeyFiles();
+    // Same for the remember-period label and the field visibility rules.
+    this.loadDatabaseUsage();
+    // Same for the remember-period label: without this the slider read "(slide to
+    // choose)" with no value until a silent unlock happened to run.
+    this.settings
+      .getSetDefaultRememberPeriod()
+      .then((period) => this.setRememberPeriod(period))
+      .catch(() => this.setRememberPeriod(0));
+    // Safety net: the auto-unlock chain can stall (e.g. a stuck file read), and the
+    // initial veil would then leave the popup permanently blank. Reveal the form
+    // instead; whatever stalled is reported in the console.
+    setTimeout(() => {
+      if (this.initializing) {
+        console.warn('[unlock-mount] init did not settle; showing the form');
+        this.initializing = false;
+      }
+    }, 2500);
+    // A local-file read needs a user gesture, and the popup opens without one, so the
+    // open-time refresh cannot read the file. Retry on the first click anywhere.
+    this.firstClickHandler = () => {
+      if (!this.autoSyncPending) return;
+      this.autoSyncPending = false;
+      this.silentRefresh(this.unlockedState.cacheGet('allEntries') || []);
+    };
+    document.addEventListener('click', this.firstClickHandler, { once: true });
+
+    this.settings.getCurrentDatabaseChoice().then((choice) => {
+      this.isLocalFile = !!choice && choice.providerKey === 'localfile';
+    }).catch(() => {});
+
     // Restore browse state
     if (this.unlockedState.cacheGet('showBrowse')) this.showBrowse = true;
     // modify unlockedState internal state
     await this.unlockedState.getTabDetails();
 
     if (!this.isUnlocked) {
-      let try_autounlock = () => {
-        this.settings
-          .getKeyFiles()
-          .then((keyFiles) => {
-            this.keyFiles = keyFiles;
-            return this.settings.getSetDefaultRememberPeriod();
-          })
-          .then((rememberPeriod) => {
-            this.setRememberPeriod(rememberPeriod);
-            return this.settings.getCurrentDatabaseUsage();
-          })
-          .then((usage) => {
-            this.hidePassword = usage.requiresPassword === false;
-            this.hideKeyFile = usage.requiresKeyfile === false;
-            this.rememberedPassword = usage.passwordKey !== undefined;
-            this.setRememberPeriod(usage.rememberPeriod);
-
-            if (usage.passwordKey !== undefined && usage.requiresKeyfile === false) {
-              this.unlock(usage.passwordKey, true);
-            } else if (usage.keyFileName !== undefined) {
-              let matches = this.keyFiles.filter((kf) => kf.name === usage.keyFileName);
-              if (matches.length > 0) {
-                this.selectedKeyFile = matches[0];
-                if (this.hidePassword === true || usage.passwordKey !== undefined)
-                  this.unlock(usage.passwordKey, true);
-              }
-            } else {
-              // No cached credentials — show unlock UI
-              this.busy = false;
-              this.initializing = false;
-            }
-          })
-          .catch((err) => {
-            console.error('[autounlock] failed:', err);
-            this.busy = false;
-            this.initializing = false;
-          });
-      };
 
       // Firefox's popup panel takes keyboard focus asynchronously (Bug 1324255):
       // until the document actually has focus, element.focus() only sets
@@ -197,7 +202,7 @@ export default defineComponent({
             console.error('[unlock-mount] local get failed:', e);
           }
           console.log('[unlock-mount] isUnlocked:', this.isUnlocked, '— try_autounlock?', !this.isUnlocked);
-          if (!this.isUnlocked) try_autounlock();
+          if (!this.isUnlocked) this.autoUnlock();
         }
       } catch (err) {
         console.error('[unlock-mount] session get crashed:', err);
@@ -209,7 +214,7 @@ export default defineComponent({
             this.showResults(localRaw, true);
           }
         } catch (_) {}
-          if (!this.isUnlocked) try_autounlock();
+          if (!this.isUnlocked) this.autoUnlock();
       }
       console.log('[unlock-mount] done, busy:', this.busy);
       this.busy = false;
@@ -226,20 +231,27 @@ export default defineComponent({
        */
       let slider_option_index;
       if (time_int !== undefined) {
-        this.slider_int = ((t) => {
+        slider_option_index = ((t) => {
           for (let i = 0; i < this.slider_options.length; i++) {
             if (this.slider_options[i].time === t) return i;
           }
           return 0;
         })(time_int);
-        slider_option_index = this.slider_int;
       } else {
-        slider_option_index = parseInt(this.slider_int);
+        slider_option_index = parseInt(this.slider_int, 10);
       }
-      if (slider_option_index < this.slider_options.length) {
-        this.rememberPeriod = this.slider_options[slider_option_index].time;
-        this.rememberPeriodText = this.slider_options[slider_option_index].text;
+      // Never leave the label blank: an invalid index (NaN from an unset slider, or a
+      // value outside the options) falls back to the first option.
+      if (
+        !Number.isInteger(slider_option_index) ||
+        slider_option_index < 0 ||
+        slider_option_index >= this.slider_options.length
+      ) {
+        slider_option_index = 0;
       }
+      this.slider_int = slider_option_index;
+      this.rememberPeriod = this.slider_options[slider_option_index].time;
+      this.rememberPeriodText = this.slider_options[slider_option_index].text;
     },
     closeWindow(event) {
       window.close();
@@ -280,6 +292,11 @@ export default defineComponent({
       // Results are on screen: the initial veil (which keeps the unlock form from
       // flashing for users whose password is remembered) can go.
       this.initializing = false;
+      // A successful read means the file grant is actually in place, whatever
+      // queryPermission() claimed; drop any stale "grant needed" prompt.
+      // The cache below is a plain object, not reactive: bump the key so the list
+      // remounts and re-reads it instead of waiting for a navigation.
+      this.listVersion += 1;
       console.log('[showResults] entries:', entries ? entries.length : 0, 'fromCache:', fromCache);
       this.unlockedMessages.warn = '';
       this.unlockedMessages.error = '';
@@ -328,7 +345,10 @@ export default defineComponent({
       chrome.storage.local.get('lastSync', function (items) {
         var now = Date.now();
         var last = items.lastSync || 0;
-        if (now - last < 30000) return; // throttled: at most once per 30s
+        // Throttle only when this page already has the database in memory. A popup that
+        // reopened after a restart has nothing loaded, and skipping the check left the
+        // cached list stale until some other action happened to load the database.
+        if (now - last < 30000 && self.keepassService.isDbLoaded()) return; // at most once per 30s
         self.keepassService
           .refreshIfChanged()
           .then(function (fresh) {
@@ -344,6 +364,9 @@ export default defineComponent({
               if (!priority.length) priority = fresh.filter(function (e) { return e.matchRank === 50; });
               if (!priority.length) priority = fresh.filter(function (e) { return e.matchRank === 25; });
               self.unlockedState.cacheSet('priorityEntries', priority);
+              // The cache is a plain object, so the list would not repaint on its own;
+              // bumping the key remounts it (WebDAV had the same stale-list bug).
+              self.listVersion += 1;
               self.secureCache.save('secureCache.entries', fresh);
               self.settings.getSetDefaultRememberPeriod().then(function (period) {
                 if (period === -2) {
@@ -356,6 +379,10 @@ export default defineComponent({
           .catch(function (err) {
             // offline / session expired / auth error → keep cached data, stay silent
             console.warn('[silentRefresh] skipped:', err && err.message);
+            if (err && err.code === 'localfile-permission-required') {
+              // Reading a local file needs a user gesture; the first click retries.
+              self.autoSyncPending = true;
+            }
           });
       });
     },
@@ -381,9 +408,177 @@ export default defineComponent({
       };
       return JSON.stringify(canon(a)) === JSON.stringify(canon(b));
     },
+    // Silent unlock using only the cached credentials. Never prompts and never decrypts
+    // with an empty password: this used to be called from the grant path, which
+    // decrypted with '' and reported "invalid key" right after the grant succeeded.
+    autoUnlock() {
+
+      this.loadKeyFiles()
+        .then(() => this.settings.getSetDefaultRememberPeriod())
+        .then((rememberPeriod) => {
+          this.setRememberPeriod(rememberPeriod);
+          return this.settings.getCurrentDatabaseUsage();
+        })
+        .then((usage) => {
+          this.hidePassword = usage.requiresPassword === false;
+          this.hideKeyFile = usage.requiresKeyfile === false;
+          this.rememberedPassword = usage.passwordKey !== undefined;
+          this.setRememberPeriod(usage.rememberPeriod);
+
+          if (usage.passwordKey !== undefined && usage.requiresKeyfile === false) {
+            this.unlock(usage.passwordKey, true);
+          } else if (usage.keyFileName !== undefined) {
+            let matches = this.keyFiles.filter((kf) => kf.name === usage.keyFileName);
+            if (matches.length > 0) {
+              this.selectedKeyFile = matches[0];
+              if (this.hidePassword === true || usage.passwordKey !== undefined) {
+                this.unlock(usage.passwordKey, true);
+                // unlock() clears the veil on success or failure; nothing else to do.
+                return;
+              }
+            }
+            // Stored keyfile could not be used for a silent unlock: fall through and
+            // show the form. Without this the veil stayed up forever and the popup
+            // was blank until the watchdog fired.
+            this.busy = false;
+            this.initializing = false;
+          } else {
+            // No cached credentials — show unlock UI
+            this.busy = false;
+            this.initializing = false;
+          }
+        })
+        .catch((err) => {
+          console.error('[autounlock] failed:', err);
+          if (err && err.code === 'localfile-permission-required') {
+          }
+          this.busy = false;
+          this.initializing = false;
+        });
+    },
     clickUnlock(event) {
       event.preventDefault();
       this.unlock();
+    },
+    // Opening the picker must not deselect the current keyfile, and it must always
+    // have the list: keyFiles used to be loaded only by the silent unlock path, so a
+    // popup that opened from the entry cache showed an empty picker.
+    toggleKeyFilePicker() {
+      this.keyFilePicker = !this.keyFilePicker;
+      if (this.keyFilePicker) this.loadKeyFiles();
+    },
+    // Load the key files and keep the stored choice selected even when the silent
+    // unlock path never ran (entries served from the cache).
+    loadKeyFiles() {
+      return this.settings
+        .getKeyFiles()
+        .then((keyFiles) => {
+          this.keyFiles = keyFiles || [];
+          if (this.selectedKeyFile !== undefined) return;
+          return this.settings.getCurrentDatabaseUsage().then((usage) => {
+            if (!usage || !usage.keyFileName) return;
+            const match = this.keyFiles.filter((kf) => kf.name === usage.keyFileName)[0];
+            if (match) this.selectedKeyFile = match;
+          });
+        })
+        .catch((err) => {
+          console.warn('[unlock] could not load key files:', err && err.message);
+        });
+    },
+    // The saved usage decides which fields the form shows (password-only/keyfile-only)
+    // and whether the password is remembered. It used to be read only by the silent
+    // unlock path, so a popup opened from the cache showed both fields regardless.
+    loadDatabaseUsage() {
+      return this.settings
+        .getCurrentDatabaseUsage()
+        .then((usage) => {
+          if (!usage) return;
+          this.hidePassword = usage.requiresPassword === false;
+          this.hideKeyFile = usage.requiresKeyfile === false;
+          this.rememberedPassword = usage.passwordKey !== undefined;
+          if (usage.rememberPeriod !== undefined) this.setRememberPeriod(usage.rememberPeriod);
+        })
+        .catch((err) => {
+          console.warn('[unlock] could not read the database usage:', err && err.message);
+        });
+    },
+    // Manual sync: the click supplies the gesture the background check lacks. Reports
+    // what changed so the user knows the click did something.
+    async syncNow() {
+      if (this.syncing) return;
+      this.autoSyncPending = false;
+      this.syncing = true;
+      try {
+        const before = this.unlockedState.cacheGet('allEntries') || [];
+        const fresh = await this.keepassService.refreshIfChanged();
+        if (fresh === null) {
+          this.showSyncToast(this.$t('No changes'));
+          return;
+        }
+        const siteUrl = parseUrl(this.unlockedState.fullUrl || this.unlockedState.url);
+        this.keepassService.rankEntries(fresh, siteUrl);
+        const changed = this.countEntryChanges(before, fresh);
+        this.unlockedState.cacheSet('allEntries', fresh);
+        let priority = fresh.filter((e) => e.matchRank === 100);
+        if (!priority.length) priority = fresh.filter((e) => e.matchRank === 75);
+        if (!priority.length) priority = fresh.filter((e) => e.matchRank === 50);
+        if (!priority.length) priority = fresh.filter((e) => e.matchRank === 25);
+        this.unlockedState.cacheSet('priorityEntries', priority);
+        this.secureCache.save('secureCache.entries', fresh);
+        this.settings.getSetDefaultRememberPeriod().then((period) => {
+          if (period === -2) this.secureCache.save('secureCache.entries', fresh, 'local');
+        });
+        chrome.storage.local.set({ lastSync: Date.now() });
+        this.showResults(fresh);
+        this.showSyncToast(
+          changed ? this.$t('Synced {0} entries', changed) : this.$t('No changes')
+        );
+      } catch (err) {
+        console.warn('[sync] failed:', err && err.message);
+        if (err && err.code === 'localfile-permission-required') {
+        }
+        this.showSyncToast(this.$t('Sync failed. Try again.'));
+      } finally {
+        this.syncing = false;
+      }
+    },
+    // Entries added, removed or edited compared with the cached list. OTP and password
+    // are compared decrypted: an OTP-only edit used to report "no changes" even though
+    // the list had been refreshed.
+    countEntryChanges(before, after) {
+      const decrypted = (entry, field) => {
+        try {
+          return this.unlockedState.getDecryptedAttribute(entry, field) || '';
+        } catch (err) {
+          return '';
+        }
+      };
+      const fingerprint = (e) =>
+        [
+          e.id,
+          e.title,
+          e.userName,
+          e.url,
+          e.notes,
+          e.groupPath,
+          decrypted(e, 'otp'),
+          decrypted(e, 'password'),
+        ].join('\u0000');
+      const previous = new Map((before || []).map((e) => [e.id, fingerprint(e)]));
+      let changed = 0;
+      (after || []).forEach((e) => {
+        const prev = previous.get(e.id);
+        if (prev === undefined || prev !== fingerprint(e)) changed += 1;
+        previous.delete(e.id);
+      });
+      return changed + previous.size;
+    },
+    showSyncToast(text) {
+      this.syncToast = text;
+      if (this.syncToastTimer) clearTimeout(this.syncToastTimer);
+      this.syncToastTimer = setTimeout(() => {
+        this.syncToast = '';
+      }, 2500);
     },
     unlock(passwordKey, quiet) {
       // `quiet` is used by the silent auto-unlock on open: the form stays on screen
@@ -448,7 +643,13 @@ export default defineComponent({
           if (translated === msg && msg.indexOf('Error ') === 0) {
             translated = this.$t(msg.slice(6));
           }
-          this.unlockedMessages['error'] = translated || this.$t('invalid keyfile or KDBX file');
+          // A late failure (e.g. a silent attempt racing a manual unlock) must not
+          // paint an error over a database that is already open.
+          if (!this.isUnlocked) {
+            this.unlockedMessages['error'] = translated || this.$t('invalid keyfile or KDBX file');
+          }
+          if (err && err.code === 'localfile-permission-required') {
+          }
           this.busy = false;
           this.initializing = false;
           throw err;        });
@@ -464,9 +665,26 @@ export default defineComponent({
       <spinner size="medium" :message="$t('Unlocking ') + databaseFileName" />
     </div>
 
+    <!-- Local-file sync: a small floating button above the footer. The popup opens
+         without a user gesture, so the background check cannot read the file; this
+         click supplies the gesture and reports what changed. -->
+    <button
+      v-if="isLocalFile && isUnlocked"
+      type="button"
+      class="sync-fab selectable"
+      :disabled="syncing"
+      :title="$t('Sync now')"
+      :aria-label="$t('Sync now')"
+      @click="syncNow"
+    >
+      <i class="fa fa-refresh" :class="{ 'fa-spin': syncing }" aria-hidden="true" />
+    </button>
+    <div v-if="syncToast" class="sync-toast">{{ syncToast }}</div>
+
     <!-- Entry List -->
     <EntryList
       v-if="!busy && isUnlocked && !showBrowse"
+      :key="listVersion"
       :messages="unlockedMessages"
       :unlocked-state="unlockedState"
     />
@@ -474,6 +692,7 @@ export default defineComponent({
     <!-- Browse All Entries -->
     <BrowseEntries
       v-if="!busy && isUnlocked && showBrowse"
+      :key="listVersion"
       :unlocked-state="unlockedState"
       :keepass-service="keepassService"
     />
@@ -513,10 +732,7 @@ export default defineComponent({
           <div
             id="select-keyfile"
             class="selectable"
-            @click="
-              selectedKeyFile = undefined;
-              keyFilePicker = !keyFilePicker;
-            "
+            @click="toggleKeyFilePicker"
           >
             <i class="fa fa-key" aria-hidden="true" /> {{ selectedKeyFileName }}
           </div>
@@ -589,6 +805,51 @@ export default defineComponent({
    never flashes for users whose password is remembered. */
 .is-initializing {
   visibility: hidden;
+}
+
+/* Manual sync for local-file databases only (see v-if="isLocalFile"). Sits above the
+   footer so it stays reachable without covering the entry list. */
+.sync-fab {
+  position: fixed;
+  right: 12px;
+  bottom: 56px;
+  z-index: 20;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: $light-background-color;
+  color: $blue;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  font-size: 14px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--keepass-cat-bg-hover, #eef0f2);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+}
+
+.sync-toast {
+  position: fixed;
+  right: 12px;
+  bottom: 96px;
+  z-index: 21;
+  max-width: 260px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
 }
 
 #masterPasswordGroup {

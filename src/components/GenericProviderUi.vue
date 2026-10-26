@@ -28,7 +28,7 @@ export default {
       <div>
         <div class="switch">
           <label>
-            <input :disabled="busy" type="checkbox" :checked="loggedIn" @click="toggleLogin" />
+            <input :disabled="busy" type="checkbox" :checked="loggedIn" @change.prevent="toggleLogin" />
             <span class="lever" />
           </label>
         </div>
