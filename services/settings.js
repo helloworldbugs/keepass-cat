@@ -105,10 +105,25 @@ function Settings(secureCache) {
 
   exports.disableDatabaseProvider = function (provider) {
     return chromePromise.storage.local.get(['selectedDatabase']).then((items) => {
-      if (items.selectedDatabase)
-        if (items.selectedDatabase.providerKey === provider.key)
-          return chromePromise.storage.local.remove('selectedDatabase');
-      return Promise.resolve(false);
+      const selected = items.selectedDatabase;
+      if (!selected || selected.providerKey !== provider.key) return Promise.resolve(false);
+      const key = selected.passwordFile.title + '__' + selected.providerKey + '.password';
+      /*
+       * Switching a provider off has to forget its secrets, not just the selection.
+       * Leaving the cached master password (the "remember forever" entry in the local
+       * store) and the cached entries behind meant that turning the provider back on
+       * unlocked the database again without asking for the password. Same for WebDAV.
+       */
+      return Promise.all([
+        secureCache.clear(key),
+        secureCache.clear(key, 'local'),
+        secureCache.clear('secureCache.entries'),
+        secureCache.clear('secureCache.entries', 'local'),
+        exports.clearForgetTimes([key]),
+      ])
+        .catch(() => {})
+        .then(() => chromePromise.storage.local.remove('selectedDatabase'))
+        .then(() => true);
     });
   };
 
