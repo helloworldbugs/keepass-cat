@@ -10,6 +10,7 @@
           v-if="show.manageDatabases.visible"
           id="/manage/databases"
           :webdav-manager="services.webdavFileManager"
+          :local-file-manager="services.localFileManager"
           :settings="services.settings"
         />
         <manage-keyfiles
@@ -38,6 +39,7 @@ import { PasswordFileStoreRegistry } from '$services/passwordFileStore.js';
 import { KeyFileParser } from '$services/keyFileParser.js';
 // File Managers
 import { WebdavFileManager } from '$services/webdavFileManager.js';
+import { LocalFileManager } from '$services/localFileManager.js';
 // Components
 import OptionsNavbar from '@/components/Navbar.vue';
 import OptionsStartup from '@/components/OptionsStartup.vue';
@@ -53,6 +55,12 @@ const keyFileParser = new KeyFileParser();
 
 // File Managers
 const webdavFileManager = new WebdavFileManager(settings);
+const localFileManager = new LocalFileManager(settings);
+
+const passwordFileStoreRegistry = new PasswordFileStoreRegistry(
+  webdavFileManager,
+  localFileManager
+);
 
 /* beautify preserve:end */
 
@@ -75,6 +83,8 @@ export default {
         keyFileParser,
         secureCacheMemory,
         webdavFileManager,
+        localFileManager,
+        passwordFileStoreRegistry,
       },
       show: {
         startup: {

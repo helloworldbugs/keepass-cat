@@ -697,21 +697,47 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     });
   };
 
-  my.uploadDatabase = function (arrayBuffer) {
+  /* WebDAV still uploads through the background service worker. */
+  function uploadViaBackground(arrayBuffer) {
     console.log('[keepassService] uploadDatabase size:', arrayBuffer && arrayBuffer.byteLength);
     var bytes = new Uint8Array(arrayBuffer);
     var binary = '';
     for (var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
     var base64 = btoa(binary);
     return new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage({
-        m: 'uploadDatabase',
-        data: base64,
-      }, (response) => {
-        if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
-        else if (response && response.error) reject(new Error(response.error));
-        else resolve(response);
-      });
+      chrome.runtime.sendMessage(
+        {
+          m: 'uploadDatabase',
+          data: base64,
+        },
+        (response) => {
+          if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+          else if (response && response.error) reject(new Error(response.error));
+          else resolve(response);
+        }
+      );
+    });
+  }
+
+  my.uploadDatabase = function (arrayBuffer) {
+    return settings.getCurrentDatabaseChoice().then(function (choice) {
+      /*
+       * The File System Access API does not exist in the MV3 background worker,
+       * so a local-file database must be written by this page. Keep WebDAV (and
+       * every other provider) on the original background-message path.
+       */
+      if (choice && choice.providerKey === 'localfile') {
+        var localFileManager = passwordFileStoreRegistry
+          .listFileManagers()
+          .filter(function (fileManager) {
+            return fileManager.key === 'localfile';
+          })[0];
+        if (!localFileManager || typeof localFileManager.writeDatabase !== 'function') {
+          throw new Error(i18n.t('Local file provider is unavailable.'));
+        }
+        return localFileManager.writeDatabase(arrayBuffer);
+      }
+      return uploadViaBackground(arrayBuffer);
     });
   };
 
@@ -723,11 +749,32 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
    * visible to the next GET, so the refresh brought back the *previous* revision and
    * a freshly created group (or rename/delete) vanished until the popup was reopened.
    */
+  /* True when the parsed database is in memory for this page. */
+  my.isDbLoaded = function () {
+    return !!_db;
+  };
+
   my.reparseLocal = function () {
     if (!_db) return Promise.resolve([]);
     return Promise.resolve(
       processReferences(parseKdbxDb(_db.groups), _db.header.versionMajor)
     );
+  };
+
+  /*
+   * File System Access permissions must be granted to the document that uses them,
+   * and a popup is a fresh document on every open. Chrome therefore needs one click
+   * before the local database file can be read again; the unlock screen shows a
+   * button that calls this.
+   */
+  my.grantLocalFilePermission = function () {
+    var manager = passwordFileStoreRegistry.listFileManagers().filter(function (fileManager) {
+      return fileManager.key === 'localfile';
+    })[0];
+    if (!manager || typeof manager.requestPermission !== 'function') {
+      return Promise.reject(new Error(i18n.t('Local file provider is unavailable.')));
+    }
+    return manager.requestPermission();
   };
 
   my.refreshFromServer = function () {

@@ -53,6 +53,7 @@ import { Links } from '$services/links.js';
 import { Notifications } from '$services/notifications.js';
 // File Managers
 import { WebdavFileManager } from '$services/webdavFileManager.js';
+import { LocalFileManager } from '$services/localFileManager.js';
 // Components
 import Unlock from '@/components/Unlock.vue';
 import Startup from '@/components/Startup.vue';
@@ -72,9 +73,11 @@ const notifications = new Notifications(settings);
 
 // File Managers
 const webdavFileManager = new WebdavFileManager(settings);
+const localFileManager = new LocalFileManager(settings);
 
 const passwordFileStoreRegistry = new PasswordFileStoreRegistry(
-  webdavFileManager
+  webdavFileManager,
+  localFileManager
 );
 const keepassService = new KeepassService(
   keepassHeader,
