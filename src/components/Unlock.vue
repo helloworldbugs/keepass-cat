@@ -788,7 +788,7 @@ export default defineComponent({
           <div
             id="select-keyfile"
             class="selectable"
-            :class="{ open: keyFilePicker }"
+            :class="{ open: keyFilePicker, 'has-keyfile': !!selectedKeyFile }"
             @click="toggleKeyFilePicker"
           >
             <i class="fa fa-key" aria-hidden="true" />
@@ -1048,6 +1048,12 @@ export default defineComponent({
       flex: none;
       font-size: 14px;
       color: var(--keepass-cat-icon-muted, #888);
+    }
+
+    // A chosen keyfile turns the key gold: it is the one part of this row that
+    // says "a key is in use". Without a keyfile the icon stays muted grey.
+    &.has-keyfile .fa-key {
+      color: var(--keepass-cat-keyfile-active, #b8860b);
     }
 
     .keyfile-name {

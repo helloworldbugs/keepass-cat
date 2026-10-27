@@ -18,6 +18,9 @@
   --keepass-cat-bar-hover: #c4c6c8;
   --keepass-cat-bg-hover: #eef0f2;
   --keepass-cat-icon-muted: #888;
+  /* Gold for the "a keyfile is in use" key icon: distinct from the blue action
+     colour, and legible on the light row. */
+  --keepass-cat-keyfile-active: #b8860b;
   --keepass-cat-delete-hover: #c00;
   --keepass-cat-svg-fill: #fff;
   --keepass-cat-light-red: #e19e97;
@@ -43,5 +46,7 @@
     --keepass-cat-bar-hover: #4a4a4a;
     --keepass-cat-bg-hover: #353535;
     --keepass-cat-icon-muted: #777;
+  /* Brighter gold for dark rows; the light-mode value reads as brown there. */
+  --keepass-cat-keyfile-active: #e8b923;
   }
 }
