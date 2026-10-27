@@ -259,7 +259,11 @@ function UnlockedState(keepassReference, settings, notifications) {
     }
 
     var textToPutOnClipboard = getAttribute(copyEntry, copyPart);
-    var fieldName = copyPart.charAt(0).toUpperCase() + copyPart.slice(1); // https://stackoverflow.com/a/1026087
+    // `copyPart` is the entry's field name ("userName"), but the notice needs the
+    // UI label ("Username"): capitalising the field name produced "UserName",
+    // which is not a translation key, so the username notice stayed English.
+    var fieldLabels = { userName: 'Username', password: 'Password' };
+    var fieldName = fieldLabels[copyPart] || copyPart.charAt(0).toUpperCase() + copyPart.slice(1);
     copyEntry = null;
     copyPart = null;
     e.clipboardData.setData('text/plain', textToPutOnClipboard);

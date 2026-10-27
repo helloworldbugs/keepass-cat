@@ -213,8 +213,8 @@ const zhCN: Record<string, string> = {
   // ===== Notifications =====
   'Clipboard cleared': '剪贴板已清除',
   'Remember password expired': '记住密码已过期',
-  ' copied to clipboard. Clipboard will clear in {0} minute(s).': ' 已复制到剪贴板，将在 {0} 分钟后清除。',
-  ' copied to clipboard.': ' 已复制到剪贴板。',
+  ' copied to clipboard. Clipboard will clear in {0} minute(s).': '已复制到剪贴板，将在 {0} 分钟后清除。',
+  ' copied to clipboard.': '已复制到剪贴板。',
   'Enable clipboard expiration clearing': '启用过期清空剪贴板',
   'Expiration time': '过期时间',
 
