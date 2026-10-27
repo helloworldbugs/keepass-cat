@@ -125,7 +125,10 @@ export default {
 .entry-list-item {
   transition: all 0.3s ease;
   width: 100%;
-  padding: 10px $wall-padding;
+  // 6px, not 10px: the popup is 600px tall at most, and every pixel of padding
+  // here costs a match row. The three text lines keep their 1.4 line-height, so
+  // the descenders stay intact.
+  padding: 6px $wall-padding;
   box-sizing: border-box;
   border-bottom: 1px solid $light-gray;
   background-color: $light-background-color;
