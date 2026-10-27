@@ -34,7 +34,7 @@ const baseManifest: Omit<Manifest.WebExtensionManifest, 'manifest_version'> = {
   name: 'Keepass Cat',
   short_name: 'Keepass Cat',
   version: '1.3.0',
-  description: 'Open-source KeePass extension: connect your kdbx database for one-click autofill, TOTP 2FA, and editing — self-hosted and secure.',
+  description: 'Open-source KeePass extension: kdbx database, one-click autofill, full password management (add, delete, edit). Self-hosted, secure.',
   default_locale: 'en',
   icons: {
     '16': '/assets/16x16.png',
