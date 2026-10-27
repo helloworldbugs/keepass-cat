@@ -61,34 +61,37 @@ export default defineComponent({
         {
           time: 0,
           text: 'Do not remember',
+          short: 'off',
         },
         {
-          time: 30,
-          text: 'Remember for 30 min.',
+          time: 10,
+          text: '10 minutes',
+          short: '10m',
         },
         {
-          time: 120,
-          text: 'Remember for 2 hours.',
-        },
-        {
-          time: 240,
-          text: 'Remember for 4 hours.',
+          time: 60,
+          text: '1 hour',
+          short: '1h',
         },
         {
           time: 480,
-          text: 'Remember for 8 hours.',
+          text: '8 hours',
+          short: '8h',
         },
         {
           time: 1440,
-          text: 'Remember for 24 hours.',
+          text: '24 hours',
+          short: '24h',
         },
         {
           time: -1,
-          text: 'Until browser exits.',
+          text: 'until the browser exits',
+          short: 'exit',
         },
         {
           time: -2,
-          text: 'Remember forever.',
+          text: 'forever',
+          short: '∞',
         },
       ],
       slider_int: 0,
@@ -109,6 +112,23 @@ export default defineComponent({
         this.unlockedState.cacheSet('unlockedMessages', newval);
       },
       deep: true,
+    },
+    // The unlock form is re-mounted several times while the popup opens (the
+    // startup veil, the silent-unlock attempt), and every re-mount drops the
+    // focus that the previous one had. Put the caret back in the password field
+    // whenever the form is on screen — but only if the user has not already
+    // reached another control.
+    busy(value) {
+      if (!value && !this.isUnlocked) this.focusMasterPassword();
+    },
+    isUnlocked(value) {
+      if (!value) this.focusMasterPassword();
+    },
+    // The form exists during initialisation but is `visibility: hidden` until the
+    // veil lifts, and a hidden element cannot take focus. This is the flip that
+    // actually makes the caret land in the field on open.
+    initializing(value) {
+      if (!value) this.focusMasterPassword();
     },
   },
   async mounted() {    // Prime the group names from the last snapshot: the entries may come from the
@@ -162,10 +182,7 @@ export default defineComponent({
       // before this component mounted, or may never fire at all.
       let focus = () => {
         let doFocus = () => {
-          this.$nextTick(() => {
-            let mp = this.$refs.masterPassword;
-            if (mp) mp.focus();
-          });
+          this.focusMasterPassword();
         };
         let attempt = 0;
         const focusWhenReady = () => {
@@ -222,8 +239,47 @@ export default defineComponent({
     }
     //set knowlege from the URL
     this.databaseFileName = decodeURIComponent(this.$router.getRoute().title);
+
+    // A popup can receive keyboard focus after this component mounted (the
+    // Firefox panel does, and so does a popup opened while the browser window was
+    // in the background). Re-arm the caret whenever the document gains focus.
+    this.onWindowFocus = () => {
+      if (!this.isUnlocked) this.focusMasterPassword();
+    };
+    window.addEventListener('focus', this.onWindowFocus);
+  },
+  beforeUnmount() {
+    if (this.onWindowFocus) window.removeEventListener('focus', this.onWindowFocus);
   },
   methods: {
+    /**
+     * Put the caret in the master password field.
+     *
+     * Called whenever the form (re)appears: while the popup initialises, `busy`
+     * flips and the whole form is unmounted, which silently drops focus, so the
+     * user had to click the field before typing. It deliberately refuses to steal
+     * focus from any control the user already reached.
+     */
+    focusMasterPassword() {
+      this.$nextTick(() => {
+        const input = this.$refs.masterPassword;
+        if (!input || this.busy || this.isUnlocked || this.initializing) return;
+        const active = document.activeElement;
+        // Never steal focus from a control the user already reached.
+        if (active && active !== document.body && active !== document.documentElement && active !== input) {
+          return;
+        }
+        input.focus();
+        // Some platforms hand the popup its keyboard focus after the first
+        // focus() lands; retrying once on the next frame costs nothing and makes
+        // typed characters arrive in the field.
+        if (document.activeElement !== input) {
+          requestAnimationFrame(() => {
+            if (!this.isUnlocked && !this.initializing) input.focus();
+          });
+        }
+      });
+    },
     setRememberPeriod(time_int) {
       /* Args: optional time_int
        * if time_int is given, derive slider_int
@@ -718,7 +774,7 @@ export default defineComponent({
             ref="masterPassword"
             v-model="masterPassword"
             :type="isMasterPasswordInputVisible ? 'text' : 'password'"
-            :placeholder="$t('🔒 master password')"
+            :placeholder="$t('Master password')"
             autocomplete="off"
           />
           <i
@@ -732,26 +788,50 @@ export default defineComponent({
           <div
             id="select-keyfile"
             class="selectable"
+            :class="{ open: keyFilePicker }"
             @click="toggleKeyFilePicker"
           >
-            <i class="fa fa-key" aria-hidden="true" /> {{ selectedKeyFileName }}
+            <i class="fa fa-key" aria-hidden="true" />
+            <span class="keyfile-name">{{ selectedKeyFileName }}</span>
+            <i class="fa fa-angle-down keyfile-caret" aria-hidden="true" />
           </div>
         </div>
 
         <div v-if="keyFilePicker" class="stack-item keyfile-picker">
           <transition name="keyfile-picker">
             <div>
+              <!-- Without this row a chosen keyfile could not be dropped again:
+                   the list only offered the files themselves. Negative index =
+                   "no keyfile", which chooseKeyFile() already understood. -->
+              <span
+                class="selectable keyfile-option keyfile-none"
+                :class="{ selected: selectedKeyFile === undefined }"
+                @click="chooseKeyFile(-1)"
+              >
+                <i class="fa fa-ban fa-fw" aria-hidden="true" />
+                <span class="keyfile-name">{{ $t('No keyfile') }}</span>
+                <i v-if="selectedKeyFile === undefined" class="fa fa-check keyfile-check" aria-hidden="true" />
+              </span>
               <span
                 v-for="(kf, kf_index) in keyFiles"
-                class="selectable"
+                :key="kf_index"
+                class="selectable keyfile-option"
+                :class="{ selected: selectedKeyFile !== undefined && kf.name === selectedKeyFile.name }"
                 :keyfile-index="kf_index"
                 @click="chooseKeyFile(kf_index)"
               >
-                <i class="fa fa-file fa-fw" aria-hidden="true" /> {{ kf.name }}
+                <i class="fa fa-file fa-fw" aria-hidden="true" />
+                <span class="keyfile-name">{{ kf.name }}</span>
+                <i
+                  v-if="selectedKeyFile !== undefined && kf.name === selectedKeyFile.name"
+                  class="fa fa-check keyfile-check"
+                  aria-hidden="true"
+                />
               </span>
-              <span class="selectable" @click="links.openOptionsKeyfiles">
-                <i class="fa fa-wrench fa-fw" aria-hidden="true" /> {{ $t('Manage Keyfiles') }}</span
-              >
+              <span class="selectable keyfile-manage" @click="links.openOptionsKeyfiles">
+                <i class="fa fa-wrench fa-fw" aria-hidden="true" />
+                <span class="keyfile-name">{{ $t('Manage Keyfiles') }}</span>
+              </span>
             </div>
           </transition>
         </div>
@@ -759,17 +839,35 @@ export default defineComponent({
         <div class="box-bar small plain remember-period-picker">
           <span>
             <label for="rememberPeriodLength">
-              <span>{{ $t(rememberPeriodText) }} {{ $t(' (slide to choose)') }}</span>
+              <span>{{ $t('Remember password:') }}</span><span class="remember-period">{{ $t(rememberPeriodText) }}</span>
             </label>
-            <input
-              id="rememberPeriodLength"
-              v-model="slider_int"
-              type="range"
-              min="0"
-              :max="slider_options.length - 1"
-              step="1"
-              @input="setRememberPeriod(undefined)"
-            />
+            <span
+              class="remember-scale"
+              :style="{
+                '--slider-progress': (Number(slider_int) / (slider_options.length - 1)) * 100,
+              }"
+            >
+              <input
+                id="rememberPeriodLength"
+                v-model="slider_int"
+                type="range"
+                min="0"
+                :max="slider_options.length - 1"
+                step="1"
+                @input="setRememberPeriod(undefined)"
+              />
+              <span class="scale-tail" aria-hidden="true"></span>
+              <span class="scale-stops" aria-hidden="true">
+                <span
+                  v-for="(option, index) in slider_options"
+                  :key="option.time"
+                  class="scale-stop"
+                  :class="{ 'is-current': index === Number(slider_int) }"
+                  :data-label="$t(option.short)"
+                  :style="{ '--stop': (index / (slider_options.length - 1)) * 100 }"
+                ></span>
+              </span>
+            </span>
           </span>
         </div>
 
@@ -857,12 +955,13 @@ export default defineComponent({
     background-color: $light-background-color;
     box-sizing: border-box;
     transition: all 0.2s linear;
-    max-height: 200px;
+    max-height: 168px; // keeps the popup well under 600px; longer lists scroll
     overflow-y: auto;
+    scrollbar-width: thin;
     opacity: 1;
     border-top: 1px solid $light-gray;
     border-bottom: 1px solid $light-gray;
-    padding: 5px $wall-padding;
+    padding: 4px 0px;
     margin: 5px 0px;
 
     &.keyfile-picker-enter,
@@ -871,33 +970,113 @@ export default defineComponent({
       opacity: 0;
     }
 
-    span {
-      display: block;
-      padding: 2px 0px;
+    // One row shape for the files and for the "Manage Keyfiles" action: 32px
+    // tall at 13px, which keeps every row a comfortable target without
+    // competing with the 18px password field above.
+    .keyfile-option,
+    .keyfile-manage {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-sizing: border-box;
+      min-height: 32px;
+      padding: 0px $wall-padding;
+      font-size: 13px;
+      line-height: 1.3;
+      color: var(--keepass-cat-text, #2c3e50);
+
+      i {
+        flex: none;
+        font-size: 13px;
+        color: var(--keepass-cat-icon-muted, #888);
+      }
+
+      .keyfile-name {
+        flex: 1 1 auto;
+        min-width: 0px;
+        // Wrap instead of truncating: a keyfile name has to stay readable, and an
+        // ellipsis hides which file is selected.
+        overflow-wrap: anywhere;
+        white-space: normal;
+      }
 
       &:hover {
-        padding-left: 3px;
+        background-color: var(--keepass-cat-bg-hover, #eef0f2);
       }
+    }
+
+    // Tinted row plus a check: the current keyfile has to be obvious at a
+    // glance when the list opens.
+    .keyfile-option.selected {
+      background-color: var(--keepass-cat-bg-hover, #eef0f2);
+      background-color: color-mix(
+        in srgb,
+        var(--keepass-cat-blue) 12%,
+        var(--keepass-cat-bg-light, #fff)
+      );
+
+      .keyfile-check {
+        color: $blue;
+        font-size: 13px;
+      }
+    }
+
+    // "Manage Keyfiles" is an action, not an entry: rule above it, muted text.
+    .keyfile-manage {
+      margin-top: 4px;
+      border-top: 1px solid $light-gray;
+      color: var(--keepass-cat-text-subtle, #666);
     }
   }
 
   #select-keyfile {
-    padding: 8px $wall-padding;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-sizing: border-box;
+    // min-height, not height: a long file name wraps onto a second line instead of
+    // being truncated (no "…" anywhere in this UI).
+    min-height: 36px;
+    padding: 4px $wall-padding;
     background-color: $light-background-color;
     border-bottom: 1px solid $light-gray;
+    color: var(--keepass-cat-text-subtle, #666);
+    font-size: 13px;
+    line-height: 1.3;
 
     i {
+      flex: none;
       font-size: 14px;
+      color: var(--keepass-cat-icon-muted, #888);
     }
 
+    .keyfile-name {
+      flex: 1 1 auto;
+      min-width: 0px;
+      // Wrap, never truncate: the panel row has to show the whole file name.
+      overflow-wrap: anywhere;
+      white-space: normal;
+    }
+
+    // "No keyfile" is a choice, not a file: keep it a notch quieter than the list.
+    .keyfile-none {
+      color: var(--keepass-cat-text-muted, #999);
+    }
+
+    // A tint, not an opacity fade: fading the text reads as "disabled".
     &:hover {
-      opacity: 0.7;
+      background-color: var(--keepass-cat-bg-hover, #eef0f2);
+      color: var(--keepass-cat-text, #2c3e50);
     }
-  }
 
-  #rememberPeriodLength {
-    width: 80px;
-    float: left;
+    // Disclosure caret turns over while the list is open.
+    .keyfile-caret {
+      transition: transform 0.15s ease;
+    }
+
+    &.open .keyfile-caret {
+      transform: rotate(180deg);
+    }
   }
 
   .masterPasswordInput {
@@ -938,38 +1117,240 @@ export default defineComponent({
   }
 
   .remember-period-picker {
-    margin: 6px 0px;
+    margin: 4px 0px;
 
+    // Caption and value are separate spans: the colon keeps its own spacing, and
+    // the value gets a little weight so the eye lands on it first.
+    .remember-period {
+      margin-left: 4px;
+      font-weight: 600;
+    }
+
+    // Label on its own line, slider full width underneath. A side-by-side row
+    // would leave the slider about 140px at popup width, and the slider's width
+    // must never come from the engine's default range width (129px in Chrome,
+    // 144px in Firefox for the same markup).
+    > span {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    // Geometry shared by the slider, its ticks, its labels and the value
+    // bubble. Everything is derived from these values, so no engine's default
+    // range width or thumb metric can move any part of the control.
+    .remember-scale {
+      --track-height: 6px;
+      --thumb-size: 14px;
+      --bubble-height: 18px;
+      --bubble-width: 52px;
+      --bubble-inset: 26px; // --bubble-width / 2, keeps the bubble inside the row
+      --bubble-lift: calc(var(--bubble-height) + 5px);
+      // Thumb centre for the current value, measured from the left end of the
+      // track (see the tick note below for why it is not a plain 0–100 %).
+      --slider-fill: calc(
+        var(--thumb-size) / 2 + (100% - var(--thumb-size)) * var(--slider-progress, 0) / 100
+      );
+
+      position: relative;
+      display: block;
+      padding: var(--bubble-lift) 0px 10px;
+    }
+
+    // Ticks and labels sit in the row's coordinate system, so they line up with
+    // the thumb travel and never take part in the input's hit area.
+    .scale-stops {
+      position: absolute;
+      top: var(--bubble-lift);
+      right: 0px;
+      bottom: 0px;
+      left: 0px;
+      pointer-events: none;
+    }
+
+    .scale-stop {
+      // No box of its own: both of its parts are positioned against the row.
+      position: static;
+
+      // Tick dot, just under the track. The `left` is the thumb's centre for
+      // this stop: the thumb travels between half its own width and
+      // (width - half its width), so a plain 0–100 % position would run ahead
+      // of it near the ends. `var(--stop)` has to stay here rather than in a
+      // wrapper custom property, or it would be resolved before the stop sets it.
+      &::before {
+        content: '';
+        position: absolute;
+        top: 16px;
+        left: calc(var(--thumb-size) / 2 + (100% - var(--thumb-size)) * var(--stop, 0) / 100);
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        transform: translateX(-50%);
+        background: var(--keepass-cat-text-muted, #999);
+      }
+
+      // Tick label.
+      &::after {
+        content: attr(data-label);
+        position: absolute;
+        top: 21px;
+        left: calc(var(--thumb-size) / 2 + (100% - var(--thumb-size)) * var(--stop, 0) / 100);
+        transform: translateX(-50%);
+        color: var(--keepass-cat-text-subtle, #666);
+        font-size: 10px;
+        line-height: 12px;
+        white-space: nowrap;
+      }
+
+      // The end labels hang from the row's edges, so they stay over the track.
+      &:first-child::after {
+        left: 0px;
+        transform: none;
+      }
+
+      &:last-child::after {
+        right: 0px;
+        left: auto;
+        transform: none;
+      }
+
+      &.is-current::after {
+        color: var(--keepass-cat-text, #2c3e50);
+      }
+
+      // The current stop's dot turns into the value bubble: the thumb already
+      // marks that spot on the track. The clamp keeps the pill inside the row,
+      // and since it is half a pill wider than the thumb's travel on both ends,
+      // the thumb always stays under the pill.
+      &.is-current::before {
+        content: attr(data-label);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        top: calc(-1 * var(--bubble-lift));
+        left: clamp(var(--bubble-inset), var(--slider-fill), calc(100% - var(--bubble-inset)));
+        width: var(--bubble-width);
+        height: var(--bubble-height);
+        border-radius: calc(var(--bubble-height) / 2);
+        transform: translateX(-50%);
+        background: var(--keepass-cat-bg-hover, #eef0f2);
+        background: color-mix(in srgb, var(--keepass-cat-blue) 22%, var(--keepass-cat-bg-light, #fff));
+        color: var(--keepass-cat-text, #2c3e50);
+        font-size: 11px;
+        line-height: 1;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+      }
+    }
+
+    // Tail pointing from the bubble down at the thumb. It is a sibling of the
+    // bubble so it can stay on the thumb while the bubble is clamped.
+    .scale-tail {
+      position: absolute;
+      top: var(--bubble-height);
+      left: clamp(5px, var(--slider-fill), calc(100% - 5px));
+      width: 0px;
+      height: 0px;
+      transform: translateX(-50%);
+      border-right: 3.5px solid transparent;
+      border-left: 3.5px solid transparent;
+      border-top: calc(var(--bubble-lift) - var(--bubble-height)) solid var(--keepass-cat-bg-hover, #eef0f2);
+      border-top-color: color-mix(
+        in srgb,
+        var(--keepass-cat-blue) 22%,
+        var(--keepass-cat-bg-light, #fff)
+      );
+    }
+
+    // One geometry shared by both engines: WebKit and Gecko must agree on the
+    // track, the thumb and where the thumb sits, otherwise the slider reads as
+    // two different controls depending on the browser.
     input[type='range'] {
       -webkit-appearance: none;
-      margin: 6px;
-      margin-left: 0px;
+      -moz-appearance: none;
+      appearance: none;
+
+      display: block;
+      box-sizing: border-box;
+      width: 100%; // of the row, in both engines: never a shrink-to-fit default
+      height: 24px; // hit area; the 6px track is centred inside it
+      margin: 0px;
+      padding: 0px;
+      border: 0px;
+      background: transparent;
+      cursor: pointer;
+
+      &:focus {
+        outline: none;
+      }
+
+      // ---- WebKit / Blink ----
+      &::-webkit-slider-runnable-track {
+        height: var(--track-height);
+        border: 0px;
+        border-radius: 999px;
+        background: linear-gradient(
+          to right,
+          $blue 0,
+          $blue var(--slider-fill),
+          var(--keepass-cat-bg-dark, #d1d3d5) var(--slider-fill),
+          var(--keepass-cat-bg-dark, #d1d3d5) 100%
+        );
+      }
+
+      &::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        box-sizing: border-box;
+        width: var(--thumb-size);
+        height: var(--thumb-size);
+        margin-top: calc((var(--track-height) - var(--thumb-size)) / 2);
+        border: 2px solid $blue;
+        border-radius: 50%;
+        // White in both themes: the knob has to read as a handle, and a
+        // theme-coloured knob turns into a hole in the dark track.
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+      }
+
+      // ---- Gecko ----
+      // Kept in separate rules: an unknown pseudo-element invalidates the whole
+      // selector list, so WebKit and Gecko styles can never be grouped.
+      &::-moz-range-track {
+        height: var(--track-height);
+        border: 0px;
+        border-radius: 999px;
+        background: var(--keepass-cat-bg-dark, #d1d3d5);
+      }
+
+      &::-moz-range-progress {
+        height: var(--track-height);
+        border-radius: 999px;
+        background: $blue;
+      }
+
+      &::-moz-range-thumb {
+        box-sizing: border-box;
+        width: var(--thumb-size);
+        height: var(--thumb-size);
+        border: 2px solid $blue;
+        border-radius: 50%;
+        background: #fff; // white in both themes, see above
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+      }
+
+      // ---- Focus ----
+      // The thumb gets the ring rather than the whole 80 × 24 hit box: a ring
+      // around the hit box reads as a second, invisible control. The inner
+      // ring is the page colour, so the blue ring stays legible on the track.
+      &:focus-visible::-webkit-slider-thumb {
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18), 0 0 0 2px var(--keepass-cat-bg, #f7f9fa),
+          0 0 0 4px rgba(0, 137, 236, 0.75);
+      }
+
+      &:focus-visible::-moz-range-thumb {
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18), 0 0 0 2px var(--keepass-cat-bg, #f7f9fa),
+          0 0 0 4px rgba(0, 137, 236, 0.75);
+      }
     }
-  }
-
-  input[type='range']:focus {
-    outline: none;
-  }
-
-  input[type='range']::-webkit-slider-runnable-track {
-    height: 6px;
-    cursor: pointer;
-    animate: 0.2s;
-    background: $blue;
-    border-radius: 1.3px;
-    border: 0.2px solid var(--keepass-cat-text);
-    margin-top: -2px;
-  }
-
-  input[type='range']::-webkit-slider-thumb {
-    border: 1px solid black;
-    height: 18px;
-    width: 10px;
-    border-radius: 2px;
-    background: white;
-    cursor: pointer;
-    -webkit-appearance: none;
-    margin-top: -7px;
   }
 }
 
@@ -981,6 +1362,13 @@ export default defineComponent({
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+// The footer is the last bar in the popup, so its bottom border has nothing to
+// separate: it only draws a thin line along the window's bottom edge. Specificity
+// has to beat `.box-bar.medium`, which is where the bar gets its border from.
+.box-bar.medium.footer {
+  border-bottom: 0;
 }
 
 .browse-btn {
@@ -1057,3 +1445,4 @@ export default defineComponent({
   }
 }
 </style>
+
