@@ -172,6 +172,7 @@ https://github.com/helloworldbugs/keepass-cat
 
 | Version | Date | Changes | Status |
 |---------|------|---------|--------|
+| 1.3.1 | 2026-10-28 | Unlock screen: slider with tick marks and a value bubble, larger keyfile picker with a "No keyfile" row, keyfile icon turns gold when one is chosen, password field focused on open; clipboard timeout offers 15 s / 30 s / 1 min / 3 min / 5 min / 10 min with a per-copy alarm; entry rows no longer clip descenders and are more compact; the WebDAV action cells no longer wrap; the username clipboard notice is translated | Published |
 | 1.3.0 | 2026-10-26 | Local .kdbx file backend (Chrome only); default autofill shortcut shown in settings; switching a database provider off now forgets its cached secrets; groups identified by UUID | Published |
 | 1.2.3 | 2026-10-26 | Rebuild the view from the saved database instead of a re-download; empty groups stay visible; skip the download when the database is unchanged | Published |
 | 1.2.2 | 2026-10-23 | See the GitHub release notes | Published |
