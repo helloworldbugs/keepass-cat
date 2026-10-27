@@ -250,6 +250,18 @@ table {
   td:nth-child(4) {
     width: 15%;
   }
+  // "Actions" is a single cell spanning the scan and remove columns, and in a
+  // fixed-layout table that cell's width is what really decides the split: the
+  // per-cell percentages above were ignored and squeezed each action column to
+  // 67px, which wrapped "remove" onto two lines.
+  th:nth-child(3) {
+    width: 180px;
+  }
+  // Actions are one word plus an icon: never let them break.
+  td:nth-child(3),
+  td:nth-child(4) {
+    white-space: nowrap;
+  }
   // The remove action has no heading of its own, so "Actions" spans both
   // action columns; there is no empty header cell to style.
   // Long usernames / URLs must not blow the table out: one line, softly faded
