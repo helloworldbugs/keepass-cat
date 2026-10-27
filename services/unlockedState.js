@@ -6,6 +6,7 @@ import { buildEntryFilters } from '@/lib/entryFilters.js';
 import { Otp } from '@/lib/otp.js';
 import { ref } from 'vue';
 import { i18n } from '@/services/i18n';
+import { clipboardDurationLabel } from '@/lib/clipboardDuration';
 
 const chromePromise = ChromePromiseApi();
 
@@ -185,14 +186,18 @@ function UnlockedState(keepassReference, settings, notifications) {
         settings.getSetClipboardExpireEnabled().then(function (clearEnabled) {
           settings.getSetClipboardExpireInterval().then(function (interval) {
             if (clearEnabled) {
-              settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
+              settings.setForgetTime('clearClipboard', Date.now() + interval * 1000);
+              // The periodic sweep only runs every two minutes, which would turn a
+              // 15-second timeout into "up to two minutes". One-shot alarm for the
+              // exact moment; re-creating it with the same name extends it.
+              chrome.alarms.create('clearClipboard', { when: Date.now() + interval * 1000 });
             }
             notifications
               .push({
                 text:
                   i18n.t('OTP') +
                   (clearEnabled
-                    ? i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval)
+                    ? i18n.t(' copied to clipboard. Clipboard will clear in {0}.', clipboardDurationLabel(interval))
                     : i18n.t(' copied to clipboard.')),
                 type: 'clipboard',
               })
@@ -272,14 +277,18 @@ function UnlockedState(keepassReference, settings, notifications) {
     settings.getSetClipboardExpireEnabled().then((clearEnabled) => {
       settings.getSetClipboardExpireInterval().then((interval) => {
         if (clearEnabled) {
-          settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
+          settings.setForgetTime('clearClipboard', Date.now() + interval * 1000);
+          // The periodic sweep only runs every two minutes, which would turn a
+          // 15-second timeout into "up to two minutes". One-shot alarm for the
+          // exact moment; re-creating it with the same name extends it.
+          chrome.alarms.create('clearClipboard', { when: Date.now() + interval * 1000 });
         }
         notifications
           .push({
             text:
               i18n.t(fieldName) +
               (clearEnabled
-                ? i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval)
+                ? i18n.t(' copied to clipboard. Clipboard will clear in {0}.', clipboardDurationLabel(interval))
                 : i18n.t(' copied to clipboard.')),
             type: 'clipboard',
           })

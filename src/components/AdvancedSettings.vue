@@ -8,7 +8,7 @@ export default {
   },
   data() {
     return {
-      expireTime: 2,
+      expireTime: 15,
       clipboardExpireEnabled: true,
       autofillShortcut: true,
       fillTotpEnabled: true,
@@ -72,8 +72,12 @@ export default {
     },
     clipboardExpireEnabled(newval) {
       this.settings.getSetClipboardExpireEnabled(newval)
-      // Turning the feature off must not leave a pending clear behind.
-      if (!newval) this.settings.clearForgetTimes(['clearClipboard'])
+      // Turning the feature off must not leave a pending clear behind — neither
+      // the stored deadline nor the one-shot alarm that fires it.
+      if (!newval) {
+        this.settings.clearForgetTimes(['clearClipboard'])
+        chrome.alarms.clear('clearClipboard')
+      }
     },
     fillTotpEnabled(newval) {
       this.settings.getSetFillTotpEnabled(newval)
@@ -162,20 +166,23 @@ export default {
           :disabled="!clipboardExpireEnabled"
           style="display: inline-block;"
         >
-        <option value="1">
+        <option value="15">
+          {{ $t('15 seconds') }}
+        </option>
+        <option value="30">
+          {{ $t('30 seconds') }}
+        </option>
+        <option value="60">
           {{ $t('1 minute') }}
         </option>
-        <option value="2">
-          {{ $t('2 minutes') }}
-        </option>
-        <option value="3">
+        <option value="180">
           {{ $t('3 minutes') }}
         </option>
-        <option value="5">
+        <option value="300">
           {{ $t('5 minutes') }}
         </option>
-        <option value="8">
-          {{ $t('8 minutes') }}
+        <option value="600">
+          {{ $t('10 minutes') }}
         </option>
         </select>
       </div>

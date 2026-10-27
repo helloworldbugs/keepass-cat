@@ -11,6 +11,7 @@ import { ProtectedMemory } from '$services/protectedMemory';
 import { Settings } from '$services/settings.js';
 import { Notifications } from '$services/notifications';
 import { i18n } from '@/services/i18n';
+import { clipboardDurationLabel } from '@/lib/clipboardDuration';
 import { openPopup, setBadgeText, setBadgeBackgroundColor } from '@/lib/browser.js';
 import { matchLevel } from '@/lib/matchLevel.js';
 import { Otp } from '@/lib/otp.js';
@@ -117,12 +118,15 @@ function Background(protectedMemory, localMemory, settings, notifications) {
               settings.getSetClipboardExpireEnabled().then(function (clearEnabled) {
                 settings.getSetClipboardExpireInterval().then(function (interval) {
                   if (clearEnabled) {
-                    settings.setForgetTime('clearClipboard', Date.now() + interval * 60000);
+                    settings.setForgetTime('clearClipboard', Date.now() + interval * 1000);
+                    // The two-minute sweep is too coarse for a 15-second timeout,
+                    // so schedule the exact moment as well (see unlockedState).
+                    chrome.alarms.create('clearClipboard', { when: Date.now() + interval * 1000 });
                   }
                   pushNotification(
                     i18n.t('OTP') +
                       (clearEnabled
-                        ? i18n.t(' copied to clipboard. Clipboard will clear in {0} minute(s).', interval)
+                        ? i18n.t(' copied to clipboard. Clipboard will clear in {0}.', clipboardDurationLabel(interval))
                         : i18n.t(' copied to clipboard.')),
                     'clipboard'
                   );
@@ -375,7 +379,10 @@ function Background(protectedMemory, localMemory, settings, notifications) {
   });
 
   chrome.alarms.onAlarm.addListener(function (alarm) {
-    if (alarm.name == 'forgetStuff') {
+    // 'clearClipboard' is the one-shot alarm scheduled with each clipboard copy;
+    // it runs the same sweep so the expiry is applied at the moment the user
+    // chose instead of at the next two-minute tick.
+    if (alarm.name == 'forgetStuff' || alarm.name == 'clearClipboard') {
         forgetStuff();
         updateBadgeForTab();
         return;

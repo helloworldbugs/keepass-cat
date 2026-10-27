@@ -254,8 +254,36 @@ function Settings(secureCache) {
       });
   };
 
+  // Seconds: the options are 15 s / 30 s / 1 min / 3 min / 5 min / 10 min.
+  const CLIPBOARD_EXPIRE_OPTIONS = [15, 30, 60, 180, 300, 600];
+  const CLIPBOARD_EXPIRE_DEFAULT = 15;
+
+  // A value the dropdown cannot show would leave it blank, so anything else is
+  // pulled to the closest option (ties go to the shorter, safer interval).
+  function snapClipboardInterval(seconds) {
+    if (!(seconds > 0)) return CLIPBOARD_EXPIRE_DEFAULT;
+    if (CLIPBOARD_EXPIRE_OPTIONS.indexOf(seconds) !== -1) return seconds;
+    return CLIPBOARD_EXPIRE_OPTIONS.reduce((best, option) => {
+      const distance = Math.abs(option - seconds);
+      const bestDistance = Math.abs(best - seconds);
+      if (distance < bestDistance) return option;
+      return best;
+    });
+  }
+
+  // Older builds stored the interval in minutes (1, 2, 3, 5, 8). A stored value
+  // below the shortest option can only be such a value, so it is converted once
+  // and written back; without this a stored "2" would mean two seconds.
   exports.getSetClipboardExpireInterval = function (interval) {
-    return keyGetSetter('expireInterval', interval, 2, 'number');
+    if (interval !== undefined) {
+      return keyGetSetter('expireInterval', snapClipboardInterval(interval), CLIPBOARD_EXPIRE_DEFAULT, 'number');
+    }
+    return keyGetSetter('expireInterval', undefined, CLIPBOARD_EXPIRE_DEFAULT, 'number').then((value) => {
+      const seconds = value > 0 && value < 15 ? value * 60 : value;
+      const snapped = snapClipboardInterval(seconds);
+      if (snapped === value) return snapped;
+      return keyGetSetter('expireInterval', snapped, CLIPBOARD_EXPIRE_DEFAULT, 'number').then(() => snapped);
+    });
   };
 
   // Master switch for the clipboard expiry feature: when off, copying never
