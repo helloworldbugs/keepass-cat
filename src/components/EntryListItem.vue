@@ -147,6 +147,10 @@ export default {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: clip;
+      // Materialize's 1.15 line-height is shorter than the font's glyph box, and
+      // `overflow: hidden` then cut the descender off every "g", "y" and "p" in
+      // the title and username. Give the line box room for them.
+      line-height: 1.4;
       // Dissolve the cut instead of clipping hard or showing an ellipsis.
       -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
       mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);

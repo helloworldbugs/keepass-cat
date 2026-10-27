@@ -584,6 +584,9 @@ export default {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: clip;
+        // Materialize's 1.15 line-height is shorter than the glyph box, and
+        // `overflow: hidden` then clipped the descenders of "g", "y" and "p".
+        line-height: 1.4;
         // Dissolve the cut like the popup entry rows rather than truncating with dots.
         -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
         mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
