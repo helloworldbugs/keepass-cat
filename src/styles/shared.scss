@@ -32,11 +32,21 @@ textarea {
     cursor: pointer;
   }
 
-  // Slide the text in on hover. Deliberately not transitioned: animating padding
-  // re-lays-out the row on every frame, and shifting the whole row with a
-  // transform would slide its right-hand buttons out of the clipped area.
-  &.flair:hover {
-    padding-left: 20px;
+  // Slide the text in on hover. Only the padding is animated here: `all` used to
+  // animate every property of every row the pointer crossed, which is the stutter
+  // this rule was changed for. Keeping the other four explicit keeps the hover tint
+  // fading at its own speed while the slide eases out over a longer beat.
+  &.flair {
+    transition:
+      padding-left 0.24s cubic-bezier(0.25, 0.8, 0.35, 1),
+      background-color 0.12s ease,
+      color 0.12s ease,
+      opacity 0.12s ease,
+      transform 0.12s ease;
+
+    &:hover {
+      padding-left: 20px;
+    }
   }
 }
 
