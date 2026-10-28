@@ -33,7 +33,7 @@ const permissions = [
 const baseManifest: Omit<Manifest.WebExtensionManifest, 'manifest_version'> = {
   name: 'Keepass Cat',
   short_name: 'Keepass Cat',
-  version: '1.3.2',
+  version: '1.3.3',
   description: 'Open-source KeePass extension: kdbx database, one-click autofill, full password management (add, delete, edit). Self-hosted, secure.',
   default_locale: 'en',
   icons: {

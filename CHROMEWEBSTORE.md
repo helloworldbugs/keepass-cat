@@ -172,6 +172,7 @@ https://github.com/helloworldbugs/keepass-cat
 
 | Version | Date | Changes | Status |
 |---------|------|---------|--------|
+| 1.3.3 | 2026-10-29 | Entry rows slide in on hover again, eased over a quarter of a second; the 1.3.2 hover fix had left the slide unanimated, which read as a jump | Published |
 | 1.3.2 | 2026-10-28 | Local files: add and keep several .kdbx files at once, each with its own name, remove action and remembered password; a file added by an earlier version is migrated on first open without losing it. The .kdbx picker only offers .kdbx, and the key-file dialog only .key/.keyx. A provider's database list folds away when its switch is off | Published |
 | 1.3.1 | 2026-10-28 | Unlock screen: slider with tick marks and a value bubble, larger keyfile picker with a "No keyfile" row, keyfile icon turns gold when one is chosen, password field focused on open; clipboard timeout offers 15 s / 30 s / 1 min / 3 min / 5 min / 10 min with a per-copy alarm; entry rows no longer clip descenders and are more compact; the WebDAV action cells no longer wrap; the username clipboard notice is translated | Published |
 | 1.3.0 | 2026-10-26 | Local .kdbx file backend (Chrome only); default autofill shortcut shown in settings; switching a database provider off now forgets its cached secrets; groups identified by UUID | Published |
