@@ -8,6 +8,21 @@ import Spinner from 'vue-simple-spinner';
 import Messenger from '@/components/Messenger.vue';
 import { defineComponent } from 'vue';
 
+/*
+ * Open-time diagnostics.
+ *
+ * The popup occasionally takes a noticeable moment to appear and it only happens
+ * now and then, so the timings are left in place: every line is prefixed with the
+ * milliseconds since this bundle started, which makes a slow open readable from a
+ * pasted console dump. About ten lines per popup open — cheap enough to keep.
+ */
+const OPEN_T0 = typeof performance !== 'undefined' ? performance.now() : 0;
+function perfLog(step, extra) {
+  if (typeof console === 'undefined' || typeof performance === 'undefined') return;
+  const ms = Math.round(performance.now() - OPEN_T0);
+  console.log('[perf] ' + step + ' @' + ms + 'ms' + (extra === undefined ? '' : ' ' + extra));
+}
+
 export default defineComponent({
   components: {
     EntryList,
@@ -131,7 +146,8 @@ export default defineComponent({
       if (!value) this.focusMasterPassword();
     },
   },
-  async mounted() {    // Prime the group names from the last snapshot: the entries may come from the
+  async mounted() {    perfLog('mount');
+    // Prime the group names from the last snapshot: the entries may come from the
     // cache without the database being loaded, and a group with no entries must
     // still appear in the group pickers.
     this.keepassService.loadCachedGroups();
@@ -172,6 +188,7 @@ export default defineComponent({
     if (this.unlockedState.cacheGet('showBrowse')) this.showBrowse = true;
     // modify unlockedState internal state
     await this.unlockedState.getTabDetails();
+    perfLog('tab-details');
 
     if (!this.isUnlocked) {
 
@@ -198,21 +215,27 @@ export default defineComponent({
 
       console.log('[unlock-mount] starting, session get...');
       try {
+        perfLog('cache-read-start', 'session');
         let entries = await this.secureCache.get('secureCache.entries');
+        perfLog('cache-read', 'session entries=' + ((entries && entries.length) || 0));
         console.log('[unlock-mount] session result:', entries ? entries.length + ' entries' : 'empty');
         if (entries !== undefined && entries.length > 0) {
           console.log('[unlock-mount] session OK, showResults + silentRefresh');
           this.showResults(entries, true);
+          perfLog('first-paint', 'source=session entries=' + entries.length);
           this.silentRefresh(entries);
         } else {
           console.log('[unlock-mount] session empty, trying local...');
           // Session empty — try local storage for instant display
           try {
+            perfLog('cache-read-start', 'local');
             let localRaw = await this.secureCache.get('secureCache.entries', 'local');
+            perfLog('cache-read', 'local entries=' + ((localRaw && localRaw.length) || 0));
             console.log('[unlock-mount] local result:', localRaw ? localRaw.length + ' entries' : 'empty');
             if (localRaw !== undefined && localRaw.length > 0) {
               console.log('[unlock-mount] local OK, showResults + silentRefresh');
               this.showResults(localRaw, true);
+              perfLog('first-paint', 'source=local entries=' + localRaw.length);
               this.silentRefresh(localRaw);
             }
           } catch (e) {
@@ -234,6 +257,7 @@ export default defineComponent({
           if (!this.isUnlocked) this.autoUnlock();
       }
       console.log('[unlock-mount] done, busy:', this.busy);
+      perfLog('mounted-done', 'unlocked=' + this.isUnlocked);
       this.busy = false;
       focus();
     }
@@ -398,6 +422,7 @@ export default defineComponent({
       // Auto-sync: after showing cached entries, quietly re-fetch from the backend
       // and refresh the UI/cache if the database changed on another device.
       var self = this;
+      var __refreshT0 = performance.now();
       chrome.storage.local.get('lastSync', function (items) {
         var now = Date.now();
         var last = items.lastSync || 0;
@@ -408,6 +433,13 @@ export default defineComponent({
         self.keepassService
           .refreshIfChanged()
           .then(function (fresh) {
+            perfLog(
+              'silent-refresh',
+              (fresh === null ? 'unchanged' : 'reloaded') +
+                ' in ' +
+                Math.round(performance.now() - __refreshT0) +
+                'ms'
+            );
             if (fresh === null) return chrome.storage.local.set({ lastSync: Date.now() }); // file unchanged
             var siteUrl = parseUrl(self.unlockedState.fullUrl || self.unlockedState.url);
             self.keepassService.rankEntries(fresh, siteUrl);
@@ -433,6 +465,7 @@ export default defineComponent({
             chrome.storage.local.set({ lastSync: Date.now() });
           })
           .catch(function (err) {
+            perfLog('silent-refresh', 'failed in ' + Math.round(performance.now() - __refreshT0) + 'ms: ' + (err && err.message));
             // offline / session expired / auth error → keep cached data, stay silent
             console.warn('[silentRefresh] skipped:', err && err.message);
             if (err && err.code === 'localfile-permission-required') {
@@ -468,6 +501,7 @@ export default defineComponent({
     // with an empty password: this used to be called from the grant path, which
     // decrypted with '' and reported "invalid key" right after the grant succeeded.
     autoUnlock() {
+      perfLog('auto-unlock-start');
 
       this.loadKeyFiles()
         .then(() => this.settings.getSetDefaultRememberPeriod())
@@ -482,6 +516,7 @@ export default defineComponent({
           this.setRememberPeriod(usage.rememberPeriod);
 
           if (usage.passwordKey !== undefined && usage.requiresKeyfile === false) {
+            perfLog('auto-unlock', 'path=cached-password');
             this.unlock(usage.passwordKey, true);
           } else if (usage.keyFileName !== undefined) {
             let matches = this.keyFiles.filter((kf) => kf.name === usage.keyFileName);
@@ -496,10 +531,12 @@ export default defineComponent({
             // Stored keyfile could not be used for a silent unlock: fall through and
             // show the form. Without this the veil stayed up forever and the popup
             // was blank until the watchdog fired.
+            perfLog('auto-unlock', 'path=no-usable-keyfile');
             this.busy = false;
             this.initializing = false;
           } else {
             // No cached credentials — show unlock UI
+            perfLog('auto-unlock', 'path=no-credentials');
             this.busy = false;
             this.initializing = false;
           }

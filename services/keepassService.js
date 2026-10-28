@@ -335,7 +335,21 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
    * return Promise(arrayBufer)
    */
   my.getChosenDatabaseFile = function () {
-    return passwordFileStoreRegistry.getChosenDatabaseFile(settings);
+    var t0 = performance.now();
+    return passwordFileStoreRegistry.getChosenDatabaseFile(settings).then(
+      function (data) {
+        console.log(
+          '[perf] db-download ' + Math.round(performance.now() - t0) + 'ms ' + ((data && data.byteLength) || 0) + 'B'
+        );
+        return data;
+      },
+      function (err) {
+        console.log(
+          '[perf] db-download failed in ' + Math.round(performance.now() - t0) + 'ms: ' + (err && err.message)
+        );
+        throw err;
+      }
+    );
   };
 
   my.getMasterKey = function (bufferPromise, masterPassword, keyFileInfo) {
@@ -616,9 +630,11 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
         if (!mk) throw new Error(i18n.t('Session expired. Please re-unlock the database.'));
       return (preloadedBuf ? Promise.resolve(preloadedBuf) : my.getChosenDatabaseFile()).then(function (buf) {
         var kdbxCreds = jsonCredentialsToKdbx(mk);
+        var tDecrypt = performance.now();
         return kdbxweb.Kdbx.load(buf, kdbxCreds).then((db) => {
           _db = db;
           console.log('[keepassService] db re-loaded');
+          console.log('[perf] db-decrypt ' + Math.round(performance.now() - tDecrypt) + 'ms');
         });
       });
     });
@@ -802,10 +818,20 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
    * identical to the file the cached entries came from.
    */
   my.refreshIfChanged = function () {
+    var tRefresh = performance.now();
     return getLastDb().then(function (last) {
       return downloadIfChanged(last.etag).then(function (res) {
+        console.log(
+          '[perf] refresh-download ' +
+            Math.round(performance.now() - tRefresh) +
+            'ms ' +
+            (res.data === null ? '304/unchanged' : 'full ' + res.data.byteLength + 'B')
+        );
         if (res.data === null) return null; // 304: unchanged, nothing downloaded
         return sha256Hex(res.data).then(function (hash) {
+          console.log(
+            '[perf] refresh-hash ' + Math.round(performance.now() - tRefresh) + 'ms ' + (hash === last.hash ? 'same' : 'changed')
+          );
           var state = { hash: hash, etag: res.etag };
           if (hash !== null && hash === last.hash) {
             setLastDb(state); // same file; remember its ETag for next time
