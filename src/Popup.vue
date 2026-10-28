@@ -9,13 +9,7 @@
       :settings="settings"
       :password-file-store-registry="passwordFileStoreRegistry"
     />
-    <file-picker
-      v-if="show.filePicker.visible"
-      id="/choose"
-      :password-file-store-registry="passwordFileStoreRegistry"
-      :settings="settings"
-      :links="links"
-    />
+
     <unlock
       v-if="show.unlock.visible"
       id="/unlock/:provider/:title"
@@ -58,7 +52,6 @@ import { LocalFileManager } from '$services/localFileManager.js';
 // Components
 import Unlock from '@/components/Unlock.vue';
 import Startup from '@/components/Startup.vue';
-import FilePicker from '@/components/FilePicker.vue';
 import EntryEdit from '@/components/EntryEdit.vue';
 import SvgDefs from '@/components/SvgDefs.vue';
 import { reactive } from 'vue';
@@ -96,9 +89,7 @@ const show = reactive({
   startup: {
     visible: false,
   },
-  filePicker: {
-    visible: false,
-  },
+
   entryEdit: {
     visible: false,
   },
@@ -110,10 +101,7 @@ $router.registerRoutes([
     route: '/',
     var: show.startup,
   },
-  {
-    route: '/choose',
-    var: show.filePicker,
-  },
+
   {
     route: '/unlock/:provider/:title',
     var: show.unlock,

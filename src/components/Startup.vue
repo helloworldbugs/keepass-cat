@@ -24,29 +24,40 @@ export default {
         this.$router.route(
           '/unlock/' + info.providerKey + '/' + encodeURIComponent(info.passwordFile.title)
         );
-      } else {
-        //user has not yet chosen a database.  Lets see if there are any available to choose...
-        var readyPromises = [];
-        this.passwordFileStoreRegistry.listFileManagers('listDatabases').forEach((provider) => {
-          readyPromises.push(provider.listDatabases());
-        });
-
-        return Promise.all(readyPromises).then((filesArrays) => {
-          var availableFiles = filesArrays.reduce((prev, curr) => {
-            return prev.concat(curr);
-          });
-
-          if (availableFiles.length) {
-            //choose one of the files
-            this.$router.route('/choose');
-          } else {
-            //no files available - allow the user to link to the options page
-            this.busy = false;
-          }
-        });
+        return;
       }
-    });
-  },
+
+      // No database chosen yet (fresh install, or every provider was switched
+      // off): use the first database a provider offers and go straight to its
+      // unlock screen. There is no separate chooser page any more — the database
+      // row on the unlock screen lists the others.
+      const managers = this.passwordFileStoreRegistry.listFileManagers('listDatabases');
+      const lookups = managers.map((provider) =>
+        provider.listDatabases().then((files) =>
+          (files || []).map((file) => {
+            file.provider = provider;
+            return file;
+          })
+        )
+      );
+
+      return Promise.all(lookups).then((filesArrays) => {
+        const availableFiles = filesArrays.reduce((prev, curr) => prev.concat(curr), []);
+        if (!availableFiles.length) {
+          //no files available - allow the user to link to the options page
+          this.busy = false;
+          return;
+        }
+
+        const first = availableFiles[0];
+        const choice = first.provider.getDatabaseChoiceData(first);
+        return this.settings.saveCurrentDatabaseChoice(choice, first.provider).then(() => {
+          this.$router.route(
+            '/unlock/' + first.provider.key + '/' + encodeURIComponent(first.title)
+          );
+        });
+      });
+    });  },
 };
 </script>
 

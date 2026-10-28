@@ -749,9 +749,8 @@ export default {
 
 // Keep the shared top bar pinned while this form scrolls (the user wanted it
 // still there after scrolling to the bottom). :deep() keeps the rule scoped to
-// this screen only, so FilePicker and every other .box-bar consumer is
-// untouched. The document (html/body) is this screen's scroll container and no
-// ancestor sets overflow/transform, so sticky works and keeps the bar in
+// this screen only, so every other .box-bar consumer is untouched. The document
+// (html/body) is this screen's scroll container and no
 // normal flow - no layout shift and no form padding needed.
 .entry-edit-view :deep(.box-bar) {
   position: sticky;
