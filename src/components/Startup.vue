@@ -73,7 +73,7 @@ export default {
       </p>
     </div>
     <div class="stack-item selectable">
-      <button class="action-button selectable" :disabled="busy" @click="links.openOptions">
+      <button class="action-button selectable" :disabled="busy" @click="links.openOptionsDatabases">
         {{ $t('Add a KeePass database file') }}
       </button>
     </div>
