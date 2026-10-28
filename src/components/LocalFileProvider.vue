@@ -5,9 +5,10 @@
   providerManager.isSupported() is true (Chrome), so Firefox never sees it.
 
   Every file gets a stable id when it is added; the id is what the unlock screen
-  remembers and what a save is written back to. The name shown here is an alias:
-  the File System Access API exposes no path, so two files with the same name can
-  only be told apart by a name the user can edit.
+  remembers and what a save is written back to. The name shown here comes from the
+  picker: the File System Access API exposes no path, so two files with the same
+  name in different folders are indistinguishable - the second one gets a numbered
+  suffix when it is added, and the name itself is not editable.
 
   The rows deliberately mirror ManageKeyfiles: one bar per file, with the remove
   icon right behind the name instead of pushed to the far edge of the row.
@@ -32,8 +33,6 @@ export default {
       files: [],
       // id -> 'granted' | 'prompt' | 'denied' | 'unsupported' | 'none'
       permission: {},
-      editingId: '',
-      draftAlias: '',
       error: '',
     };
   },
@@ -132,40 +131,6 @@ export default {
       }
       await this.refresh();
     },
-    startRename(file) {
-      if (this.busy) return;
-      this.editingId = file.id;
-      this.draftAlias = file.alias;
-      this.$nextTick(() => {
-        const ref = this.$refs.aliasInput;
-        const input = Array.isArray(ref) ? ref[0] : ref;
-        if (input) {
-          input.focus();
-          input.select();
-        }
-      });
-    },
-    cancelRename() {
-      this.editingId = '';
-      this.draftAlias = '';
-    },
-    async commitRename(file) {
-      if (this.editingId !== file.id) return;
-      const alias = this.draftAlias.trim();
-      this.editingId = '';
-      this.draftAlias = '';
-      if (!alias || alias === file.alias) return;
-      this.busy = true;
-      this.error = '';
-      try {
-        await this.providerManager.renameFile(file.id, alias);
-      } catch (err) {
-        this.error = this.messageFor(err);
-        this.busy = false;
-        return;
-      }
-      await this.refresh();
-    },
     async toggleLogin() {
       if (this.enabled) {
         // Off: persisted, so the database picker stops offering the local files, and
@@ -206,19 +171,9 @@ export default {
     <template v-if="enabled">
       <div v-for="file in files" :key="file.id" class="box-bar roomy small lighter">
         <span>
-          <input
-            v-if="editingId === file.id"
-            ref="aliasInput"
-            v-model="draftAlias"
-            class="local-file-rename"
-            :aria-label="$t('Rename')"
-            @keyup.enter="commitRename(file)"
-            @keyup.esc="cancelRename"
-            @blur="commitRename(file)"
-          />
-          <span v-else class="local-file-name" :title="$t('Rename')" @click="startRename(file)">{{
-            file.alias
-          }}</span>
+          <!-- Read-only, like the key-file rows: the name is the one the picker
+               reported, and a duplicate gets a numbered suffix when it is added. -->
+          <span class="local-file-name" :title="file.alias">{{ file.alias }}</span>
           <i
             class="fa fa-times-circle selectable"
             aria-hidden="true"
@@ -248,7 +203,7 @@ export default {
 #local-file-manager {
   /* Same treatment as the key-file rows: a long, space-less name must not widen the
      row, and the remove icon stays right behind it. No ellipsis - the name is
-     clipped, and clicking it renames the file (the tooltip says so).
+     clipped and the full value is in the tooltip.
      Weight and colour stay at the description's: the list is body text, not a
      heading, so it must not read as heavier than the paragraph above it. */
   .local-file-name {
@@ -259,18 +214,6 @@ export default {
     text-overflow: clip;
     vertical-align: bottom;
     font-weight: 400;
-    cursor: text;
-  }
-
-  .local-file-rename {
-    width: calc(100% - 40px);
-    height: 24px;
-    margin: 0;
-    padding: 0 6px;
-    font-size: 13px;
-    border: 1px solid var(--keepass-cat-blue);
-    border-radius: 4px;
-    box-sizing: border-box;
   }
 
   .local-file-badge {

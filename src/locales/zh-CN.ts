@@ -173,7 +173,6 @@ const zhCN: Record<string, string> = {
   'Re-authorise': '重新授权',
   'Add .kdbx files': '添加 .kdbx 文件',
   'No local files added yet.': '尚未添加本地文件。',
-  'Rename': '重命名',
   'File permission was denied. Choose the file again to grant access.': '文件权限已被拒绝。请重新选择文件以授予访问权限。',
   'Local file access is not supported in this browser. Use Chrome or another browser with the File System Access API.': '当前浏览器不支持本地文件访问。请使用 Chrome 或其他支持 File System Access API 的浏览器。',
   'This browser cannot request file permissions. Use Chrome or another browser with the File System Access API.': '当前浏览器无法请求文件权限。请使用 Chrome 或其他支持 File System Access API 的浏览器。',

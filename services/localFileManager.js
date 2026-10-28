@@ -20,8 +20,8 @@
  *   several files at once, so no code may assume "the" handle any more.
  * - `alias` is what the UI shows. The File System Access API exposes no path,
  *   only handle.name, so two files with the same name in different folders look
- *   identical to the browser; uniqueness is therefore enforced on the alias and
- *   the user can rename it.
+ *   identical to the browser; uniqueness is therefore enforced on the alias (a
+ *   duplicate gets a numbered suffix when it is added).
  * - `cacheId` is the key the remembered master password and the database-usage
  *   record are stored under. New files use their id; a file migrated from the
  *   single-file builds keeps the name it was saved with, so that install does
@@ -187,7 +187,6 @@ function LocalFileManager() {
     listFiles: listFiles,
     addFiles: addFiles,
     removeFile: removeFile,
-    renameFile: renameFile,
     getFilePermission: getFilePermission,
     // Picker interface shared with every other provider
     listDatabases: listDatabases,
@@ -425,7 +424,7 @@ function LocalFileManager() {
       const record = {
         id: id,
         cacheId: id,
-        alias: uniqueAlias(handle.name || 'database.kdbx', records, null),
+        alias: uniqueAlias(handle.name || 'database.kdbx', records),
         addedAt: Date.now(),
         handle: handle,
       };
@@ -433,9 +432,14 @@ function LocalFileManager() {
       records.push(record);
       added.push(record);
 
-      // The picker hands back read permission only, and asking for write later
-      // needs another click. Best effort: a refusal just means the settings row
-      // shows "permission needed" and the unlock screen can ask again.
+      /*
+       * The picker hands back read permission only, and asking for write later
+       * needs another click in the middle of a save. Asking here means Chrome's
+       * "save changes to ...?" dialog appears once per file while the user is
+       * deliberately picking files, and a later save never interrupts. That many
+       * dialogs is the intended trade; getWritableHandle() is only the fallback
+       * for a grant that was declined or has since expired.
+       */
       try {
         await handle.requestPermission({ mode: 'readwrite' });
       } catch (e) {
@@ -464,10 +468,8 @@ function LocalFileManager() {
    * this is the only thing that keeps two same-named files distinguishable, and
    * the same alias also becomes the database route (/unlock/localfile/<alias>).
    */
-  function uniqueAlias(name, records, skipId) {
-    const taken = new Set(
-      records.filter((record) => record.id !== skipId).map((record) => record.alias)
-    );
+  function uniqueAlias(name, records) {
+    const taken = new Set(records.map((record) => record.alias));
     if (!taken.has(name)) return name;
     const dot = name.lastIndexOf('.');
     const stem = dot > 0 ? name.slice(0, dot) : name;
@@ -494,19 +496,6 @@ function LocalFileManager() {
     const record = findById(records, id);
     if (!record) return 'none';
     return permissionState(record.handle, 'read');
-  }
-
-  async function renameFile(id, alias) {
-    const records = await loadRecords();
-    const record = findById(records, id);
-    if (!record) throw new Error('No local file selected. Choose a .kdbx file first.');
-    const cleaned = String(alias === undefined || alias === null ? '' : alias).trim();
-    if (!cleaned) return record.alias;
-    record.alias = uniqueAlias(cleaned, records, id);
-    await putStoredRecord(id, record);
-    const selected = await selectedRecord(records);
-    if (selected && selected.id === id) await healSelection(record);
-    return record.alias;
   }
 
   async function removeFile(id) {
