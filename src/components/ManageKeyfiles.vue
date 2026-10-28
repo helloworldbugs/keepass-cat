@@ -69,7 +69,19 @@ export default {
         <b>{{ $t('stored unencrypted') }}</b>
         {{ $t(' in your local browser profile and someone with access to your device could read them.') }}
       </p>
-      <input id="file" multiple type="file" style="display: none" name="file" @change="handleAdd" />
+      <!-- KeePass 2 writes XML key files (.keyx) and reads the legacy binary ones
+           (.key); without an accept attribute the dialog listed every file type on
+           the machine, .exe included. "All files" is still there for a key file
+           that was saved under another name, since any file can be key material. -->
+      <input
+        id="file"
+        multiple
+        type="file"
+        style="display: none"
+        name="file"
+        accept=".key,.keyx"
+        @change="handleAdd"
+      />
       <a class="waves-effect waves-light btn" @click="selectFileInput">{{ $t('Add Key File') }}</a>
       <p v-if="errorMessage" class="box-bar error white-text">
         {{ $t(errorMessage) }}

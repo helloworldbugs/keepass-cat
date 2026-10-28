@@ -92,10 +92,17 @@ function storageRemove(key) {
   });
 }
 
+/*
+ * The picker builds its filter from the extensions the OS associates with the MIME
+ * type, and only falls back to the list below when the type has none. Chrome maps
+ * `application/octet-stream` to everything registered for it on Windows - the
+ * dialog then offered dozens of suffixes, .exe included - so a type nothing
+ * registers is used here: the filter is just ".kdbx".
+ */
 const PICKER_TYPES = [
   {
     description: 'KeePass database',
-    accept: { 'application/octet-stream': ['.kdbx'] },
+    accept: { 'application/x-keepass-database': ['.kdbx'] },
   },
 ];
 
