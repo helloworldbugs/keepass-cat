@@ -107,6 +107,9 @@ export default {
         this.settings.disableDatabaseProvider(this.providerManager);
         this.providerManager.logout().then(() => {
           this.loggedIn = false;
+          // Switching the server off drops the credentials, so a scan result from
+          // them is not a list of databases this provider can still offer.
+          this.databases = [];
         });
       } else {
         this.providerManager.login().then(() => {

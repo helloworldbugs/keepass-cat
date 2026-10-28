@@ -34,7 +34,9 @@ export default {
         </div>
       </div>
     </div>
-    <div style="display: flex; flex-wrap: wrap">
+    <!-- The discovered databases belong to the provider being on: with the switch
+         off the picker no longer offers them, so their names fold away too. -->
+    <div v-if="loggedIn" style="display: flex; flex-wrap: wrap">
       <span
         v-for="(db, index) in databases"
         class="chip"
