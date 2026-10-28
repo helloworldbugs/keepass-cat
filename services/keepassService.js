@@ -770,6 +770,17 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     return !!_db;
   };
 
+  /*
+   * Switching the selected database inside the popup keeps this singleton alive,
+   * so the decrypted database and the master key of the *previous* file would
+   * otherwise carry over into saves for the new one. Drop both; the next unlock
+   * loads the new file from scratch.
+   */
+  my.resetForDatabaseSwitch = function () {
+    _db = null;
+    _masterKey = null;
+  };
+
   my.reparseLocal = function () {
     if (!_db) return Promise.resolve([]);
     return Promise.resolve(

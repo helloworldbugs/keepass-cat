@@ -377,23 +377,46 @@ export default defineComponent({
     },
     chooseDatabase(db) {
       if (!db || !db.provider) return;
+      if (this.isCurrentDatabase(db)) {
+        this.databasePicker = false;
+        return;
+      }
       const provider = db.provider;
       const info = provider.getDatabaseChoiceData(db);
+      this.databasePicker = false;
       this.settings
         .saveCurrentDatabaseChoice(info, provider)
         .then(() => {
-          // This screen is already mounted for the *previous* database, so a route
-          // change would reuse it with stale state. Remember the route and reload
-          // the popup: mount then re-reads the saved choice.
-          try {
-            localStorage.setItem(
-              'keepassCat.lastUnlockRoute',
-              '/unlock/' + provider.key + '/' + encodeURIComponent(db.title)
-            );
-          } catch (e) {
-            // localStorage can be unavailable; the reload still picks the new choice.
-          }
-          window.location.reload();
+          /*
+           * This screen stays mounted (the virtual router only toggles visibility),
+           * so everything derived from the previous choice is reset here instead of
+           * reloading the popup — a reload flashes the whole window.
+           */
+          this.keepassService.resetForDatabaseSwitch();
+          this.unlockedState.cacheSet('allEntries', []);
+          this.unlockedState.cacheSet('priorityEntries', []);
+          this.secureCache.clear('secureCache.entries');
+          this.secureCache.clear('secureCache.entries', 'local');
+          this.databaseFileName = db.title;
+          this.isUnlocked = false;
+          this.showBrowse = false;
+          this.selectedKeyFile = undefined;
+          this.masterPassword = '';
+          this.unlockedMessages.error = '';
+          this.unlockedMessages.warn = '';
+          // Form flags belong to the old database; loadDatabaseUsage() sets them
+          // again for the new one (and leaves them untouched when it has no usage).
+          this.hidePassword = undefined;
+          this.hideKeyFile = undefined;
+          this.rememberedPassword = false;
+          this.listVersion += 1;
+          this.$router.route('/unlock/' + provider.key + '/' + encodeURIComponent(db.title));
+          this.loadKeyFiles();
+          return this.loadDatabaseUsage();
+        })
+        .then(() => {
+          // Honour a remembered password for the newly chosen file, if any.
+          this.autoUnlock();
         })
         .catch((err) => {
           this.unlockedMessages.error = (err && err.message) || String(err);
@@ -1158,6 +1181,12 @@ export default defineComponent({
       border-top: 1px solid $light-gray;
       color: var(--keepass-cat-text-subtle, #666);
     }
+  }
+
+  // The database glyph keeps the brand blue: it is the identity of what is being
+  // unlocked. Only the key glyph changes with its state (grey → gold).
+  #select-database .fa-database {
+    color: var(--keepass-cat-blue, #0089ec);
   }
 
   #select-keyfile,
