@@ -1,7 +1,6 @@
 const zhCN: Record<string, string> = {
   // ===== Unlock Screen =====
   'Keepass Cat': 'Keepass Cat',
-  'change...': '更换...',
   'Master password': '主密码',
   'No keyfile selected. (click to change)': '未选择密钥文件（点击更换）',
   'No keyfile': '不使用密钥文件',

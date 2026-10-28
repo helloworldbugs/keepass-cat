@@ -24,6 +24,7 @@
       :links="links"
       :settings="settings"
       :keepass-service="keepassService"
+      :password-file-store-registry="passwordFileStoreRegistry"
     />
     <entry-edit
       v-if="show.entryEdit.visible"

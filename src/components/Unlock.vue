@@ -37,6 +37,7 @@ export default defineComponent({
     settings: Object,
     keepassService: Object,
     links: Object,
+    passwordFileStoreRegistry: Object,
   },
   data() {
     return {
@@ -46,6 +47,9 @@ export default defineComponent({
         error: '',
       },
       busy: false,
+      // The database row opens a list in place, the same way the keyfile row does.
+      databasePicker: false,
+      databases: [],
       // True from mount until we know whether to show the unlock form or jump
       // straight to the entries. The template keeps the layout but hides it, so
       // the form never flashes for a remembered password.
@@ -341,6 +345,59 @@ export default defineComponent({
         if (index >= 0) this.selectedKeyFile = this.keyFiles[index];
         else this.selectedKeyFile = undefined;
       this.keyFilePicker = false;
+    },
+    // The database row opens its list in place, like the keyfile row below it.
+    toggleDatabasePicker() {
+      this.databasePicker = !this.databasePicker;
+      if (this.databasePicker) this.loadDatabases();
+    },
+    loadDatabases() {
+      if (!this.passwordFileStoreRegistry) return;
+      this.databases = [];
+      this.passwordFileStoreRegistry.listFileManagers('listDatabases').forEach((provider) => {
+        provider
+          .listDatabases()
+          .then((databases) => {
+            if (!databases || !databases.length) return;
+            databases.forEach((database) => {
+              database.provider = provider;
+            });
+            this.databases = this.databases.concat(databases);
+          })
+          .catch((err) => {
+            // A provider that is offline must not hide the databases the other
+            // providers returned.
+            console.warn('[databases] listDatabases failed for ' + provider.key + ':', err && err.message);
+          });
+      });
+    },
+    isCurrentDatabase(db) {
+      const route = this.$router.getRoute() || {};
+      return !!db && !!db.provider && db.title === this.databaseFileName && db.provider.key === route.provider;
+    },
+    chooseDatabase(db) {
+      if (!db || !db.provider) return;
+      const provider = db.provider;
+      const info = provider.getDatabaseChoiceData(db);
+      this.settings
+        .saveCurrentDatabaseChoice(info, provider)
+        .then(() => {
+          // This screen is already mounted for the *previous* database, so a route
+          // change would reuse it with stale state. Remember the route and reload
+          // the popup: mount then re-reads the saved choice.
+          try {
+            localStorage.setItem(
+              'keepassCat.lastUnlockRoute',
+              '/unlock/' + provider.key + '/' + encodeURIComponent(db.title)
+            );
+          } catch (e) {
+            // localStorage can be unavailable; the reload still picks the new choice.
+          }
+          window.location.reload();
+        })
+        .catch((err) => {
+          this.unlockedMessages.error = (err && err.message) || String(err);
+        });
     },
     chooseAnotherFile() {
       this.unlockedState.clearBackgroundState();
@@ -799,10 +856,38 @@ export default defineComponent({
       </div>
 
       <form @submit="clickUnlock">
-        <div class="selectable databaseChoose" @click="$router.route('/choose')">
-          <i class="fa fa-database database-icon" aria-hidden="true" />
-          <b class="database-name">{{ databaseFileName }}</b>
-          <span class="change-badge">{{ $t('change...') }}</span>
+        <div
+          id="select-database"
+          class="selectable"
+          :class="{ open: databasePicker }"
+          @click="toggleDatabasePicker"
+        >
+          <i class="fa fa-database" aria-hidden="true" />
+          <span class="keyfile-name">{{ databaseFileName }}</span>
+          <i class="fa fa-angle-down keyfile-caret" aria-hidden="true" />
+        </div>
+
+        <div v-if="databasePicker" class="stack-item keyfile-picker">
+          <transition name="keyfile-picker">
+            <div>
+              <span
+                v-for="(db, db_index) in databases"
+                :key="db_index"
+                class="selectable keyfile-option"
+                :class="{ selected: isCurrentDatabase(db) }"
+                @click="chooseDatabase(db)"
+              >
+                <i class="fa fa-database fa-fw" aria-hidden="true" />
+                <span class="keyfile-name">{{ db.title }}</span>
+                <span class="keyfile-provider">{{ db.provider.title }}</span>
+                <i v-if="isCurrentDatabase(db)" class="fa fa-check keyfile-check" aria-hidden="true" />
+              </span>
+              <span class="selectable keyfile-manage" @click="links.openOptionsDatabases">
+                <i class="fa fa-wrench fa-fw" aria-hidden="true" />
+                <span class="keyfile-name">{{ $t('Manage Database Files') }}</span>
+              </span>
+            </div>
+          </transition>
         </div>
 
         <div class="stack-item masterPasswordInput">
@@ -1056,6 +1141,15 @@ export default defineComponent({
         color: $blue;
         font-size: 13px;
       }
+
+      // Two databases can share a name (a local file and a server copy); the
+      // provider is what tells them apart.
+      .keyfile-provider {
+        flex: none;
+        margin-left: 8px;
+        font-size: 11px;
+        color: var(--keepass-cat-text-muted, #999);
+      }
     }
 
     // "Manage Keyfiles" is an action, not an entry: rule above it, muted text.
@@ -1066,7 +1160,8 @@ export default defineComponent({
     }
   }
 
-  #select-keyfile {
+  #select-keyfile,
+  #select-database {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1437,55 +1532,6 @@ export default defineComponent({
   }
 }
 
-.databaseChoose {
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px $wall-padding;
-  background: $light-background-color;
-  border-top: 1px solid $light-gray;
-  color: $text-color;
-
-  .database-icon {
-    flex-shrink: 0;
-    font-size: 16px;
-    color: $blue;
-  }
-
-  .database-name {
-    flex: 1;
-    min-width: 0;
-    font-size: 16px;
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: clip;
-    // Dissolve the cut like the entry rows rather than truncating with dots.
-    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
-    mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
-  }
-
-  .change-badge {
-    flex-shrink: 0;
-    padding: 3px 10px;
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 1.4;
-    color: $blue;
-    border: 1px solid $blue;
-    border-radius: 3px;
-    transition: background-color 0.15s ease, color 0.15s ease;
-  }
-
-  &:hover {
-    background: var(--keepass-cat-bg-hover);
-
-    .change-badge {
-      color: var(--keepass-cat-svg-fill);
-      background: $blue;
-    }
-  }
-}
 </style>
+
 
