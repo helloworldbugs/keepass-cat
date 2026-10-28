@@ -45,9 +45,6 @@ const zhCN: Record<string, string> = {
 
   // ===== Entry Details =====
   'back to entry list': '返回条目列表',
-  'One Time Password': '一次性密码',
-  'Copy to clipboard': '复制到剪贴板',
-  'Autofill': '自动填充',
 
   // ===== Entry Edit =====
   'Delete': '删除',
@@ -203,8 +200,6 @@ const zhCN: Record<string, string> = {
   'Session expired. Please re-unlock the database.': '会话已过期，请重新解锁数据库。',
   'Entry not found in database': '数据库中未找到该条目',
   'Group not found': '未找到该分组',
-  'Network Connection Error': '网络连接错误',
-  'No network connection': '无网络连接',
   'Database no longer exists': '数据库已不存在',
   'Current database is not WebDAV': '当前数据库不是 WebDAV 类型',
   'Server not found': '未找到服务器',
@@ -225,11 +220,6 @@ const zhCN: Record<string, string> = {
   'optional authentication method': '可选认证方式',
   'KeePass site': 'KeePass 网站',
   'stored unencrypted': '以未加密形式存储',
-  'Keepass2Android': 'Keepass2Android',
-  'KeePassXC': 'KeePassXC',
-  'KeeWeb': 'KeeWeb',
-  'the troubleshooting guide': '故障排除指南',
-  'open an issue': '提交 issue',
 
   // ===== Autofill Shortcut =====
   'Autofill Shortcut': '自动填充快捷键',
@@ -245,7 +235,6 @@ const zhCN: Record<string, string> = {
   'Copies the code and also fills it into the focused input field on the current page when you click the OTP button.': '点击 OTP 按钮时，会复制验证码并自动填充到当前页面光标所在的输入框。',
   'Copies the code to the clipboard whenever you autofill an entry that has an OTP.': '触发自动填充含 OTP 的密码条目时，会自动将 OTP 验证码复制到剪贴板。',
 
-  ' or ': ' 或 ',
 
   // ===== Manage Keyfiles paragraph fragments =====
   'Key files are an ': '密钥文件是一种 ',

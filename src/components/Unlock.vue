@@ -75,7 +75,6 @@ export default defineComponent({
       databaseFileName: '',
       keyFilePicker: false,
       showBrowse: false,
-      appVersion: chrome.runtime.getManifest().version,
       slider_options: [
         {
           time: 0,
@@ -421,12 +420,6 @@ export default defineComponent({
         .catch((err) => {
           this.unlockedMessages.error = (err && err.message) || String(err);
         });
-    },
-    chooseAnotherFile() {
-      this.unlockedState.clearBackgroundState();
-      this.secureCache.clear('secureCache.entries');
-      this.secureCache.clear('secureCache.entries', 'local');
-      this.$router.route('/choose');
     },
     toggleBrowse() {
       this.showBrowse = !this.showBrowse;

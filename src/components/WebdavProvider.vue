@@ -30,7 +30,6 @@ export default {
         password: '',
       },
       serverList: [],
-      serverListMeta: {},
     };
   },
   mounted() {
