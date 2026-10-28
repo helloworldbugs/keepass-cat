@@ -123,7 +123,8 @@ export default {
 <style lang="scss">
 @import '../styles/settings.scss';
 .entry-list-item {
-  transition: all 0.3s ease;
+  // Only the hover tint changes; ll made every hover animate every property.
+  transition: background-color 0.12s ease;
   width: 100%;
   // 6px, not 10px: the popup is 600px tall at most, and every pixel of padding
   // here costs a match row. The three text lines keep their 1.4 line-height, so

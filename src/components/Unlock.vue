@@ -1099,7 +1099,9 @@ export default defineComponent({
   .keyfile-picker {
     background-color: $light-background-color;
     box-sizing: border-box;
-    transition: all 0.2s linear;
+    // Only the open/close animation needs a transition; ll also animated
+    // every hover repaint inside the list.
+    transition: max-height 0.2s linear, opacity 0.2s linear;
     max-height: 168px; // keeps the popup well under 600px; longer lists scroll
     overflow-y: auto;
     scrollbar-width: thin;

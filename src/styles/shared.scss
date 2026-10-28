@@ -22,12 +22,19 @@ textarea {
 }
 
 .selectable {
-  transition: all 0.3s ease;
+  // `all` animated every property on every hover — including the padding below,
+  // which re-laid-out the row and its neighbours on each mouse move. Only these
+  // four ever change.
+  transition: background-color 0.12s ease, color 0.12s ease, opacity 0.12s ease,
+    transform 0.12s ease;
 
   &:hover {
     cursor: pointer;
   }
 
+  // Slide the text in on hover. Deliberately not transitioned: animating padding
+  // re-lays-out the row on every frame, and shifting the whole row with a
+  // transform would slide its right-hand buttons out of the clipped area.
   &.flair:hover {
     padding-left: 20px;
   }
