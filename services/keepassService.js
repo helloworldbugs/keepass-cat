@@ -751,7 +751,7 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
         if (!localFileManager || typeof localFileManager.writeDatabase !== 'function') {
           throw new Error(i18n.t('Local file provider is unavailable.'));
         }
-        return localFileManager.writeDatabase(arrayBuffer);
+        return localFileManager.writeDatabase(arrayBuffer, choice.passwordFile);
       }
       return uploadViaBackground(arrayBuffer);
     });
@@ -779,6 +779,9 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
   my.resetForDatabaseSwitch = function () {
     _db = null;
     _masterKey = null;
+    // The recorded ETag/hash belong to the database that was open. With several
+    // databases the next download must not be compared against the previous one.
+    setLastDb({});
   };
 
   my.reparseLocal = function () {
@@ -801,7 +804,10 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     if (!manager || typeof manager.requestPermission !== 'function') {
       return Promise.reject(new Error(i18n.t('Local file provider is unavailable.')));
     }
-    return manager.requestPermission();
+    // Ask for the database that is actually selected, not for "the" local file.
+    return settings.getCurrentDatabaseChoice().then(function (choice) {
+      return manager.requestPermission(choice ? choice.passwordFile : undefined);
+    });
   };
 
   my.refreshFromServer = function () {

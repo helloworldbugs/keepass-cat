@@ -1,18 +1,28 @@
 'use strict';
 
 /*
- * Persists the single FileSystemFileHandle used by the local-file provider.
+ * Persists the FileSystemFileHandles used by the local-file provider.
  *
  * A FileSystemFileHandle cannot be structured-cloned into chrome.storage, but
  * IndexedDB can store it: Chrome keeps the handle reference and the permission
- * grant is re-checked every time it is used. One fixed database/store/key is
- * used so this module can never collide with other extension data.
+ * grant is re-checked every time it is used.
+ *
+ * Records are keyed by a stable id generated when the file is added, because one
+ * extension install can hold several .kdbx files. Each value is
+ * `{ id, cacheId, alias, addedAt, handle }`; the alias is what the UI shows (the
+ * File System Access API exposes no path, only handle.name) and cacheId is the key
+ * the remembered password is stored under (see localFileManager.js).
  */
 
 const DB_NAME = 'keepass-cat';
 const DB_VERSION = 1;
 const STORE_NAME = 'fileHandles';
-const HANDLE_KEY = 'localfile';
+
+/*
+ * Single-file builds stored the handle under this fixed key. It is still read so
+ * an existing install can migrate to id-keyed records without re-picking the file.
+ */
+const LEGACY_HANDLE_KEY = 'localfile';
 
 function openDatabase() {
   return new Promise(function (resolve, reject) {
@@ -39,26 +49,55 @@ function openDatabase() {
   });
 }
 
-/*
- * Runs one transaction and resolves with the value returned by `action` once
- * the transaction commits. `action` receives the object store and may return a
- * promise (e.g. the result of a get request).
- */
-function withDatabase(mode, action) {
+function requestToPromise(request) {
+  return new Promise(function (resolve, reject) {
+    request.onsuccess = function () {
+      resolve(request.result);
+    };
+    request.onerror = function () {
+      reject(request.error || new Error('Failed to read the stored file handle.'));
+    };
+  });
+}
+
+/* Reads run inside a transaction that closes as soon as the requests settle. */
+function read(action) {
+  return openDatabase().then(function (db) {
+    let tx;
+    try {
+      tx = db.transaction(STORE_NAME, 'readonly');
+    } catch (err) {
+      db.close();
+      throw err;
+    }
+    const result = action(tx.objectStore(STORE_NAME));
+    tx.oncomplete = function () {
+      db.close();
+    };
+    tx.onerror = function () {
+      db.close();
+    };
+    tx.onabort = function () {
+      db.close();
+    };
+    return result;
+  });
+}
+
+/* Writes resolve only once the transaction commits, so a crash cannot lose them. */
+function write(action) {
   return openDatabase().then(function (db) {
     return new Promise(function (resolve, reject) {
       let tx;
       try {
-        tx = db.transaction(STORE_NAME, mode);
+        tx = db.transaction(STORE_NAME, 'readwrite');
       } catch (err) {
         db.close();
         reject(err);
         return;
       }
-      const store = tx.objectStore(STORE_NAME);
-      let result;
       try {
-        result = action(store);
+        action(tx.objectStore(STORE_NAME));
       } catch (err) {
         db.close();
         reject(err);
@@ -66,7 +105,7 @@ function withDatabase(mode, action) {
       }
       tx.oncomplete = function () {
         db.close();
-        resolve(result);
+        resolve();
       };
       tx.onerror = function () {
         db.close();
@@ -80,39 +119,42 @@ function withDatabase(mode, action) {
   });
 }
 
+/** True for a bare FileSystemFileHandle as written by the single-file builds. */
+function isFileHandle(value) {
+  return !!value && typeof value === 'object' && typeof value.getFile === 'function';
+}
+
 /**
- * Resolves the stored FileSystemFileHandle, or null when none is saved.
+ * Resolves every raw entry as `{ key, value }`, including a legacy bare handle
+ * stored under LEGACY_HANDLE_KEY.
  */
-function get() {
-  return withDatabase('readonly', function (store) {
-    return new Promise(function (resolve, reject) {
-      const request = store.get(HANDLE_KEY);
-      request.onsuccess = function () {
-        resolve(request.result || null);
-      };
-      request.onerror = function () {
-        reject(request.error || new Error('Failed to read the stored file handle.'));
-      };
+function listRecords() {
+  return read(function (store) {
+    return Promise.all([
+      requestToPromise(store.getAllKeys()),
+      requestToPromise(store.getAll()),
+    ]).then(function (results) {
+      const keys = results[0];
+      const values = results[1];
+      return keys.map(function (key, index) {
+        return { key: key, value: values[index] };
+      });
     });
   });
 }
 
-/**
- * Stores (or replaces) the FileSystemFileHandle.
- */
-function set(handle) {
-  return withDatabase('readwrite', function (store) {
-    store.put(handle, HANDLE_KEY);
+/** Stores (or replaces) the record for `id`. */
+function putRecord(id, value) {
+  return write(function (store) {
+    store.put(value, id);
   });
 }
 
-/**
- * Forgets the stored FileSystemFileHandle.
- */
-function clear() {
-  return withDatabase('readwrite', function (store) {
-    store.delete(HANDLE_KEY);
+/** Removes the record for `id`. */
+function deleteRecord(id) {
+  return write(function (store) {
+    store.delete(id);
   });
 }
 
-export { get, set, clear };
+export { listRecords, putRecord, deleteRecord, LEGACY_HANDLE_KEY, isFileHandle };

@@ -558,13 +558,9 @@ function Background(protectedMemory, localMemory, settings, notifications) {
   }
 
   function forgetPassword() {
-    return settings
-      .getCurrentDatabaseChoice()
-      .then((info) => {
-        let key = info.passwordFile.title + '__' + info.providerKey + '.password';
-        return key;
-      })
-      .then(protectedMemory.clearData);
+    // The cache key belongs to settings: a database is stored under its cacheId,
+    // not just its title, so composing the key here would drift.
+    return settings.getCurrentMasterPasswordCacheKey().then(protectedMemory.clearData);
   }
 }
 

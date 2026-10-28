@@ -103,25 +103,58 @@ function Settings(secureCache) {
     });
   };
 
+  /*
+   * The identity a database's cached secrets are stored under.
+   *
+   * A provider may hand back a stable `cacheId` with the choice (the local-file
+   * provider uses the handle id) so that renaming a file keeps its remembered
+   * master password. Everything written by older builds has no cacheId and keeps
+   * using the title, which is why the fallback must stay.
+   */
+  exports.getDatabaseCacheKey = function (choice) {
+    if (!choice || !choice.passwordFile) return null;
+    var passwordFile = choice.passwordFile;
+    return (passwordFile.cacheId || passwordFile.title) + '__' + choice.providerKey;
+  };
+
+  /*
+   * Drops every secret cached for one database: the remembered master password
+   * (session and persistent), the decrypted entry cache and the "remember for"
+   * timer. Used when a provider is switched off, and when the local-file provider
+   * removes one of its files.
+   */
+  exports.forgetDatabaseSecrets = function (choice) {
+    var key = exports.getDatabaseCacheKey(choice);
+    if (!key) return Promise.resolve(false);
+    key += '.password';
+    return Promise.all([
+      secureCache.clear(key),
+      secureCache.clear(key, 'local'),
+      secureCache.clear('secureCache.entries'),
+      secureCache.clear('secureCache.entries', 'local'),
+      exports.clearForgetTimes([key]),
+    ]).then(
+      function () {
+        return true;
+      },
+      function () {
+        return true;
+      }
+    );
+  };
+
   exports.disableDatabaseProvider = function (provider) {
     return chromePromise.storage.local.get(['selectedDatabase']).then((items) => {
       const selected = items.selectedDatabase;
       if (!selected || selected.providerKey !== provider.key) return Promise.resolve(false);
-      const key = selected.passwordFile.title + '__' + selected.providerKey + '.password';
       /*
        * Switching a provider off has to forget its secrets, not just the selection.
        * Leaving the cached master password (the "remember forever" entry in the local
        * store) and the cached entries behind meant that turning the provider back on
        * unlocked the database again without asking for the password. Same for WebDAV.
        */
-      return Promise.all([
-        secureCache.clear(key),
-        secureCache.clear(key, 'local'),
-        secureCache.clear('secureCache.entries'),
-        secureCache.clear('secureCache.entries', 'local'),
-        exports.clearForgetTimes([key]),
-      ])
-        .catch(() => {})
+      return exports
+        .forgetDatabaseSecrets(selected)
         .then(() => chromePromise.storage.local.remove('selectedDatabase'))
         .then(() => true);
     });
@@ -129,7 +162,7 @@ function Settings(secureCache) {
 
   exports.getCurrentMasterPasswordCacheKey = function () {
     return exports.getCurrentDatabaseChoice().then((info) => {
-      if (info !== null) return info.passwordFile.title + '__' + info.providerKey + '.password';
+      if (info !== null) return exports.getDatabaseCacheKey(info) + '.password';
       return null;
     });
   };
@@ -208,7 +241,7 @@ function Settings(secureCache) {
   exports.saveCurrentDatabaseUsage = function (usage) {
     return exports.getCurrentDatabaseChoice().then(function (info) {
       return exports.getSetDatabaseUsages().then(function (usages) {
-        var key = info.passwordFile.title + '__' + info.providerKey;
+        var key = exports.getDatabaseCacheKey(info);
         usages[key] = usage;
 
         return exports.getSetDatabaseUsages(usages);
@@ -223,7 +256,7 @@ function Settings(secureCache) {
   exports.getCurrentDatabaseUsage = function () {
     return exports.getCurrentDatabaseChoice().then(function (info) {
       return exports.getSetDatabaseUsages().then(function (usages) {
-        var key = info.passwordFile.title + '__' + info.providerKey;
+        var key = exports.getDatabaseCacheKey(info);
         var usage = usages[key] || {};
 
         return secureCache.get(key + '.password').then(function (value) {

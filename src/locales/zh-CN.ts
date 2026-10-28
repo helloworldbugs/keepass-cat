@@ -166,14 +166,14 @@ const zhCN: Record<string, string> = {
   // ===== Provider Metadata =====
   'WebDAV': 'WebDAV',
   'Local file': '本地文件',
-  'Open a .kdbx file on this computer. Keepass Cat reads and writes the same file in place, so changes made by other KeePass apps are detected before saving. Requires Chrome (File System Access API) and permission to access the file.': '打开此电脑上的 .kdbx 文件。Keepass Cat 会直接读写同一个文件，并在保存前检测其他 KeePass 应用所做的修改。需要 Chrome（File System Access API）以及访问该文件的权限。',
+  'Open .kdbx files on this computer. Keepass Cat reads and writes each file in place, so changes made by other KeePass apps are detected before saving. Requires Chrome (File System Access API) and permission to access the files.': '打开此电脑上的 .kdbx 文件。Keepass Cat 会直接读写每个文件，并在保存前检测其他 KeePass 应用所做的修改。需要 Chrome（File System Access API）以及访问这些文件的权限。',
   'KeePass database': 'KeePass 数据库',
 
   // ===== Provider: Local file =====
-  'Choose .kdbx file': '选择 .kdbx 文件',
   'Re-authorise': '重新授权',
-  'Forget file': '忘记文件',
-  'Selected file:': '已选文件：',
+  'Add .kdbx files': '添加 .kdbx 文件',
+  'No local files added yet.': '尚未添加本地文件。',
+  'Rename': '重命名',
   'File permission was denied. Choose the file again to grant access.': '文件权限已被拒绝。请重新选择文件以授予访问权限。',
   'Local file access is not supported in this browser. Use Chrome or another browser with the File System Access API.': '当前浏览器不支持本地文件访问。请使用 Chrome 或其他支持 File System Access API 的浏览器。',
   'This browser cannot request file permissions. Use Chrome or another browser with the File System Access API.': '当前浏览器无法请求文件权限。请使用 Chrome 或其他支持 File System Access API 的浏览器。',

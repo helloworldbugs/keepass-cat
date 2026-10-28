@@ -1,8 +1,16 @@
 <!--
   LocalFileProvider:
-  A single .kdbx file on this computer, read and written in place with the
-  File System Access API. The parent only mounts this component when
+  One or more .kdbx files on this computer, each read and written in place with
+  the File System Access API. The parent only mounts this component when
   providerManager.isSupported() is true (Chrome), so Firefox never sees it.
+
+  Every file gets a stable id when it is added; the id is what the unlock screen
+  remembers and what a save is written back to. The name shown here is an alias:
+  the File System Access API exposes no path, so two files with the same name can
+  only be told apart by a name the user can edit.
+
+  The rows deliberately mirror ManageKeyfiles: one bar per file, with the remove
+  icon right behind the name instead of pushed to the far edge of the row.
 -->
 <script>
 import GenericProviderUi from '@/components/GenericProviderUi.vue';
@@ -18,13 +26,14 @@ export default {
   data() {
     return {
       busy: false,
-      // Whether the provider is switched on. Deliberately separate from "a file has
-      // been picked": switching on must not open the file picker by itself.
+      // Whether the provider is switched on. Deliberately separate from "files
+      // have been added": switching on must not open the file picker by itself.
       enabled: false,
-      loggedIn: false,
-      permission: 'none',
-      fileName: '',
-      databases: [],
+      files: [],
+      // id -> 'granted' | 'prompt' | 'denied' | 'unsupported' | 'none'
+      permission: {},
+      editingId: '',
+      draftAlias: '',
       error: '',
     };
   },
@@ -35,64 +44,137 @@ export default {
     messageFor(err) {
       return (err && err.message) || String(err);
     },
+    needsPermission(id) {
+      const state = this.permission[id];
+      return !!state && state !== 'granted' && state !== 'unsupported';
+    },
     async refresh() {
       this.busy = true;
       this.error = '';
       try {
-        this.loggedIn = await this.providerManager.isLoggedIn();
         this.enabled = await this.providerManager.isEnabled();
-        this.databases = this.loggedIn ? await this.providerManager.listDatabases() : [];
-        this.fileName = this.databases.length ? this.databases[0].title : '';
-        this.permission = this.loggedIn ? await this.providerManager.getPermissionState() : 'none';
+        this.files = await this.providerManager.listFiles();
+        const permission = {};
+        for (const file of this.files) {
+          permission[file.id] = await this.providerManager.getFilePermission(file.id);
+        }
+        this.permission = permission;
       } catch (err) {
         this.error = this.messageFor(err);
       } finally {
         this.busy = false;
       }
     },
-    async chooseFile() {
+    async addFiles() {
+      if (this.busy) return;
       this.busy = true;
       this.error = '';
       try {
-        await this.providerManager.login();
-        await this.refresh();
+        await this.providerManager.addFiles();
       } catch (err) {
         this.error = this.messageFor(err);
         this.busy = false;
+        return;
       }
+      await this.refresh();
     },
-    async reauthorise() {
+    async reauthorise(file) {
       this.busy = true;
       this.error = '';
       try {
-        this.permission = await this.providerManager.requestPermission();
-      } catch (err) {
-        this.error = this.messageFor(err);
-      } finally {
-        this.busy = false;
-      }
-    },
-    forgetFile() {
-      this.settings.disableDatabaseProvider(this.providerManager);
-      this.busy = true;
-      this.error = '';
-      this.providerManager
-        .logout()
-        .then(() => this.refresh())
-        .catch((err) => {
-          this.error = this.messageFor(err);
-          this.busy = false;
+        this.permission = Object.assign({}, this.permission, {
+          [file.id]: await this.providerManager.requestPermission(this.dbInfoFor(file)),
         });
+      } catch (err) {
+        this.error = this.messageFor(err);
+      } finally {
+        this.busy = false;
+      }
+    },
+    dbInfoFor(file) {
+      return {
+        serverId: 'localfile',
+        title: file.alias,
+        path: file.id,
+        cacheId: file.cacheId,
+      };
+    },
+    isSameChoice(choice, file) {
+      const passwordFile = (choice && choice.passwordFile) || {};
+      return (
+        passwordFile.path === file.id ||
+        passwordFile.cacheId === file.cacheId ||
+        passwordFile.title === file.alias
+      );
+    },
+    async removeFile(file) {
+      if (this.busy) return;
+      this.busy = true;
+      this.error = '';
+      try {
+        const current = await this.settings.getCurrentDatabaseChoice();
+        if (current && current.providerKey === 'localfile' && this.isSameChoice(current, file)) {
+          // This file was the selected database: forget its secrets *and* the
+          // selection, so the popup falls back to another database instead of
+          // pointing at a file that no longer exists.
+          await this.settings.disableDatabaseProvider(this.providerManager);
+        } else {
+          await this.settings.forgetDatabaseSecrets({
+            providerKey: 'localfile',
+            passwordFile: this.dbInfoFor(file),
+          });
+        }
+        await this.providerManager.removeFile(file.id);
+      } catch (err) {
+        this.error = this.messageFor(err);
+        this.busy = false;
+        return;
+      }
+      await this.refresh();
+    },
+    startRename(file) {
+      if (this.busy) return;
+      this.editingId = file.id;
+      this.draftAlias = file.alias;
+      this.$nextTick(() => {
+        const ref = this.$refs.aliasInput;
+        const input = Array.isArray(ref) ? ref[0] : ref;
+        if (input) {
+          input.focus();
+          input.select();
+        }
+      });
+    },
+    cancelRename() {
+      this.editingId = '';
+      this.draftAlias = '';
+    },
+    async commitRename(file) {
+      if (this.editingId !== file.id) return;
+      const alias = this.draftAlias.trim();
+      this.editingId = '';
+      this.draftAlias = '';
+      if (!alias || alias === file.alias) return;
+      this.busy = true;
+      this.error = '';
+      try {
+        await this.providerManager.renameFile(file.id, alias);
+      } catch (err) {
+        this.error = this.messageFor(err);
+        this.busy = false;
+        return;
+      }
+      await this.refresh();
     },
     async toggleLogin() {
       if (this.enabled) {
-        // Off: persisted, so the database picker stops offering the local file, and the
-        // controls collapse. The picked handle stays until "Forget file".
+        // Off: persisted, so the database picker stops offering the local files, and
+        // the controls collapse. The handles stay until the files are removed.
         this.enabled = false;
         await this.providerManager.disable();
         this.settings.disableDatabaseProvider(this.providerManager);
       } else {
-        // On: reveal the controls only; choosing a file stays a separate click.
+        // On: reveal the controls only; adding a file stays a separate click.
         this.enabled = true;
         await this.providerManager.enable();
       }
@@ -102,57 +184,100 @@ export default {
 </script>
 
 <template>
-  <div class="box-bar roomy database-manager">
-    <generic-provider-ui
-      :busy="busy"
-      :databases="databases"
-      :logged-in="enabled"
-      :error="error"
-      :provider-manager="providerManager"
-      :toggle-login="toggleLogin"
-      :removeable="false"
-    />
-    <p v-if="enabled" class="description">{{ $t(providerManager.chooseDescription) }}</p>
-    <div v-if="enabled" class="local-file-actions">
-      <a class="waves-effect waves-light btn" :class="{ disabled: busy }" @click="chooseFile">{{
-        $t('Choose .kdbx file')
-      }}</a>
-      <a
-        v-if="permission === 'prompt'"
-        class="waves-effect waves-light btn"
-        :class="{ disabled: busy }"
-        @click="reauthorise"
-        >{{ $t('Re-authorise') }}</a
-      >
-      <a v-if="loggedIn" class="selectable local-file-forget" @click="forgetFile">
-        <i class="fa fa-times-circle" aria-hidden="true" /> {{ $t('Forget file') }}</a
-      >
+  <div id="local-file-manager">
+    <div class="box-bar roomy database-manager">
+      <generic-provider-ui
+        :busy="busy"
+        :databases="[]"
+        :logged-in="enabled"
+        :error="error"
+        :provider-manager="providerManager"
+        :toggle-login="toggleLogin"
+        :removeable="false"
+      />
+      <template v-if="enabled">
+        <p class="description">{{ $t(providerManager.chooseDescription) }}</p>
+        <p v-if="!files.length" class="description">{{ $t('No local files added yet.') }}</p>
+      </template>
     </div>
-    <p v-if="enabled && fileName" class="description">
-      {{ $t('Selected file:') }} <b>{{ fileName }}</b>
-    </p>
-    <p v-if="enabled && permission === 'denied'" class="error">
-      {{ $t('File permission was denied. Choose the file again to grant access.') }}
-    </p>
+    <!-- The file bars are part of what the switch turns on: switching the provider
+         off has to fold the list away with the rest of the controls, otherwise the
+         names stay on screen for a provider the picker no longer offers. -->
+    <template v-if="enabled">
+      <div v-for="file in files" :key="file.id" class="box-bar roomy small lighter">
+        <span>
+          <input
+            v-if="editingId === file.id"
+            ref="aliasInput"
+            v-model="draftAlias"
+            class="local-file-rename"
+            :aria-label="$t('Rename')"
+            @keyup.enter="commitRename(file)"
+            @keyup.esc="cancelRename"
+            @blur="commitRename(file)"
+          />
+          <span v-else class="local-file-name" :title="$t('Rename')" @click="startRename(file)">{{
+            file.alias
+          }}</span>
+          <i
+            class="fa fa-times-circle selectable"
+            aria-hidden="true"
+            :title="$t('remove')"
+            @click="removeFile(file)"
+          />
+          <a
+            v-if="needsPermission(file.id)"
+            class="selectable local-file-badge"
+            @click="reauthorise(file)"
+            >{{ $t('Re-authorise') }}</a
+          >
+        </span>
+      </div>
+    </template>
+    <div v-if="enabled" class="box-bar roomy">
+      <a class="waves-effect waves-light btn" :class="{ disabled: busy }" @click="addFiles">{{
+        $t('Add .kdbx files')
+      }}</a>
+    </div>
   </div>
 </template>
 
-<style lang="scss" scoped>
+<style lang="scss">
 @import '../styles/settings.scss';
 
-.local-file-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin: 12px 0;
-
-  .btn {
-    margin: 0;
+#local-file-manager {
+  /* Same treatment as the key-file rows: a long, space-less name must not widen the
+     row, and the remove icon stays right behind it. No ellipsis - the name is
+     clipped, and clicking it renames the file (the tooltip says so).
+     Weight and colour stay at the description's: the list is body text, not a
+     heading, so it must not read as heavier than the paragraph above it. */
+  .local-file-name {
+    display: inline-block;
+    max-width: calc(100% - 40px);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: clip;
+    vertical-align: bottom;
+    font-weight: 400;
+    cursor: text;
   }
-}
 
-.local-file-forget {
-  font-size: 13px;
+  .local-file-rename {
+    width: calc(100% - 40px);
+    height: 24px;
+    margin: 0;
+    padding: 0 6px;
+    font-size: 13px;
+    border: 1px solid var(--keepass-cat-blue);
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+
+  .local-file-badge {
+    margin-left: 8px;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--keepass-cat-keyfile-active);
+  }
 }
 </style>

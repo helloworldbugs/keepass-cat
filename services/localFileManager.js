@@ -1,8 +1,8 @@
 'use strict';
 
 /*
- * LocalFileManager reads and writes a single .kdbx file in place through the
- * File System Access API.
+ * LocalFileManager reads and writes .kdbx files in place through the File System
+ * Access API.
  *
  * Platform notes:
  * - showOpenFilePicker() is Chrome-only. Nothing at module load touches it, so
@@ -10,21 +10,47 @@
  * - The File System Access API is unavailable in the MV3 background worker,
  *   so writes are performed by writeDatabase() in the popup/options page;
  *   uploadCurrentDatabase() exists only to complete the provider interface.
- * - The FileSystemFileHandle lives in IndexedDB (see fileHandleStore.js) and
- *   its readwrite permission is re-checked before every read or write.
+ * - Every FileSystemFileHandle lives in IndexedDB (see fileHandleStore.js) and
+ *   its permission is re-checked before every read or write.
+ *
+ * Identity, and why there are three names per file:
+ * - `id` is generated when the file is added and never changes. It is the
+ *   IndexedDB record key and the `path` of the database choice, so a read or a
+ *   write always knows which file it is dealing with. The provider can hold
+ *   several files at once, so no code may assume "the" handle any more.
+ * - `alias` is what the UI shows. The File System Access API exposes no path,
+ *   only handle.name, so two files with the same name in different folders look
+ *   identical to the browser; uniqueness is therefore enforced on the alias and
+ *   the user can rename it.
+ * - `cacheId` is the key the remembered master password and the database-usage
+ *   record are stored under. New files use their id; a file migrated from the
+ *   single-file builds keeps the name it was saved with, so that install does
+ *   not lose its remembered password on upgrade.
  */
 
 import {
-  get as getStoredHandle,
-  set as setStoredHandle,
-  clear as clearStoredHandle,
+  listRecords as listStoredRecords,
+  putRecord as putStoredRecord,
+  deleteRecord as deleteStoredRecord,
+  LEGACY_HANDLE_KEY,
+  isFileHandle,
 } from './fileHandleStore.js';
 
 const LOCAL_SERVER_ID = 'localfile';
+
 // Persisted "provider switched on" flag. Without it the database picker kept offering
 // the local file after the toggle was turned off, because listDatabases() only looked
-// at the stored handle.
+// at the stored handles.
 const ENABLED_KEY = 'localfile.enabled';
+
+// IndexedDB cannot be read from the options page and the popup at the same
+// moment without both agreeing on this shape, so keep the flag next to the data
+// it describes.
+const SELECTED_KEY = 'selectedDatabase';
+// `{ [id]: { stamp, hash } }` - the baseline the write guard compares against.
+const STAMPS_KEY = 'localfile.lastStamps';
+// Single-file builds kept one baseline here; migrated on first load.
+const LEGACY_STAMP_KEY = 'localfile.lastStamp';
 
 /*
  * Callback-based on purpose: the chrome.* namespace does not reliably return promises
@@ -54,14 +80,16 @@ function storageSet(payload) {
   });
 }
 
-function isEnabled() {
-  return storageGet(ENABLED_KEY).then((items) => items[ENABLED_KEY] === true);
-}
-
-function setEnabled(value) {
-  const payload = {};
-  payload[ENABLED_KEY] = !!value;
-  return storageSet(payload);
+function storageRemove(key) {
+  return new Promise(function (resolve) {
+    try {
+      chrome.storage.local.remove(key, function () {
+        resolve();
+      });
+    } catch (e) {
+      resolve();
+    }
+  });
 }
 
 const PICKER_TYPES = [
@@ -70,17 +98,6 @@ const PICKER_TYPES = [
     accept: { 'application/octet-stream': ['.kdbx'] },
   },
 ];
-
-/*
- * Per-page memory. `_lastReadStamp` is the '<lastModified>:<size>' of the bytes this
- * page last read and `_lastReadHash` is their SHA-256. The hash is the guard that
- * matters: an external KeePass save often keeps the size and can keep the coarse
- * filesystem timestamp, so the stamp alone is not proof that nothing changed.
- */
-let _handleCache = null;
-let _handleLoaded = false;
-let _lastReadStamp = null;
-let _lastReadHash = null;
 
 function isSupported() {
   return typeof window !== 'undefined' && typeof window.showOpenFilePicker === 'function';
@@ -94,75 +111,17 @@ function assertSupported() {
   }
 }
 
-function getHandle() {
-  if (_handleLoaded) return Promise.resolve(_handleCache);
-  return getStoredHandle().then(function (handle) {
-    _handleCache = handle;
-    _handleLoaded = true;
-    return handle;
-  });
-}
-
-function resetHandleCache() {
-  _handleCache = null;
-  _handleLoaded = false;
-  _lastReadStamp = null;
-}
-
-function permissionState(handle, mode) {
-  if (!handle || typeof handle.queryPermission !== 'function') {
-    return Promise.resolve('unsupported');
+function newId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
   }
-  return handle.queryPermission({ mode: mode || 'readwrite' });
-}
-
-/*
- * Resolves the handle only when read permission is already granted. A handle from
- * showOpenFilePicker starts with read; write must be requested separately, so
- * requiring readwrite here would block the very first read after picking a file.
- * The rejection carries a stable code so a caller can offer re-authorisation.
- */
-function getReadableHandle() {
-  return getHandle().then(function (handle) {
-    if (!handle) {
-      throw new Error('No local file selected. Choose a .kdbx file first.');
-    }
-    return ensurePermission(handle, 'read').then(function (state) {
-      if (state !== 'granted') {
-        const err = new Error(
-          'Permission to read the local file was not granted. Re-authorise the file to continue.'
-        );
-        err.code = 'localfile-permission-required';
-        throw err;
-      }
-      return handle;
-    });
-  });
-}
-
-/* Writing needs the stronger grant; the UI offers a button that requests it. */
-function getWritableHandle() {
-  return getReadableHandle().then(function (handle) {
-    return ensurePermission(handle, 'readwrite').then(function (state) {
-      if (state === 'granted') return handle;
-      const err = new Error(
-        'Permission to write the local file was not granted. Re-authorise the file to continue.'
-      );
-      err.code = 'localfile-permission-required';
-      throw err;
-    });
-  });
+  // Fallback for engines without randomUUID: good enough as an opaque key.
+  return 'lf-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
 }
 
 function stampFor(file) {
   return file.lastModified + ':' + file.size;
 }
-
-/*
- * The baseline the write guard compares against, persisted so it survives the popup
- * being closed (a popup that reopens from the entry cache has no in-memory stamp).
- */
-const STAMP_KEY = 'localfile.lastStamp';
 
 function sha256Hex(buffer) {
   if (!globalThis.crypto || !globalThis.crypto.subtle) return Promise.resolve(null);
@@ -174,19 +133,11 @@ function sha256Hex(buffer) {
     .catch(() => null);
 }
 
-function readPersistedStamp() {
-  return chrome.storage.local
-    .get(STAMP_KEY)
-    .then((items) => items[STAMP_KEY] || null)
-    .catch(() => null);
-}
-
-function persistStamp(record) {
-  // Keep the in-memory baseline in step with what was persisted.
-  _lastReadHash = (record && record.hash) || _lastReadHash;
-  const payload = {};
-  payload[STAMP_KEY] = record;
-  return chrome.storage.local.set(payload).catch(() => {});
+function permissionState(handle, mode) {
+  if (!handle || typeof handle.queryPermission !== 'function') {
+    return Promise.resolve('unsupported');
+  }
+  return handle.queryPermission({ mode: mode || 'readwrite' });
 }
 
 /*
@@ -210,25 +161,28 @@ async function ensurePermission(handle, mode) {
 }
 
 function LocalFileManager() {
+  // Loaded once per page; IndexedDB round trips are cheap but not free, and the
+  // popup asks for the list on every open. `_loading` keeps two concurrent callers
+  // (the popup asks for the list and the selected file at the same time) from
+  // running the legacy migration twice.
+  let _records = null;
+  let _loading = null;
+
   const provider = {
     key: 'localfile',
     title: 'Local file',
     icon: 'icon-folder',
     chooseTitle: 'Local file',
     chooseDescription:
-      'Open a .kdbx file on this computer. Keepass Cat reads and writes the same file in place, so changes made by other KeePass apps are detected before saving. Requires Chrome (File System Access API) and permission to access the file.',
+      'Open .kdbx files on this computer. Keepass Cat reads and writes each file in place, so changes made by other KeePass apps are detected before saving. Requires Chrome (File System Access API) and permission to access the files.',
     supportedFeatures: ['listDatabases'],
-    login: login,
-    logout: logout,
-    isLoggedIn: isLoggedIn,
-    isEnabled: isEnabled,
-    enable: function () {
-      return setEnabled(true);
-    },
-    disable: function () {
-      return setEnabled(false);
-    },
-    isSupported: isSupported,
+    // Settings screen
+    listFiles: listFiles,
+    addFiles: addFiles,
+    removeFile: removeFile,
+    renameFile: renameFile,
+    getFilePermission: getFilePermission,
+    // Picker interface shared with every other provider
     listDatabases: listDatabases,
     getDatabaseChoiceData: getDatabaseChoiceData,
     getChosenDatabaseFile: getChosenDatabaseFile,
@@ -237,62 +191,367 @@ function LocalFileManager() {
     requestPermission: requestPermission,
     uploadCurrentDatabase: uploadCurrentDatabase,
     writeDatabase: writeDatabase,
+    isEnabled: isEnabled,
+    enable: function () {
+      return setEnabled(true);
+    },
+    disable: function () {
+      return setEnabled(false);
+    },
+    isSupported: isSupported,
   };
 
+  function isEnabled() {
+    return storageGet(ENABLED_KEY).then((items) => items[ENABLED_KEY] === true);
+  }
+
+  function setEnabled(value) {
+    const payload = {};
+    payload[ENABLED_KEY] = !!value;
+    return storageSet(payload);
+  }
+
+  /* ------------------------------------------------------------------ records */
+
+  function findById(records, id) {
+    for (const record of records) {
+      if (record.id === id) return record;
+    }
+    return null;
+  }
+
+  function loadRecords() {
+    if (_records) return Promise.resolve(_records);
+    if (_loading) return _loading;
+    _loading = loadRecordsOnce().then(
+      function (records) {
+        _records = records;
+        _loading = null;
+        return records;
+      },
+      function (err) {
+        _loading = null;
+        throw err;
+      }
+    );
+    return _loading;
+  }
+
   /**
-   * Opens the file picker, remembers the chosen handle, and resolves it.
-   * Resolves null when the user cancels the picker.
+   * Resolves every stored file, migrating the single-file layout the first time.
+   * Ordered by when the file was added, so the list is stable across sessions.
    */
-  async function login() {
+  async function loadRecordsOnce() {
+    const raw = await listStoredRecords();
+    const records = [];
+    let legacyHandle = null;
+
+    for (const entry of raw) {
+      if (isFileHandle(entry.value)) {
+        // A bare handle: written by a single-file build under the fixed key.
+        if (entry.key === LEGACY_HANDLE_KEY) legacyHandle = entry.value;
+        continue;
+      }
+      if (entry.value && isFileHandle(entry.value.handle)) {
+        records.push(Object.assign({ id: entry.key }, entry.value));
+      }
+    }
+
+    if (legacyHandle) {
+      const migrated = await migrateLegacyRecord(legacyHandle);
+      if (migrated) records.push(migrated);
+    }
+
+    records.sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
+
+    // A selection saved by a single-file build carries path 'localfile', which no
+    // longer matches any record. Heal it here instead of failing on the next read.
+    const selected = records.length === 1 ? records[0] : await selectedRecord(records);
+    if (selected) await healSelection(selected);
+
+    return records;
+  }
+
+  /**
+   * Converts the one handle the single-file builds stored into an id-keyed record.
+   * Its cacheId is kept as the old title because that is the prefix of the
+   * remembered-password key those builds wrote.
+   */
+  async function migrateLegacyRecord(handle) {
+    const id = newId();
+    const name = handle.name || 'database.kdbx';
+    const record = { id: id, cacheId: name, alias: name, addedAt: Date.now(), handle: handle };
+    try {
+      await putStoredRecord(id, record);
+      await deleteStoredRecord(LEGACY_HANDLE_KEY);
+    } catch (err) {
+      // Leave the legacy record alone: the next open retries the migration.
+      return null;
+    }
+    await migrateLegacyStamp(id);
+    return record;
+  }
+
+  async function migrateLegacyStamp(id) {
+    const items = await storageGet(LEGACY_STAMP_KEY);
+    const legacy = items && items[LEGACY_STAMP_KEY];
+    if (!legacy || typeof legacy !== 'object') return;
+    const stamps = await readStamps();
+    if (!stamps[id]) stamps[id] = legacy;
+    const payload = {};
+    payload[STAMPS_KEY] = stamps;
+    await storageSet(payload);
+    await storageRemove(LEGACY_STAMP_KEY);
+  }
+
+  /* The database choice persisted by settings.js, read directly to avoid a cycle. */
+  async function readSelection() {
+    const items = await storageGet(SELECTED_KEY);
+    return (items && items[SELECTED_KEY]) || null;
+  }
+
+  async function selectedRecord(records) {
+    const selected = await readSelection();
+    if (!selected || selected.providerKey !== LOCAL_SERVER_ID) return null;
+    return matchRecord(records, selected.passwordFile);
+  }
+
+  async function healSelection(record) {
+    const selected = await readSelection();
+    if (!selected || selected.providerKey !== LOCAL_SERVER_ID) return;
+    const current = selected.passwordFile || {};
+    if (
+      current.path === record.id &&
+      current.cacheId === record.cacheId &&
+      current.title === record.alias
+    ) {
+      return;
+    }
+    const healed = Object.assign({}, selected);
+    healed.passwordFile = Object.assign({}, current, {
+      serverId: LOCAL_SERVER_ID,
+      title: record.alias,
+      path: record.id,
+      cacheId: record.cacheId,
+    });
+    const payload = {};
+    payload[SELECTED_KEY] = healed;
+    await storageSet(payload);
+  }
+
+  /**
+   * Finds the record a database choice points at. `path` is the id; the other two
+   * lookups only exist so a choice written by a single-file build still resolves.
+   */
+  function matchRecord(records, dbInfo) {
+    if (!dbInfo) return records[0] || null;
+    const byId = dbInfo.path && findById(records, dbInfo.path);
+    if (byId) return byId;
+    if (dbInfo.cacheId) {
+      const byCache = records.find((record) => record.cacheId === dbInfo.cacheId);
+      if (byCache) return byCache;
+    }
+    if (dbInfo.title) {
+      const byTitle = records.find((record) => record.alias === dbInfo.title);
+      if (byTitle) return byTitle;
+    }
+    return null;
+  }
+
+  async function findRecord(dbInfo) {
+    const records = await loadRecords();
+    if (!records.length) return null;
+    return matchRecord(records, dbInfo);
+  }
+
+  /* ------------------------------------------------------------------ stamps */
+
+  async function readStamps() {
+    const items = await storageGet(STAMPS_KEY);
+    return (items && items[STAMPS_KEY]) || {};
+  }
+
+  async function readStamp(id) {
+    const stamps = await readStamps();
+    return stamps[id] || null;
+  }
+
+  async function writeStamp(id, value) {
+    const stamps = await readStamps();
+    if (value) stamps[id] = value;
+    else delete stamps[id];
+    const payload = {};
+    payload[STAMPS_KEY] = stamps;
+    await storageSet(payload);
+  }
+
+  /* -------------------------------------------------------------------- files */
+
+  /**
+   * Adds one or more .kdbx files. Files that are already in the list are skipped
+   * (compared with isSameEntry), and files with a duplicate name get a numbered
+   * alias so the UI can tell them apart.
+   */
+  async function addFiles() {
     assertSupported();
     let handles;
     try {
       handles = await window.showOpenFilePicker({
         types: PICKER_TYPES,
-        multiple: false,
+        multiple: true,
         excludeAcceptAllOption: false,
       });
     } catch (err) {
       // Dismissing the picker is a no-op, not a failure to report.
-      if (err && (err.name === 'AbortError' || err.code === 20)) return null;
+      if (err && (err.name === 'AbortError' || err.code === 20)) return [];
       throw err;
     }
-    const handle = handles && handles[0];
-    if (!handle) return null;
-    await setStoredHandle(handle);
-    _handleCache = handle;
-    _handleLoaded = true;
-    _lastReadStamp = null;
-    // Ask for write access right away: the picker hands back read permission only,
-    // and requesting it later needs another click. Best effort - if the browser
-    // refuses, the "Re-authorise" button still covers it.
-    try {
-      await handle.requestPermission({ mode: 'readwrite' });
-    } catch (e) {
-      // Ignore: reads still work, writes surface the coded error.
+
+    const records = await loadRecords();
+    const added = [];
+
+    for (const handle of handles || []) {
+      if (!handle) continue;
+      if (await isAlreadyAdded(handle, records)) continue;
+
+      const id = newId();
+      const record = {
+        id: id,
+        cacheId: id,
+        alias: uniqueAlias(handle.name || 'database.kdbx', records, null),
+        addedAt: Date.now(),
+        handle: handle,
+      };
+      await putStoredRecord(id, record);
+      records.push(record);
+      added.push(record);
+
+      // The picker hands back read permission only, and asking for write later
+      // needs another click. Best effort: a refusal just means the settings row
+      // shows "permission needed" and the unlock screen can ask again.
+      try {
+        await handle.requestPermission({ mode: 'readwrite' });
+      } catch (e) {
+        // Ignore: reads still work, writes surface the coded error.
+      }
     }
-    return handle;
+
+    _records = records;
+    return added;
   }
 
-  function logout() {
-    resetHandleCache();
-    return clearStoredHandle();
-  }
-
-  function isLoggedIn() {
-    return getHandle()
-      .then(function (handle) {
-        return !!handle;
-      })
-      .catch(function () {
-        // IndexedDB being unavailable must look like "not logged in", not throw.
-        return false;
-      });
+  async function isAlreadyAdded(handle, records) {
+    if (typeof handle.isSameEntry !== 'function') return false;
+    for (const record of records) {
+      try {
+        if (await handle.isSameEntry(record.handle)) return true;
+      } catch (e) {
+        // A handle the browser refuses to compare is not a reason to skip adding.
+      }
+    }
+    return false;
   }
 
   /**
-   * Resolves Object:[]DBInfo. The chosen file is exposed through the same
-   * picker interface every other provider implements.
+   * Forces the alias to be unique inside the provider. The API gives no path, so
+   * this is the only thing that keeps two same-named files distinguishable, and
+   * the same alias also becomes the database route (/unlock/localfile/<alias>).
+   */
+  function uniqueAlias(name, records, skipId) {
+    const taken = new Set(
+      records.filter((record) => record.id !== skipId).map((record) => record.alias)
+    );
+    if (!taken.has(name)) return name;
+    const dot = name.lastIndexOf('.');
+    const stem = dot > 0 ? name.slice(0, dot) : name;
+    const extension = dot > 0 ? name.slice(dot) : '';
+    for (let n = 2; n < 1000; n++) {
+      const candidate = stem + ' (' + n + ')' + extension;
+      if (!taken.has(candidate)) return candidate;
+    }
+    return stem + ' (' + Date.now() + ')' + extension;
+  }
+
+  async function listFiles() {
+    const records = await loadRecords();
+    return records.map((record) => ({
+      id: record.id,
+      alias: record.alias,
+      cacheId: record.cacheId,
+      addedAt: record.addedAt,
+    }));
+  }
+
+  async function getFilePermission(id) {
+    const records = await loadRecords();
+    const record = findById(records, id);
+    if (!record) return 'none';
+    return permissionState(record.handle, 'read');
+  }
+
+  async function renameFile(id, alias) {
+    const records = await loadRecords();
+    const record = findById(records, id);
+    if (!record) throw new Error('No local file selected. Choose a .kdbx file first.');
+    const cleaned = String(alias === undefined || alias === null ? '' : alias).trim();
+    if (!cleaned) return record.alias;
+    record.alias = uniqueAlias(cleaned, records, id);
+    await putStoredRecord(id, record);
+    const selected = await selectedRecord(records);
+    if (selected && selected.id === id) await healSelection(record);
+    return record.alias;
+  }
+
+  async function removeFile(id) {
+    const records = await loadRecords();
+    const record = findById(records, id);
+    if (!record) return;
+    records.splice(records.indexOf(record), 1);
+    await deleteStoredRecord(id);
+    await writeStamp(id, null);
+    _records = records;
+  }
+
+  /* ------------------------------------------------------------------ handles */
+
+  /*
+   * Resolves the handle only when read permission is already granted. A handle from
+   * showOpenFilePicker starts with read; write must be requested separately, so
+   * requiring readwrite here would block the very first read after picking a file.
+   * The rejection carries a stable code so a caller can offer re-authorisation.
+   */
+  async function getReadableHandle(record) {
+    if (!record) {
+      throw new Error('No local file selected. Choose a .kdbx file first.');
+    }
+    const state = await ensurePermission(record.handle, 'read');
+    if (state !== 'granted') {
+      const err = new Error(
+        'Permission to read the local file was not granted. Re-authorise the file to continue.'
+      );
+      err.code = 'localfile-permission-required';
+      throw err;
+    }
+    return record.handle;
+  }
+
+  /* Writing needs the stronger grant; the UI offers a button that requests it. */
+  async function getWritableHandle(record) {
+    const handle = await getReadableHandle(record);
+    const state = await ensurePermission(handle, 'readwrite');
+    if (state === 'granted') return handle;
+    const err = new Error(
+      'Permission to write the local file was not granted. Re-authorise the file to continue.'
+    );
+    err.code = 'localfile-permission-required';
+    throw err;
+  }
+
+  /* ------------------------------------------------------- picker interface */
+
+  /**
+   * Resolves Object:[]DBInfo, one entry per stored file. The files are exposed
+   * through the same picker interface every other provider implements.
    */
   async function listDatabases() {
     // Firefox has no File System Access API: report no databases instead of failing,
@@ -300,16 +559,18 @@ function LocalFileManager() {
     // blank.
     if (!isSupported()) return [];
     if (!(await isEnabled())) return [];
-    const handle = await getHandle();
-    if (!handle) return [];
-    return [
-      {
-        provider: provider,
-        title: handle.name,
-        path: LOCAL_SERVER_ID,
-        serverId: LOCAL_SERVER_ID,
-      },
-    ];
+    const records = await loadRecords();
+    return records.map(dbInfoFor);
+  }
+
+  function dbInfoFor(record) {
+    return {
+      provider: provider,
+      title: record.alias,
+      path: record.id,
+      serverId: LOCAL_SERVER_ID,
+      cacheId: record.cacheId,
+    };
   }
 
   // Same identity shape as webdavFileManager.getDatabaseChoiceData().
@@ -318,6 +579,7 @@ function LocalFileManager() {
       serverId: dbInfo.serverId,
       title: dbInfo.title,
       path: dbInfo.path,
+      cacheId: dbInfo.cacheId,
     };
   }
 
@@ -326,36 +588,34 @@ function LocalFileManager() {
    * read grant and expects a fresh gesture for write. Checking readwrite made every
    * popup open look unauthorised and pushed the grant button at the user each time.
    */
-  function getPermissionState() {
-    return getHandle().then(function (handle) {
-      if (!handle) return 'none';
-      return permissionState(handle, 'read');
-    });
+  async function getPermissionState(dbInfo) {
+    const record = await findRecord(dbInfo);
+    if (!record) return 'none';
+    return permissionState(record.handle, 'read');
   }
 
-  function requestPermission() {
-    return getHandle().then(function (handle) {
-      if (!handle) {
-        throw new Error('No local file selected. Choose a .kdbx file first.');
-      }
-      if (typeof handle.requestPermission !== 'function') {
-        throw new Error(
-          'This browser cannot request file permissions. Use Chrome or another browser with the File System Access API.'
-        );
-      }
-      return handle.requestPermission({ mode: 'readwrite' });
-    });
+  async function requestPermission(dbInfo) {
+    const record = await findRecord(dbInfo);
+    if (!record) {
+      throw new Error('No local file selected. Choose a .kdbx file first.');
+    }
+    if (typeof record.handle.requestPermission !== 'function') {
+      throw new Error(
+        'This browser cannot request file permissions. Use Chrome or another browser with the File System Access API.'
+      );
+    }
+    return record.handle.requestPermission({ mode: 'readwrite' });
   }
 
   /**
    * Returns Promise -> ArrayBuffer.
    */
-  async function getChosenDatabaseFile() {
-    const handle = await getReadableHandle();
+  async function getChosenDatabaseFile(dbInfo) {
+    const record = await findRecord(dbInfo);
+    const handle = await getReadableHandle(record);
     const file = await handle.getFile();
     const data = await file.arrayBuffer();
-    _lastReadStamp = stampFor(file);
-    persistStamp({ stamp: _lastReadStamp, hash: await sha256Hex(data) });
+    await writeStamp(record.id, { stamp: stampFor(file), hash: await sha256Hex(data) });
     return data;
   }
 
@@ -365,16 +625,13 @@ function LocalFileManager() {
    * { data: ArrayBuffer, etag: <new stamp> }.
    */
   async function getChosenDatabaseFileIfChanged(dbInfo, stamp) {
-    const handle = await getReadableHandle();
+    const record = await findRecord(dbInfo);
+    const handle = await getReadableHandle(record);
     const file = await handle.getFile();
     const newStamp = stampFor(file);
-    if (stamp && newStamp === stamp) {
-      _lastReadStamp = newStamp;
-      return { data: null };
-    }
+    if (stamp && newStamp === stamp) return { data: null };
     const data = await file.arrayBuffer();
-    _lastReadStamp = newStamp;
-    persistStamp({ stamp: newStamp, hash: await sha256Hex(data) });
+    await writeStamp(record.id, { stamp: newStamp, hash: await sha256Hex(data) });
     return { data: data, etag: newStamp };
   }
 
@@ -394,9 +651,13 @@ function LocalFileManager() {
    * In-page write used by keepassService.uploadDatabase(). Refuses to write when
    * the file changed since this page last read it, then updates the stamp from
    * the file that was actually written.
+   *
+   * The baseline is per file and persisted, so the guard still works in a popup
+   * that was reopened from the entry cache and never read the file itself.
    */
-  async function writeDatabase(arrayBuffer) {
-    const handle = await getWritableHandle();
+  async function writeDatabase(arrayBuffer, dbInfo) {
+    const record = await findRecord(dbInfo);
+    const handle = await getWritableHandle(record);
     const file = await handle.getFile();
 
     /*
@@ -408,8 +669,8 @@ function LocalFileManager() {
      */
     const currentBytes = await file.arrayBuffer();
     const currentHash = await sha256Hex(currentBytes);
-    const previous = await readPersistedStamp();
-    const knownHash = _lastReadHash || (previous && previous.hash) || null;
+    const previous = await readStamp(record.id);
+    const knownHash = (previous && previous.hash) || null;
     if (knownHash && currentHash && knownHash !== currentHash) {
       throw new Error(
         'The file was modified outside Keepass Cat since it was opened. Save cancelled; reopen the database and try again.'
@@ -430,7 +691,7 @@ function LocalFileManager() {
     }
 
     const updated = await handle.getFile();
-    await persistStamp({ stamp: stampFor(updated), hash: await sha256Hex(arrayBuffer) });
+    await writeStamp(record.id, { stamp: stampFor(updated), hash: await sha256Hex(arrayBuffer) });
     return updated.size;
   }
 
