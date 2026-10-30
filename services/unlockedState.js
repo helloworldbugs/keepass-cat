@@ -167,6 +167,18 @@ function UnlockedState(keepassReference, settings, notifications) {
     });
   }
 
+  /*
+   * Only an explicitly copied password schedules the clipboard clear. Everything
+   * else that reaches the clipboard (username, OTP) cancels a pending clear
+   * instead, so a password timer can never wipe whatever the user copied next.
+   */
+  function cancelClipboardClear() {
+    settings.clearForgetTimes(['clearClipboard']).catch(function () {});
+    if (chrome.alarms && typeof chrome.alarms.clear === 'function') {
+      chrome.alarms.clear('clearClipboard');
+    }
+  }
+
   function copyTotpCode(code, alsoFill) {
     chrome.storage.local.get(OTP_COPY_KEY, function (items) {
       var last = items[OTP_COPY_KEY];
@@ -183,34 +195,23 @@ function UnlockedState(keepassReference, settings, notifications) {
       chrome.storage.local.set(stamp);
 
       var finish = function () {
-        settings.getSetClipboardExpireEnabled().then(function (clearEnabled) {
-          settings.getSetClipboardExpireInterval().then(function (interval) {
-            if (clearEnabled) {
-              settings.setForgetTime('clearClipboard', Date.now() + interval * 1000);
-              // The periodic sweep only runs every two minutes, which would turn a
-              // 15-second timeout into "up to two minutes". One-shot alarm for the
-              // exact moment; re-creating it with the same name extends it.
-              chrome.alarms.create('clearClipboard', { when: Date.now() + interval * 1000 });
-            }
-            notifications
-              .push({
-                text:
-                  i18n.t('OTP') +
-                  (clearEnabled
-                    ? i18n.t(' copied to clipboard. Clipboard will clear in {0}.', clipboardDurationLabel(interval))
-                    : i18n.t(' copied to clipboard.')),
-                type: 'clipboard',
-              })
-              .then(function () {
-                settings.getSetFillTotpEnabled().then(function (enabled) {
-                  if (alsoFill && enabled) {
-                    chrome.runtime.sendMessage({ m: 'fillTotp', tabId: my.tabId, code: code });
-                  }
-                  window.close();
-                });
-              });
+        // An OTP is not a stored password: copying one must not start the clear
+        // timer, and it replaces whatever was on the clipboard, so a pending
+        // password timer is cancelled rather than firing on the OTP.
+        cancelClipboardClear();
+        notifications
+          .push({
+            text: i18n.t('OTP') + i18n.t(' copied to clipboard.'),
+            type: 'clipboard',
+          })
+          .then(function () {
+            settings.getSetFillTotpEnabled().then(function (enabled) {
+              if (alsoFill && enabled) {
+                chrome.runtime.sendMessage({ m: 'fillTotp', tabId: my.tabId, code: code });
+              }
+              window.close();
+            });
           });
-        });
       };
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(code).then(finish).catch(function () {});
@@ -269,27 +270,38 @@ function UnlockedState(keepassReference, settings, notifications) {
     // which is not a translation key, so the username notice stayed English.
     var fieldLabels = { userName: 'Username', password: 'Password' };
     var fieldName = fieldLabels[copyPart] || copyPart.charAt(0).toUpperCase() + copyPart.slice(1);
+    var isPassword = copyPart === 'password';
     copyEntry = null;
     copyPart = null;
     e.clipboardData.setData('text/plain', textToPutOnClipboard);
     e.preventDefault();
 
     settings.getSetClipboardExpireEnabled().then((clearEnabled) => {
+      // Only a password the user copied with the copy button arms the timer. A
+      // username copy — or the feature switched off — cancels a pending clear
+      // instead, so it cannot wipe what was just put on the clipboard.
+      if (!isPassword || !clearEnabled) {
+        cancelClipboardClear();
+        notifications
+          .push({
+            text: i18n.t(fieldName) + i18n.t(' copied to clipboard.'),
+            type: 'clipboard',
+          })
+          .then(() => window.close());
+        return;
+      }
       settings.getSetClipboardExpireInterval().then((interval) => {
-        if (clearEnabled) {
-          settings.setForgetTime('clearClipboard', Date.now() + interval * 1000);
-          // The periodic sweep only runs every two minutes, which would turn a
-          // 15-second timeout into "up to two minutes". One-shot alarm for the
-          // exact moment; re-creating it with the same name extends it.
-          chrome.alarms.create('clearClipboard', { when: Date.now() + interval * 1000 });
-        }
+        const when = Date.now() + interval * 1000;
+        settings.setForgetTime('clearClipboard', when);
+        // The periodic sweep only runs every two minutes, which would turn a
+        // 15-second timeout into "up to two minutes". One-shot alarm for the
+        // exact moment; re-creating it with the same name extends it.
+        chrome.alarms.create('clearClipboard', { when: when });
         notifications
           .push({
             text:
               i18n.t(fieldName) +
-              (clearEnabled
-                ? i18n.t(' copied to clipboard. Clipboard will clear in {0}.', clipboardDurationLabel(interval))
-                : i18n.t(' copied to clipboard.')),
+              i18n.t(' copied to clipboard. Clipboard will clear in {0}.', clipboardDurationLabel(interval)),
             type: 'clipboard',
           })
           .then(() => window.close());

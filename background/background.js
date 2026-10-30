@@ -11,7 +11,6 @@ import { ProtectedMemory } from '$services/protectedMemory';
 import { Settings } from '$services/settings.js';
 import { Notifications } from '$services/notifications';
 import { i18n } from '@/services/i18n';
-import { clipboardDurationLabel } from '@/lib/clipboardDuration';
 import { openPopup, setBadgeText, setBadgeBackgroundColor } from '@/lib/browser.js';
 import { matchLevel } from '@/lib/matchLevel.js';
 import { Otp } from '@/lib/otp.js';
@@ -115,23 +114,12 @@ function Background(protectedMemory, localMemory, settings, notifications) {
               chrome.storage.local.set({ lastOtpCopy: { code: code, at: now } });
 
               chrome.tabs.sendMessage(tabId, { m: 'copyToClipboard', code: code, label: 'OTP' });
-              settings.getSetClipboardExpireEnabled().then(function (clearEnabled) {
-                settings.getSetClipboardExpireInterval().then(function (interval) {
-                  if (clearEnabled) {
-                    settings.setForgetTime('clearClipboard', Date.now() + interval * 1000);
-                    // The two-minute sweep is too coarse for a 15-second timeout,
-                    // so schedule the exact moment as well (see unlockedState).
-                    chrome.alarms.create('clearClipboard', { when: Date.now() + interval * 1000 });
-                  }
-                  pushNotification(
-                    i18n.t('OTP') +
-                      (clearEnabled
-                        ? i18n.t(' copied to clipboard. Clipboard will clear in {0}.', clipboardDurationLabel(interval))
-                        : i18n.t(' copied to clipboard.')),
-                    'clipboard'
-                  );
-                });
-              });
+              // An OTP is not a stored password: it never arms the clear timer, and
+              // it replaces whatever was on the clipboard, so any pending password
+              // clear is cancelled instead of firing on the OTP.
+              settings.clearForgetTimes(['clearClipboard']).catch(function () {});
+              chrome.alarms.clear('clearClipboard');
+              pushNotification(i18n.t('OTP') + i18n.t(' copied to clipboard.'), 'clipboard');
             });
           });
         } catch (e) {

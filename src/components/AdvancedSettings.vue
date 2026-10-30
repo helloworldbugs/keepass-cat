@@ -141,7 +141,7 @@ export default {
     <div class="box-bar roomy">
       <h4>{{ $t('Clipboard Expiration Time') }}</h4>
       <p>
-        {{ $t('When you copy a value to the clipboard, Keepass Cat will set a timeout to automatically clear it again. You can choose how long this timeout will last.') }}
+        {{ $t('When you copy a password, Keepass Cat clears the clipboard again after the timeout you choose. Copying a username or a one-time code does not start the timer.') }}
       </p>
     </div>
     <div
