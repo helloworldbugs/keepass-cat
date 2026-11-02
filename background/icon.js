@@ -1,8 +1,8 @@
 /*
  * Inline autofill icon.
  *
- * A small button sits at the right edge of every visible password field on the
- * page. Clicking it fills the matching entry; when the site matches more than one
+ * A small button sits at the right edge of the username field of every login form
+ * on the page (or of the password field when a page has no username input). Clicking it fills the matching entry; when the site matches more than one
  * entry, it opens a list first. Nothing is drawn while the vault is locked or when
  * no entry matches the page, so a random page never shows a dead control.
  *
@@ -16,6 +16,8 @@
  * by id. Filling reuses the existing performAutofill() path, so the field-finding
  * and React/Vue-safe writes stay in one place.
  */
+
+import { collectFields, hasVisibleFillablePasswordField, qualifiesForUsernameOnly } from './fieldDetect.js';
 
 const ICON_SIZE = 20;
 const ICON_INSET = 4;
@@ -92,56 +94,44 @@ export function initInlineIcon() {
 
   /* -------------------------------------------------------- field discovery */
 
-  function autocompleteTokens(field) {
-    const raw = field.getAttribute('autocomplete');
-    if (!raw) return [];
-    return raw.toLowerCase().split(/\s+/).filter(Boolean);
-  }
+  // The icon belongs where typing starts: the username field. The detection is
+  // the same pass inject.js fills from (fieldDetect.js), so an input that gets an
+  // icon is one the filler would also target.
+  function anchorFields() {
+    const fields = collectFields(document, window);
+    const anchors = [];
+    const seen = new Set();
 
-  // Mirrors inject.js: a page that declares a genuine current-password field is a
-  // change-password shape, so its new-password inputs are not login targets. When
-  // every password input is new-password, the page has mislabelled its login form
-  // and the fields stay usable.
-  function hasGenuineCurrentPasswordField() {
-    const inputs = document.getElementsByTagName('input');
-    for (let i = 0; i < inputs.length; i++) {
-      const field = inputs[i];
-      if ((field.getAttribute('type') || '').toLowerCase() !== 'password') continue;
-      if (autocompleteTokens(field).indexOf('new-password') >= 0) continue;
-      return true;
+    const add = function (field) {
+      if (!field || seen.has(field) || !field.isConnected) return;
+      seen.add(field);
+      anchors.push(field);
+    };
+
+    if (fields.priorityPair && fields.priorityPair.u) add(fields.priorityPair.u);
+    fields.userPasswordPairs.forEach(function (pair) {
+      add(pair.u);
+    });
+
+    // Two-step login: the password input is not rendered yet, so the username
+    // candidates are the only anchor there is. On a page that already has a
+    // visible password, the candidates belong to a sign-up form and are ignored
+    // (same rule the filler applies before filling a username alone).
+    if (!fields.userPasswordPairs.length && !hasVisibleFillablePasswordField(document)) {
+      fields.usernameCandidates.filter(qualifiesForUsernameOnly).forEach(add);
     }
-    return false;
-  }
 
-  function isNeverFill(field) {
-    const tokens = autocompleteTokens(field);
-    if (tokens.indexOf('one-time-code') >= 0) return true;
-    if (tokens.indexOf('new-password') >= 0) return hasGenuineCurrentPasswordField();
-    return false;
-  }
-
-  function isVisible(field) {
-    if (!field.isConnected) return false;
-    const rect = field.getBoundingClientRect();
-    if (rect.width < MIN_FIELD_WIDTH || rect.height < 8) return false;
-    const style = window.getComputedStyle(field);
-    if (style.visibility === 'hidden' || style.display === 'none') return false;
-    if (Number(style.opacity) === 0) return false;
-    return rect.bottom > 0 && rect.right > 0 && rect.top < window.innerHeight && rect.left < window.innerWidth;
-  }
-
-  function passwordFields() {
-    const found = [];
-    const inputs = document.getElementsByTagName('input');
-    for (let i = 0; i < inputs.length; i++) {
-      const field = inputs[i];
-      if ((field.getAttribute('type') || '').toLowerCase() !== 'password') continue;
-      if (field.disabled || field.readOnly) continue;
-      if (isNeverFill(field)) continue;
-      if (!isVisible(field)) continue;
-      found.push(field);
+    // Password-only step: no username on screen, so keep the icon on the
+    // password field instead of losing the feature.
+    if (!anchors.length) {
+      if (fields.priorityPair && fields.priorityPair.p) add(fields.priorityPair.p);
+      fields.userPasswordPairs.forEach(function (pair) {
+        add(pair.p);
+      });
+      fields.lonelyPasswords.forEach(add);
     }
-    return found;
+
+    return anchors;
   }
 
   /* ---------------------------------------------------------------- placing */
@@ -375,7 +365,7 @@ export function initInlineIcon() {
   function scan() {
     scanTimer = 0;
     if (!document.documentElement) return;
-    const fields = passwordFields();
+    const fields = anchorFields();
     if (!fields.length) {
       removeAllIcons();
       closeList();
@@ -387,7 +377,7 @@ export function initInlineIcon() {
         closeList();
         return;
       }
-      syncIcons(passwordFields());
+      syncIcons(anchorFields());
     });
   }
 
@@ -401,16 +391,20 @@ export function initInlineIcon() {
   document.addEventListener('focusin', function (event) {
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) return;
-    if ((target.getAttribute('type') || '').toLowerCase() !== 'password') return;
+    // The icon now lives on the username field, so a password-only check would
+    // miss the moment the user starts typing a username.
+    const isCredentialField =
+      icons.has(target) || (target.getAttribute('type') || '').toLowerCase() === 'password';
+    if (!isCredentialField) return;
     loadMatches(true).then(function (list) {
-      if (list && list.length) syncIcons(passwordFields());
+      if (list && list.length) syncIcons(anchorFields());
       else removeAllIcons();
     });
   }, true);
 
   window.addEventListener('focus', function () {
     loadMatches(true).then(function (list) {
-      if (list && list.length) syncIcons(passwordFields());
+      if (list && list.length) syncIcons(anchorFields());
       else removeAllIcons();
     });
   });
