@@ -154,9 +154,9 @@ export default {
           <td :title="file.name">{{ file.name }}</td>
           <td class="kdbx-table-dim">{{ keyFileType(file) }}</td>
           <td>
-            <a class="selectable kdbx-table-action" @click="removeKeyFile(file_index)">{{
-              $t('remove')
-            }}</a>
+            <a class="selectable kdbx-table-action" @click="removeKeyFile(file_index)">
+              <i class="fa fa-times-circle" /> {{ $t('remove') }}
+            </a>
           </td>
         </tr>
       </tbody>

@@ -97,12 +97,22 @@ $options-width: 800px;
   }
 
   .kdbx-table-action {
-    margin-right: 12px;
+    margin-right: 24px;
     font-size: 14px;
 
     &:last-child {
       margin-right: 0;
     }
+
+    .fa {
+      margin-right: 2px;
+    }
+  }
+
+  /* A status the user can act on ("needs permission") reads as a link, so it is
+     blue rather than the warning gold it would otherwise get. */
+  .kdbx-table-status a {
+    color: var(--keepass-cat-blue, #0089ec);
   }
 }
 

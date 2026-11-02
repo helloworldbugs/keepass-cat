@@ -379,21 +379,23 @@ export default {
               class="kdbx-table-status"
               :class="needsPermission(file.id) ? 'is-warn' : 'is-ok'"
             >
-              {{ permissionLabel(file) }}
-            </td>
-            <td>
-              <a class="selectable kdbx-table-action" @click="openChangeDialog(file)">{{
-                $t('Change password')
-              }}</a>
-              <a class="selectable kdbx-table-action" @click="removeFile(file)">{{
-                $t('remove')
-              }}</a>
+              <!-- "Needs permission" is the action itself: the label is the link
+                   that asks for it, so the actions column does not repeat it. -->
               <a
                 v-if="needsPermission(file.id)"
-                class="selectable kdbx-table-action local-file-badge"
+                class="selectable"
                 @click="reauthorise(file)"
-                >{{ $t('Re-authorise') }}</a
+                >{{ permissionLabel(file) }}</a
               >
+              <template v-else>{{ permissionLabel(file) }}</template>
+            </td>
+            <td>
+              <a class="selectable kdbx-table-action" @click="openChangeDialog(file)">
+                <i class="fa fa-key" /> {{ $t('Change password') }}
+              </a>
+              <a class="selectable kdbx-table-action" @click="removeFile(file)">
+                <i class="fa fa-times-circle" /> {{ $t('remove') }}
+              </a>
             </td>
           </tr>
         </tbody>
@@ -524,10 +526,6 @@ export default {
 @import '../styles/settings.scss';
 
 #local-file-manager {
-  .local-file-badge {
-    color: var(--keepass-cat-keyfile-active);
-  }
-
   .local-file-notice {
     font-size: 13px;
     color: var(--keepass-cat-text-subtle);

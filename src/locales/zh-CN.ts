@@ -202,7 +202,6 @@ const zhCN: Record<string, string> = {
   'KeePass database': 'KeePass 数据库',
 
   // ===== Provider: Local file =====
-  'Re-authorise': '重新授权',
   'Import database files': '导入数据库文件',
   'No local files added yet.': '尚未添加本地文件。',
   'File permission was denied. Choose the file again to grant access.': '文件权限已被拒绝。请重新选择文件以授予访问权限。',
