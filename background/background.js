@@ -27,10 +27,16 @@ function Background(protectedMemory, localMemory, settings, notifications) {
       if (!msg) return;
       switch (msg.action) {
         case 'clear':
-          (msg.storageType === 'local' ? localMemory : protectedMemory).clearData(msg.key);
+          var cleared = (msg.storageType === 'local' ? localMemory : protectedMemory).clearData(msg.key);
+          if (msg.key === 'secureCache.entries' && msg.storageType !== 'local') {
+            Promise.resolve(cleared).then(updateBadgeForTab).catch(function () {});
+          }
           break;
         case 'save':
-          (msg.storageType === 'local' ? localMemory : protectedMemory).setData(msg.key, msg.value);
+          var saved = (msg.storageType === 'local' ? localMemory : protectedMemory).setData(msg.key, msg.value);
+          if (msg.key === 'secureCache.entries' && msg.storageType !== 'local') {
+            Promise.resolve(saved).then(updateBadgeForTab).catch(function () {});
+          }
           break;
         case 'get':
           (msg.storageType === 'local' ? localMemory : protectedMemory).getData(msg.key).then(function (value) {
@@ -393,58 +399,45 @@ function Background(protectedMemory, localMemory, settings, notifications) {
   forgetStuff();
   setTimeout(updateBadgeForTab, 200); // brief delay for storage to be ready
 
-  // Update badge when active tab changes
+  // The badge answers one question at a glance: can this tab be filled, and with
+  // how many entries. A locked vault is a red cross - it is the state the user has
+  // to act on, so it must not look like "no matches" (which is an empty badge).
   var updateBadgeForTab = function() {
-    console.log('[badge] updateBadgeForTab called');
-    chrome.storage.local.get('rememberPeriod', function(items) {
-      if (items.rememberPeriod !== -2) return;
-      protectedMemory.getData('secureCache.entries').then(function(entries) {
-        if (!entries || !entries.length) {
-          localMemory.getData('secureCache.entries').then(function(raw) {
-            if (raw) {
-              var localEntries = typeof raw === 'string' ? localMemory.deserialize(raw) : raw;
-              if (localEntries && localEntries.length) filterAndSetBadge(localEntries);
-            }
-          }).catch(function() {});
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+      if (!tabs || tabs.length === 0) return;
+      var tab = tabs[0];
+      if (!tab || !tab.url || !tab.url.startsWith('http')) {
+        if (tab) setBadgeText({ text: '', tabId: tab.id });
+        return;
+      }
+      unlockedEntries().then(function(entries) {
+        if (!entries) {
+          lockBadgeOnTab(tab.id);
           return;
         }
-        if (typeof entries === 'string') entries = protectedMemory.deserialize(entries);
-        if (!Array.isArray(entries)) return;
-        console.log('[badge] got', entries.length, 'entries, filtering');
-        filterAndSetBadge(entries);
+        var count = entriesForPage(entries, tab.url).length;
+        if (count > 0) {
+          setBadgeText({ text: String(count), tabId: tab.id });
+          setBadgeBackgroundColor({ color: '#4688F1', tabId: tab.id });
+        } else {
+          setBadgeText({ text: '', tabId: tab.id });
+        }
       }).catch(function() {});
     });
   };
-  
-  function filterAndSetBadge(entries) {
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-      console.log('[badge] tabs query returned', tabs.length, 'tabs');
-      if (!tabs || tabs.length === 0) return;
-      var count = 0;
-      if (tabs.length > 0 && tabs[0].url && tabs[0].url.startsWith('http')) {
-        try {
-          var pageUrl = tabs[0].url;
-          // Cascade: highest matching level first
-          for (var level = 4; level >= 1; level--) {
-            var matched = entries.filter(function(e) {
-              return matchLevel(pageUrl, e) === level;
-            });
-            if (matched.length > 0) {
-              count = matched.length;
-              console.log('[badge] matched', count, 'at level', level, 'for', pageUrl);
-              break;
-            }
-          }
-        } catch(e) { console.error('[badge] filter error', e); }
-      }
-      if (count > 0) {
-        setBadgeText({ text: String(count), tabId: tabs[0].id });
-        setBadgeBackgroundColor({ color: '#4688F1', tabId: tabs[0].id });
-        console.log('[badge] set badge to', count, 'on tab', tabs[0].id);
-      } else {
-        setBadgeText({ text: '', tabId: tabs[0].id });
-        console.log('[badge] cleared badge on tab', tabs[0].id);
-      }
+
+  function lockBadgeOnTab(tabId) {
+    setBadgeText({ text: '✕', tabId: tabId });
+    setBadgeBackgroundColor({ color: '#e74c3c', tabId: tabId });
+  }
+
+  // Locking affects every tab at once, so stamp the cross on all of them instead
+  // of waiting for each one to be activated.
+  function lockBadgeOnAllTabs() {
+    chrome.tabs.query({}, function(tabs) {
+      (tabs || []).forEach(function(tab) {
+        if (tab.url && tab.url.startsWith('http')) lockBadgeOnTab(tab.id);
+      });
     });
   }
 
@@ -487,8 +480,14 @@ function Background(protectedMemory, localMemory, settings, notifications) {
           }
         }).catch(function() {});
       } else {
-        protectedMemory.clearData('secureCache.entries');
-        setBadgeText({ text: '' });
+        // The vault is locked now: stamp the cross instead of leaving the last
+        // match count (or a blank badge) behind on every tab.
+        protectedMemory
+          .clearData('secureCache.entries')
+          .then(function () {
+            lockBadgeOnAllTabs();
+          })
+          .catch(function () {});
       }
     });
     settings.getAllForgetTimes().then(function (allTimes) {

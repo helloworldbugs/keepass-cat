@@ -19,9 +19,9 @@
 
 import { collectFields, hasVisibleFillablePasswordField, qualifiesForUsernameOnly } from './fieldDetect.js';
 
-const ICON_SIZE = 20;
-const ICON_INSET = 4;
-const MIN_FIELD_WIDTH = 60;
+const ICON_SIZE = 26;
+const ICON_INSET = 5;
+const MIN_FIELD_WIDTH = 90;
 const SCAN_DEBOUNCE_MS = 250;
 // A focus event re-asks the background once the cached answer is this old, so
 // locking the vault (or unlocking it in the popup) is reflected without a reload.
@@ -191,11 +191,15 @@ export function initInlineIcon() {
     '<style>' +
     ':host{all:initial}' +
     'button{all:unset;box-sizing:border-box;display:flex;align-items:center;justify-content:center;' +
-    'width:' + ICON_SIZE + 'px;height:' + ICON_SIZE + 'px;border-radius:4px;cursor:pointer;' +
-    'background:rgba(255,255,255,.94);border:1px solid rgba(0,0,0,.12);' +
-    'box-shadow:0 1px 3px rgba(0,0,0,.22);opacity:.72;transition:opacity .12s,box-shadow .12s}' +
-    'button:hover,button:focus-visible{opacity:1;box-shadow:0 1px 5px rgba(0,0,0,.3)}' +
-    'svg{width:12px;height:12px;display:block;fill:#0089ec}' +
+    'width:' + ICON_SIZE + 'px;height:' + ICON_SIZE + 'px;border-radius:50%;cursor:pointer;' +
+    'background:rgba(255,255,255,.96);border:1px solid rgba(0,0,0,.14);' +
+    'box-shadow:0 1px 4px rgba(0,0,0,.26);opacity:.8;' +
+    'transition:opacity .12s,box-shadow .12s,transform .12s}' +
+    'button:hover,button:focus-visible{opacity:1;box-shadow:0 2px 8px rgba(0,0,0,.32);transform:scale(1.06)}' +
+    'svg{width:14px;height:14px;display:block;fill:#0089ec}' +
+    '@media (prefers-color-scheme: dark){' +
+    'button{background:rgba(45,45,45,.96);border-color:rgba(255,255,255,.18)}' +
+    'svg{fill:#4da3ff}}' +
     '</style>' +
     '<button type="button" tabindex="-1">' +
     '<svg viewBox="0 0 16 16" aria-hidden="true">' +
@@ -305,7 +309,14 @@ export function initInlineIcon() {
       'button:hover,button:focus-visible{background:#eef0f2}' +
       'b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
       'span{display:block;font-size:12px;color:#6b7280;white-space:nowrap;overflow:hidden;' +
-      'text-overflow:ellipsis}';
+      'text-overflow:ellipsis}' +
+      // Follow the same prefers-color-scheme switch the extension UI uses; the
+      // page's own theme is irrelevant here because the list lives in a shadow root.
+      '@media (prefers-color-scheme: dark){' +
+      'ul{background:#2d2d2d;color:#e0e0e0;border-color:#404040;box-shadow:0 6px 24px rgba(0,0,0,.55)}' +
+      'button:hover,button:focus-visible{background:#3a3a3a}' +
+      'b{color:#e6e6e6}' +
+      'span{color:#9aa0a6}}';
     shadow.appendChild(style);
 
     const ul = document.createElement('ul');
