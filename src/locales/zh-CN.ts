@@ -22,7 +22,9 @@ const zhCN: Record<string, string> = {
   'Binary': '二进制',
   'Other': '其他',
   'File name': '文件名',
-  'New local password database': '新建本地密码库',
+  'New password database': '新建密码库',
+  'New key file': '新建密钥文件',
+  'Import key file': '导入密钥文件',
   'Change password': '修改密码',
   'Database name': '密码库名称',
   'Current unlock password': '当前解锁密码',
@@ -38,7 +40,6 @@ const zhCN: Record<string, string> = {
   'The password cannot be empty.': '密码不能为空。',
   'The two passwords do not match.': '两次输入的密码不一致。',
   'There is no way to recover a forgotten password: keep it somewhere safe.': '密码一旦忘记就无法找回，请妥善保存。',
-  'Database created. Open the extension to add your passwords.': '密码库已创建。打开扩展即可添加密码。',
   'Unlock password changed. Enter it once in the popup.': '解锁密码已修改。请在扩展里用新密码解锁一次。',
   'The current password or key file does not unlock this database.': '当前密码或密钥文件无法解锁该数据库。',
   // Short scale labels under the remember-period slider. The unit symbols read
@@ -162,7 +163,6 @@ const zhCN: Record<string, string> = {
   'Support Keepass Cat': '支持 Keepass Cat',
 
   // ===== Options: Manage Keyfiles =====
-  'Add Key File': '添加密钥文件',
 
   // ===== Options: Advanced Settings =====
   'Clipboard Expiration Time': '剪贴板过期时间',
@@ -199,7 +199,7 @@ const zhCN: Record<string, string> = {
 
   // ===== Provider: Local file =====
   'Re-authorise': '重新授权',
-  'Import local database files': '导入本地数据库文件',
+  'Import database files': '导入数据库文件',
   'No local files added yet.': '尚未添加本地文件。',
   'File permission was denied. Choose the file again to grant access.': '文件权限已被拒绝。请重新选择文件以授予访问权限。',
   'Local file access is not supported in this browser. Use Chrome or another browser with the File System Access API.': '当前浏览器不支持本地文件访问。请使用 Chrome 或其他支持 File System Access API 的浏览器。',

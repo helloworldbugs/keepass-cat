@@ -30,8 +30,8 @@ function fileNameFor(name) {
  * Creates a database, asks where to save it, writes it and registers the handle.
  * Resolves the new provider record, or null when the save dialog was dismissed.
  */
-export async function createLocalDatabase(providerManager, { name, password }) {
-  const credentials = credentialsFromPassword(password, null);
+export async function createLocalDatabase(providerManager, { name, password, keyFile }) {
+  const credentials = credentialsFromPassword(password, keyFile || null);
   const bytes = await createDatabase(name, credentials);
 
   let handle;

@@ -1,4 +1,6 @@
 <script>
+import { saveBinaryFile } from '@/lib/saveFile.js';
+
 export default {
   props: {
     settings: Object,
@@ -35,6 +37,44 @@ export default {
       if (name.endsWith('.keyx')) return this.$t('XML');
       if (name.endsWith('.key')) return this.$t('Binary');
       return this.$t('Other');
+    },
+    // A key file is just 32 random bytes (KeePass's own generator does the same):
+    // the file content *is* the key, so the managed entry and the saved file match
+    // without any parsing.
+    uniqueKeyFileName(base) {
+      const taken = new Set(this.keyFiles.map((file) => file.name));
+      if (!taken.has(base)) return base;
+      const dot = base.lastIndexOf('.');
+      const stem = dot > 0 ? base.slice(0, dot) : base;
+      const extension = dot > 0 ? base.slice(dot) : '';
+      for (let n = 2; n < 100; n++) {
+        const candidate = stem + ' (' + n + ')' + extension;
+        if (!taken.has(candidate)) return candidate;
+      }
+      return stem + ' (' + Date.now() + ')' + extension;
+    },
+    async createKeyFile() {
+      this.errorMessage = '';
+      const bytes = new Uint8Array(32);
+      crypto.getRandomValues(bytes);
+      const name = this.uniqueKeyFileName('keepass-key.key');
+      let saved;
+      try {
+        saved = await saveBinaryFile(name, bytes);
+      } catch (err) {
+        this.errorMessage = (err && err.message) || String(err);
+        return;
+      }
+      // Nothing was written (dialog dismissed): do not register a key the user
+      // cannot find afterwards.
+      if (!saved) return;
+      try {
+        const key = await this.keyFileParser.getKeyFromFile(bytes.buffer);
+        await this.settings.addKeyFile(name, key);
+        this.loadKeyFiles();
+      } catch (err) {
+        this.errorMessage = (err && err.message) || String(err);
+      }
     },
     selectFileInput() {
       document.getElementById('file').click();
@@ -91,7 +131,10 @@ export default {
         accept=".key,.keyx"
         @change="handleAdd"
       />
-      <a class="waves-effect waves-light btn" @click="selectFileInput">{{ $t('Add Key File') }}</a>
+      <a class="waves-effect waves-light btn" @click="createKeyFile">{{ $t('New key file') }}</a>
+      <a class="waves-effect waves-light btn" @click="selectFileInput">{{
+        $t('Import key file')
+      }}</a>
       <p v-if="errorMessage" class="box-bar error white-text">
         {{ $t(errorMessage) }}
       </p>

@@ -19,12 +19,16 @@ import GenericProviderUi from '@/components/GenericProviderUi.vue';
 import { createLocalDatabase, changeLocalDatabasePassword } from '$services/localDatabaseOps.js';
 
 const KEEP_CURRENT_KEYFILE = '__keep__';
+// Selecting this entry in the create dialog opens the key-file settings instead of
+// choosing a file; it is reset immediately so it can never be "selected".
+const MANAGE_KEYFILES = '__manage__';
 
 function emptyForm() {
   return {
     name: '',
     password: '',
     confirm: '',
+    keyName: '',
     currentPassword: '',
     currentKeyName: '',
     newPassword: '',
@@ -61,6 +65,7 @@ export default {
       // Managed key files, shared with the key-file screen.
       keyFiles: [],
       keepCurrentKeyFile: KEEP_CURRENT_KEYFILE,
+      manageKeyFiles: MANAGE_KEYFILES,
     };
   },
   mounted() {
@@ -192,8 +197,24 @@ export default {
     },
     openCreateDialog() {
       this.form = emptyForm();
+      this.loadKeyFiles();
       this.dialogError = '';
       this.dialog = 'create';
+    },
+    openKeyFileSettings() {
+      chrome.tabs.create({
+        url: window.location.origin + '/dist/options.html#/manage/keyfiles',
+      });
+    },
+    // "Manage key files" is an action inside the dropdown, not a choice: open the
+    // key-file settings and clear the selection again on the next tick, so the
+    // v-model listener cannot put it back.
+    onCreateKeyFileChange() {
+      if (this.form.keyName !== MANAGE_KEYFILES) return;
+      this.openKeyFileSettings();
+      this.$nextTick(() => {
+        this.form.keyName = '';
+      });
     },
     openChangeDialog(file) {
       this.form = emptyForm();
@@ -232,6 +253,7 @@ export default {
         const record = await createLocalDatabase(this.providerManager, {
           name: name,
           password: this.form.password,
+          keyFile: this.keyFileByName(this.form.keyName),
         });
         if (!record) {
           // Save dialog dismissed: keep the form open, nothing was written.
@@ -241,7 +263,6 @@ export default {
         // Make the new database the current one, so the popup opens it directly.
         const info = this.dbInfoFor(record);
         await this.settings.saveCurrentDatabaseChoice(info, this.providerManager);
-        this.notice = this.$t('Database created. Open the extension to add your passwords.');
         this.dialog = null;
         await this.refresh();
       } catch (err) {
@@ -363,10 +384,10 @@ export default {
         class="waves-effect waves-light btn local-file-new"
         :class="{ disabled: busy }"
         @click="openCreateDialog"
-        >{{ $t('New local password database') }}</a
+        >{{ $t('New password database') }}</a
       >
       <a class="waves-effect waves-light btn" :class="{ disabled: busy }" @click="addFiles">{{
-        $t('Import local database files')
+        $t('Import database files')
       }}</a>
     </div>
     <p v-if="notice" class="box-bar roomy small local-file-notice">{{ notice }}</p>
@@ -377,12 +398,23 @@ export default {
     <div v-if="dialog" class="local-dialog-backdrop" @click.self="closeDialog">
       <div class="local-dialog">
         <h5>
-          {{ dialog === 'create' ? $t('New local password database') : $t('Change password') }}
+          {{ dialog === 'create' ? $t('New password database') : $t('Change password') }}
         </h5>
 
         <div v-if="dialog === 'create'" class="field">
           <label for="local-db-name">{{ $t('Database name') }}</label>
           <input id="local-db-name" v-model="form.name" type="text" />
+        </div>
+
+        <div v-if="dialog === 'create'" class="field">
+          <label for="local-db-key">{{ $t('Key file') }}</label>
+          <select id="local-db-key" v-model="form.keyName" @change="onCreateKeyFileChange">
+            <option value="">{{ $t('No key file') }}</option>
+            <option v-for="keyFile in keyFiles" :key="keyFile.name" :value="keyFile.name">
+              {{ keyFile.name }}
+            </option>
+            <option :value="manageKeyFiles">{{ $t('Manage Keyfiles') }}</option>
+          </select>
         </div>
 
         <template v-if="dialog === 'change'">
