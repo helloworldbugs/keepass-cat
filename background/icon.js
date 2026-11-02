@@ -27,6 +27,7 @@ const SCAN_DEBOUNCE_MS = 250;
 // locking the vault (or unlocking it in the popup) is reflected without a reload.
 const MATCH_TTL_MS = 1500;
 const Z = '2147483647';
+const LIST_ATTR = 'data-keepass-cat-list';
 
 export function initInlineIcon() {
   if (window.__keepassCatInline) return;
@@ -229,12 +230,30 @@ export function initInlineIcon() {
     return host;
   }
 
+  // One list at a time, determined from the DOM rather than from a variable: a
+  // second open used to leave the first list on the page with nothing pointing at
+  // it, so clicking a row closed a list the user was not looking at.
+  let listOpening = false;
+
+  function allLists() {
+    return Array.prototype.slice.call(document.querySelectorAll('[' + LIST_ATTR + ']'));
+  }
+
+  function hasList() {
+    return allLists().length > 0;
+  }
+
   function onIconClick(field) {
-    if (openList) {
+    if (hasList()) {
       closeList();
       return;
     }
+    // The match list arrives asynchronously; a second click in that window must
+    // not start a second open.
+    if (listOpening) return;
+    listOpening = true;
     loadMatches(true).then(function (list) {
+      listOpening = false;
       if (!list || !list.length) {
         matches = [];
         removeAllIcons();
@@ -244,9 +263,18 @@ export function initInlineIcon() {
         fillEntry(list[0]);
         return;
       }
-      openList = { host: makeList(list), input: field };
-      placeList(openList.host, field);
+      openListFor(list, field);
+    }, function () {
+      listOpening = false;
     });
+  }
+
+  function openListFor(list, field) {
+    closeList();
+    const host = makeList(list);
+    host.setAttribute(LIST_ATTR, '');
+    openList = { host: host, input: field };
+    placeList(host, field);
   }
 
   function removeAllIcons() {
@@ -295,6 +323,26 @@ export function initInlineIcon() {
         user.textContent = entry.userName;
         button.appendChild(user);
       }
+      // Activate on pointer events, not only on click: a page that cancels
+      // pointerdown (or a stray preventDefault of its own) can suppress the
+      // compatibility mouse events and with them the click, which used to leave the
+      // list open and the row inert. The flag makes click a fallback, never a
+      // second fill.
+      let activated = false;
+      const activate = function () {
+        if (activated) return;
+        activated = true;
+        fillEntry(entry);
+      };
+      button.addEventListener('pointerdown', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      });
+      button.addEventListener('pointerup', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        activate();
+      });
       button.addEventListener('mousedown', function (event) {
         event.preventDefault();
         event.stopPropagation();
@@ -302,7 +350,7 @@ export function initInlineIcon() {
       button.addEventListener('click', function (event) {
         event.preventDefault();
         event.stopPropagation();
-        fillEntry(entry);
+        activate();
       });
       li.appendChild(button);
       ul.appendChild(li);
@@ -328,8 +376,12 @@ export function initInlineIcon() {
   }
 
   function closeList() {
-    if (!openList) return;
-    openList.host.remove();
+    // Sweep by attribute, not by the variable: a list can outlive the reference to
+    // it (an open that raced a close, a fill, a page mutation) and would otherwise
+    // stay on screen for good.
+    allLists().forEach(function (host) {
+      host.remove();
+    });
     openList = null;
   }
 
@@ -412,12 +464,15 @@ export function initInlineIcon() {
   window.addEventListener('scroll', scheduleReposition, true);
   window.addEventListener('resize', scheduleReposition);
   window.addEventListener('keydown', function (event) {
-    if (event.key === 'Escape' && openList) closeList();
+    if (event.key === 'Escape' && hasList()) closeList();
   }, true);
   window.addEventListener('mousedown', function (event) {
-    if (!openList) return;
+    if (!hasList()) return;
     const path = event.composedPath ? event.composedPath() : [];
-    if (path.indexOf(openList.host) >= 0) return;
+    const inside = allLists().some(function (host) {
+      return path.indexOf(host) >= 0;
+    });
+    if (inside) return;
     closeList();
   }, true);
 
