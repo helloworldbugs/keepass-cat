@@ -318,28 +318,38 @@ export default {
          off has to fold the list away with the rest of the controls, otherwise the
          names stay on screen for a provider the picker no longer offers. -->
     <template v-if="enabled">
-      <div v-for="file in files" :key="file.id" class="box-bar roomy small lighter">
-        <span>
-          <!-- Read-only, like the key-file rows: the name is the one the picker
-               reported, and a duplicate gets a numbered suffix when it is added. -->
-          <span class="local-file-name" :title="file.alias">{{ file.alias }}</span>
-          <i
-            class="fa fa-times-circle selectable"
-            aria-hidden="true"
-            :title="$t('remove')"
-            @click="removeFile(file)"
-          />
-          <a class="selectable local-file-action" @click="openChangeDialog(file)">{{
-            $t('Change password')
-          }}</a>
-          <a
-            v-if="needsPermission(file.id)"
-            class="selectable local-file-badge"
-            @click="reauthorise(file)"
-            >{{ $t('Re-authorise') }}</a
-          >
-        </span>
-      </div>
+      <table v-if="files.length" class="kdbx-table">
+        <thead>
+          <tr>
+            <th>{{ $t('File name') }}</th>
+            <th>{{ $t('Folder') }}</th>
+            <th>{{ $t('Actions') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="file in files" :key="file.id">
+            <td :title="file.alias">{{ file.alias }}</td>
+            <!-- The File System Access API exposes no path, only the file name. -->
+            <td class="kdbx-table-dim" :title="$t('The browser does not expose the folder of a local file.')">
+              &mdash;
+            </td>
+            <td>
+              <a class="selectable kdbx-table-action" @click="openChangeDialog(file)">{{
+                $t('Change password')
+              }}</a>
+              <a class="selectable kdbx-table-action" @click="removeFile(file)">{{
+                $t('remove')
+              }}</a>
+              <a
+                v-if="needsPermission(file.id)"
+                class="selectable kdbx-table-action local-file-badge"
+                @click="reauthorise(file)"
+                >{{ $t('Re-authorise') }}</a
+              >
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </template>
     <div v-if="enabled" class="box-bar roomy local-file-actions">
       <a class="waves-effect waves-light btn" :class="{ disabled: busy }" @click="addFiles">{{
@@ -455,32 +465,8 @@ export default {
 @import '../styles/settings.scss';
 
 #local-file-manager {
-  /* Same treatment as the key-file rows: a long, space-less name must not widen the
-     row, and the remove icon stays right behind it. No ellipsis - the name is
-     clipped and the full value is in the tooltip.
-     Weight and colour stay at the description's: the list is body text, not a
-     heading, so it must not read as heavier than the paragraph above it. */
-  .local-file-name {
-    display: inline-block;
-    max-width: calc(100% - 40px);
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: clip;
-    vertical-align: bottom;
-    font-weight: 400;
-  }
-
   .local-file-badge {
-    margin-left: 8px;
-    font-size: 12px;
-    font-weight: 400;
     color: var(--keepass-cat-keyfile-active);
-  }
-
-  .local-file-action {
-    margin-left: 12px;
-    font-size: 12px;
-    font-weight: 400;
   }
 
   .local-file-actions {

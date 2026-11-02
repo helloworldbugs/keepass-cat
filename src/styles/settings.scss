@@ -15,3 +15,74 @@ $wall-padding: 16px;
 $options-wall-padding: 20px;
 
 $options-width: 800px;
+
+/*
+ * Shared list table for the settings page, matching the WebDAV server table:
+ * fixed layout with pinned columns, one line per cell, and the long text columns
+ * fading out at the cut instead of being ellipsised.
+ */
+.kdbx-table {
+  width: 100%;
+  table-layout: fixed;
+  font-size: 14px;
+  margin: 0;
+
+  th {
+    background-color: $light-background-color;
+    text-align: left;
+    color: var(--keepass-cat-text, #2c3e50);
+    font-weight: 600;
+  }
+
+  tr {
+    background-color: $background-color;
+  }
+
+  td {
+    padding: 5px 5px;
+    border-radius: 0px;
+  }
+
+  th:nth-child(1),
+  td:nth-child(1) {
+    width: 45%;
+  }
+
+  th:nth-child(2),
+  td:nth-child(2) {
+    width: 22%;
+  }
+
+  th:nth-child(3),
+  td:nth-child(3) {
+    width: 33%;
+  }
+
+  td:nth-child(1),
+  td:nth-child(2) {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: clip;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+  }
+
+  /* Actions are short words with an icon: never let them wrap. */
+  td:nth-child(3) {
+    white-space: nowrap;
+  }
+
+  td.kdbx-table-dim {
+    color: var(--keepass-cat-text-muted, #999);
+  }
+
+  .kdbx-table-action {
+    margin-right: 12px;
+    font-size: 14px;
+
+    &:last-child {
+      margin-right: 0;
+    }
+  }
+}
+

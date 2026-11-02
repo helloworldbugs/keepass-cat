@@ -14,6 +14,10 @@ const zhCN: Record<string, string> = {
   'until the browser exits': '浏览器关闭前',
   'forever': '永久',
   // ===== Local password databases (settings) =====
+  'File name': '文件名',
+  'Folder': '目录',
+  'The browser does not expose the folder of a local file.': '浏览器不会暴露本地文件所在的目录。',
+  'Key files are stored inside the extension.': '密钥文件保存在扩展内部。',
   'New password database': '新建密码库',
   'Change password': '修改密码',
   'Database name': '密码库名称',

@@ -87,34 +87,39 @@ export default {
         {{ $t(errorMessage) }}
       </p>
     </div>
-    <div v-for="(file, file_index) in keyFiles" class="box-bar roomy small lighter">
-      <span
-        ><span class="keyfile-name" :title="file.name">{{ file.name }}</span>
-        <i
-          class="fa fa-times-circle selectable"
-          aria-hidden="true"
-          @click="removeKeyFile(file_index)"
-        />
-      </span>
-    </div>
+    <table v-if="keyFiles.length" class="kdbx-table">
+      <thead>
+        <tr>
+          <th>{{ $t('File name') }}</th>
+          <th>{{ $t('Folder') }}</th>
+          <th>{{ $t('Actions') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="(file, file_index) in keyFiles" :key="file.name">
+          <td :title="file.name">{{ file.name }}</td>
+          <!-- Key files are stored inside the extension, so they have no folder. -->
+          <td class="kdbx-table-dim" :title="$t('Key files are stored inside the extension.')">
+            &mdash;
+          </td>
+          <td>
+            <a class="selectable kdbx-table-action" @click="removeKeyFile(file_index)">{{
+              $t('remove')
+            }}</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </template>
 
 <style lang="scss">
 @import '../styles/settings.scss';
 #key-file-manager {
-  span {
-    font-weight: 500;
-  }
-  // A long, space-less file name must not widen the row: clip it on one line
-  // and leave the remove icon in place. The full name is in the tooltip.
-  .keyfile-name {
-    display: inline-block;
-    max-width: calc(100% - 20px);
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: clip;
-    vertical-align: bottom;
+  // The list is a table now (see .kdbx-table in settings.scss); nothing else needs
+  // its own rule here.
+  table {
+    margin-top: 12px;
   }
 }
 </style>
