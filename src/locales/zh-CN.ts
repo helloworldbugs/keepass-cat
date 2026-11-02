@@ -253,6 +253,9 @@ const zhCN: Record<string, string> = {
   'stored unencrypted': '以未加密形式存储',
 
   // ===== Autofill Shortcut =====
+  'In-page fill icon': '网页内填充图标',
+  'Show the fill icon on login fields': '在登录输入框显示填充图标',
+  'Adds a small key button to the username field of login forms, so an entry can be filled without opening the extension.': '在登录表单的用户名输入框右侧显示一个小钥匙按钮，不用打开扩展就能直接填充条目。',
   'Autofill Shortcut': '自动填充快捷键',
   'Default shortcut:': '默认快捷键：',
   'Fill OTP at cursor': '在光标处填充 OTP',

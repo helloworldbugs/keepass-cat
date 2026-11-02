@@ -475,6 +475,17 @@ export function initInlineIcon() {
     });
   });
 
+  // Coming back from the settings tab (where the icon can be switched off) must
+  // not leave stale icons behind; the focus event above does this for tab switches,
+  // this covers the same-tab case.
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    loadMatches(true).then(function (list) {
+      if (list && list.length) syncIcons(anchorFields());
+      else removeAllIcons();
+    });
+  });
+
   window.addEventListener('scroll', scheduleReposition, true);
   window.addEventListener('resize', scheduleReposition);
   window.addEventListener('keydown', function (event) {

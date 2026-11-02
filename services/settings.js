@@ -345,6 +345,12 @@ function Settings(secureCache) {
     return keyGetSetter('autofillShortcut', enabled, true, 'boolean');
   };
 
+  // The key button inside login fields. On by default: it is the feature, not an
+  // extra, and the switch exists for anyone who finds it distracting.
+  exports.getSetInlineIconEnabled = function (enabled) {
+    return keyGetSetter('inlineIconEnabled', enabled, true, 'boolean');
+  };
+
   exports.getSetFillTotpEnabled = function (enabled) {
     return keyGetSetter('fillTotpEnabled', enabled, true, 'boolean');
   };

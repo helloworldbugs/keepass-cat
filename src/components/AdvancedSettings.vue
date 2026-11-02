@@ -11,6 +11,7 @@ export default {
       expireTime: 15,
       clipboardExpireEnabled: true,
       autofillShortcut: true,
+      inlineIconEnabled: true,
       fillTotpEnabled: true,
       copyTotpOnAutofill: true,
       notificationsEnabled: ['expiration', 'clipboard'],
@@ -97,6 +98,9 @@ export default {
     saveAutofillShortcut() {
       chrome.storage.local.set({ autofillShortcut: this.autofillShortcut });
     },
+    saveInlineIconEnabled() {
+      this.settings.getSetInlineIconEnabled(this.inlineIconEnabled);
+    },
     openShortcuts() {
       chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
     },
@@ -109,6 +113,9 @@ export default {
       })
       this.settings.getSetAutofillShortcut().then(val => {
         this.autofillShortcut = val
+      })
+      this.settings.getSetInlineIconEnabled().then(val => {
+        this.inlineIconEnabled = val
       })
       this.settings.getSetFillTotpEnabled().then(val => {
         this.fillTotpEnabled = val
@@ -186,6 +193,26 @@ export default {
         </option>
         </select>
       </div>
+    </div>
+
+    <div class="box-bar roomy">
+      <h4>{{ $t('In-page fill icon') }}</h4>
+    </div>
+    <div class="box-bar roomy lighter">
+      <div class="switch">
+        <label>
+          <input
+            v-model="inlineIconEnabled"
+            type="checkbox"
+            @change="saveInlineIconEnabled"
+          >
+          <span class="lever" />
+          {{ $t('Show the fill icon on login fields') }}
+        </label>
+      </div>
+      <p class="totp-note">
+        {{ $t('Adds a small key button to the username field of login forms, so an entry can be filled without opening the extension.') }}
+      </p>
     </div>
 
     <div class="box-bar roomy">

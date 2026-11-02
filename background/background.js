@@ -220,7 +220,27 @@ function Background(protectedMemory, localMemory, settings, notifications) {
       sendResponse(message.m == 'inlineFill' ? { ok: false } : { matches: [] });
       return;
     }
-    unlockedEntries().then(function (entries) {
+    // The in-page icon can be switched off in the advanced settings; with it off
+    // there is no button to click, so nothing is offered to the content script.
+    var gate =
+      message.m == 'inlineMatches' ? settings.getSetInlineIconEnabled() : Promise.resolve(true);
+    gate
+      .then(function (enabled) {
+        if (!enabled) {
+          sendResponse({ matches: [] });
+          return;
+        }
+        return respondToInline(message, pageTab, pageUrl, sendResponse);
+      })
+      .catch(function () {
+        sendResponse(message.m == 'inlineFill' ? { ok: false } : { matches: [] });
+      });
+    return true; // async response
+  }
+
+  // Body of the two inline messages, once the tab and the switch have been checked.
+  function respondToInline(message, tab, pageUrl, sendResponse) {
+    return unlockedEntries().then(function (entries) {
       if (message.m == 'inlineMatches') {
         var matched = entries ? entriesForPage(entries, pageUrl) : [];
         sendResponse({
@@ -250,24 +270,21 @@ function Background(protectedMemory, localMemory, settings, notifications) {
       }
       var password = entry ? decryptProtectedField(entry, 'password') : '';
       var userName = entry ? decryptProtectedField(entry, 'userName') : '';
-      // An entry may legitimately hold only one of the two - a username-only test
-      // entry, or a password-only one. Fill what exists and pass null for the
-      // other: performAutofill() treats null as "leave this field alone", so a
-      // missing password never clears what the page already has.
+      // An entry may legitimately hold only one of the two. Choosing an entry means
+      // "make the form match this entry", so a missing half is filled as an empty
+      // string - which clears whatever the previous entry left in that field - and
+      // only an entry with neither field is rejected.
       if (!password && !userName) {
         sendResponse({ ok: false });
         return;
       }
-      return performAutofill(pageTab.id, userName || null, password || null, true).then(
+      return performAutofill(tab.id, userName, password, true).then(
         function () {
-          copyTotpForShortcut(pageTab.id, entry);
+          copyTotpForShortcut(tab.id, entry);
           sendResponse({ ok: true });
         }
       );
-    }).catch(function () {
-      sendResponse(message.m == 'inlineFill' ? { ok: false } : { matches: [] });
     });
-    return true; // async response
   }
 
   if (message.m == 'autofill') {
