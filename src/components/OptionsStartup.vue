@@ -68,7 +68,7 @@ export default {
            missing button reads as a missing feature, while a greyed one with a note
            underneath says what to use instead. -->
       <p v-if="!canCreateLocalDatabase" class="platform-note">
-        {{ $t('Sorry - creating a local password database needs Chrome or Edge, because only those browsers let an extension write the file. Firefox fully supports WebDAV storage, so a database kept on your cloud drive works just the same - please give it a try.') }}
+        {{ $t('Sorry - Firefox cannot read or write local files yet, so a local password database can only be created in Chrome. The good news: Firefox supports WebDAV storage in full - keep the database on your cloud drive and syncing plus autofill work just the same. A different road, same view - please give it a try.') }}
       </p>
 
       <p v-if="localFileSupported">
