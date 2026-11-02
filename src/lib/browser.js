@@ -26,4 +26,8 @@ export function setBadgeTextColor(details) {
   actionApi.setBadgeTextColor?.(details);
 }
 
+export function setIcon(details) {
+  actionApi.setIcon?.(details);
+}
+
 export { isFirefox };

@@ -17,6 +17,7 @@ import {
   setBadgeBackgroundColor,
   setBadgeTextColor,
   canSetBadgeTextColor,
+  setIcon,
 } from '@/lib/browser.js';
 import { matchLevel } from '@/lib/matchLevel.js';
 import { Otp } from '@/lib/otp.js';
@@ -405,15 +406,105 @@ function Background(protectedMemory, localMemory, settings, notifications) {
   forgetStuff();
   setTimeout(updateBadgeForTab, 200); // brief delay for storage to be ready
 
+  // Chrome ignores an alpha-0 badge background and paints its own, so "a bare red
+  // cross" cannot be a badge: the box always shows up. The locked state is drawn
+  // into the action icon instead - the logo with a thick red X in the corner and
+  // no badge at all.
+  var baseIcon = null;
+  var lockedIconCache = {};
+
+  function makeCanvas(width, height) {
+    if (typeof OffscreenCanvas === 'function') return new OffscreenCanvas(width, height);
+    var canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    return canvas;
+  }
+
+  function loadBaseIcon() {
+    if (baseIcon) return Promise.resolve(baseIcon);
+    return fetch(chrome.runtime.getURL('assets/38x38.png'))
+      .then(function (res) {
+        return res.blob();
+      })
+      .then(function (blob) {
+        return createImageBitmap(blob);
+      })
+      .then(function (bitmap) {
+        baseIcon = bitmap;
+        return bitmap;
+      });
+  }
+
+  function strokeCross(ctx, left, top, right, bottom) {
+    ctx.beginPath();
+    ctx.moveTo(left, top);
+    ctx.lineTo(right, bottom);
+    ctx.moveTo(right, top);
+    ctx.lineTo(left, bottom);
+    ctx.stroke();
+  }
+
+  function lockedIconData(size) {
+    if (lockedIconCache[size]) return Promise.resolve(lockedIconCache[size]);
+    return loadBaseIcon().then(function (bitmap) {
+      var canvas = makeCanvas(size, size);
+      var ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, size, size);
+      ctx.drawImage(bitmap, 0, 0, size, size);
+
+      // Bottom-right quadrant. A light halo under the red keeps the cross legible
+      // on both a light and a dark toolbar.
+      var inset = Math.round(size * 0.06);
+      var box = Math.round(size * 0.62);
+      var left = size - box + inset;
+      var top = size - box + inset;
+      var right = size - inset;
+      var bottom = size - inset;
+
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      ctx.lineWidth = Math.max(3, Math.round(size * 0.2));
+      ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+      strokeCross(ctx, left, top, right, bottom);
+
+      ctx.lineWidth = Math.max(2, Math.round(size * 0.13));
+      ctx.strokeStyle = '#e5402f';
+      strokeCross(ctx, left, top, right, bottom);
+
+      var data = ctx.getImageData(0, 0, size, size);
+      lockedIconCache[size] = data;
+      return data;
+    });
+  }
+
+  function applyLockedIcon(tabId) {
+    Promise.all([lockedIconData(16), lockedIconData(32)])
+      .then(function (images) {
+        setIcon({ tabId: tabId, imageData: { 16: images[0], 32: images[1] } });
+      })
+      .catch(function () {});
+  }
+
+  function applyNormalIcon(tabId) {
+    var manifest = chrome.runtime.getManifest();
+    var action = manifest.action || manifest.browser_action || {};
+    setIcon({ tabId: tabId, path: action.default_icon || 'assets/38x38.png' });
+  }
+
   // The badge answers one question at a glance: can this tab be filled, and with
-  // how many entries. A locked vault is a red cross - it is the state the user has
-  // to act on, so it must not look like "no matches" (which is an empty badge).
+  // how many entries. A locked vault is a red cross on the icon - it is the state
+  // the user has to act on, so it must not look like "no matches" (an empty badge).
   var updateBadgeForTab = function() {
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
       if (!tabs || tabs.length === 0) return;
       var tab = tabs[0];
       if (!tab || !tab.url || !tab.url.startsWith('http')) {
-        if (tab) setBadgeText({ text: '', tabId: tab.id });
+        if (tab) {
+          applyNormalIcon(tab.id);
+          setBadgeText({ text: '', tabId: tab.id });
+        }
         return;
       }
       unlockedEntries().then(function(entries) {
@@ -423,12 +514,14 @@ function Background(protectedMemory, localMemory, settings, notifications) {
         }
         var count = entriesForPage(entries, tab.url).length;
         if (count > 0) {
+          applyNormalIcon(tab.id);
           setBadgeText({ text: String(count), tabId: tab.id });
           // A tab can have been locked a moment ago; reset both, or the count
           // would inherit the red text / transparent background.
           if (canSetBadgeTextColor) setBadgeTextColor({ color: '#ffffff', tabId: tab.id });
           setBadgeBackgroundColor({ color: '#4688F1', tabId: tab.id });
         } else {
+          applyNormalIcon(tab.id);
           setBadgeText({ text: '', tabId: tab.id });
         }
       }).catch(function() {});
@@ -436,17 +529,8 @@ function Background(protectedMemory, localMemory, settings, notifications) {
   };
 
   function lockBadgeOnTab(tabId) {
-    // A bare red cross reads better than white-on-red at 16px, and the heavy
-    // multiplication sign is the thickest X a system font gives us. The strokes
-    // stay legible because the background is dropped entirely.
-    setBadgeText({ text: '✖', tabId: tabId });
-    if (canSetBadgeTextColor) {
-      setBadgeTextColor({ color: '#e74c3c', tabId: tabId });
-      setBadgeBackgroundColor({ color: [0, 0, 0, 0], tabId: tabId });
-    } else {
-      // No text colour API: keep the fill so the glyph stays visible at all.
-      setBadgeBackgroundColor({ color: '#e74c3c', tabId: tabId });
-    }
+    setBadgeText({ text: '', tabId: tabId });
+    applyLockedIcon(tabId);
   }
 
   // Locking affects every tab at once, so stamp the cross on all of them instead
