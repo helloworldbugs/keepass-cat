@@ -11,7 +11,13 @@ import { ProtectedMemory } from '$services/protectedMemory';
 import { Settings } from '$services/settings.js';
 import { Notifications } from '$services/notifications';
 import { i18n } from '@/services/i18n';
-import { openPopup, setBadgeText, setBadgeBackgroundColor } from '@/lib/browser.js';
+import {
+  openPopup,
+  setBadgeText,
+  setBadgeBackgroundColor,
+  setBadgeTextColor,
+  canSetBadgeTextColor,
+} from '@/lib/browser.js';
 import { matchLevel } from '@/lib/matchLevel.js';
 import { Otp } from '@/lib/otp.js';
 
@@ -418,6 +424,9 @@ function Background(protectedMemory, localMemory, settings, notifications) {
         var count = entriesForPage(entries, tab.url).length;
         if (count > 0) {
           setBadgeText({ text: String(count), tabId: tab.id });
+          // A tab can have been locked a moment ago; reset both, or the count
+          // would inherit the red text / transparent background.
+          if (canSetBadgeTextColor) setBadgeTextColor({ color: '#ffffff', tabId: tab.id });
           setBadgeBackgroundColor({ color: '#4688F1', tabId: tab.id });
         } else {
           setBadgeText({ text: '', tabId: tab.id });
@@ -427,8 +436,17 @@ function Background(protectedMemory, localMemory, settings, notifications) {
   };
 
   function lockBadgeOnTab(tabId) {
-    setBadgeText({ text: '✕', tabId: tabId });
-    setBadgeBackgroundColor({ color: '#e74c3c', tabId: tabId });
+    // A bare red cross reads better than white-on-red at 16px, and the heavy
+    // multiplication sign is the thickest X a system font gives us. The strokes
+    // stay legible because the background is dropped entirely.
+    setBadgeText({ text: '✖', tabId: tabId });
+    if (canSetBadgeTextColor) {
+      setBadgeTextColor({ color: '#e74c3c', tabId: tabId });
+      setBadgeBackgroundColor({ color: [0, 0, 0, 0], tabId: tabId });
+    } else {
+      // No text colour API: keep the fill so the glyph stays visible at all.
+      setBadgeBackgroundColor({ color: '#e74c3c', tabId: tabId });
+    }
   }
 
   // Locking affects every tab at once, so stamp the cross on all of them instead

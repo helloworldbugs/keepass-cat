@@ -17,4 +17,13 @@ export function setBadgeBackgroundColor(details) {
   actionApi.setBadgeBackgroundColor?.(details);
 }
 
+// Chrome 110+ / Firefox 63+ allow colouring the badge text, which is what makes a
+// transparent badge (text only) possible. Callers fall back to a coloured
+// background where it is missing.
+export const canSetBadgeTextColor = typeof actionApi.setBadgeTextColor === 'function';
+
+export function setBadgeTextColor(details) {
+  actionApi.setBadgeTextColor?.(details);
+}
+
 export { isFirefox };
