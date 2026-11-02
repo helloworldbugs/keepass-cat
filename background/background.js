@@ -462,15 +462,15 @@ function Background(protectedMemory, localMemory, settings, notifications) {
       var right = size - inset;
       var bottom = size - inset;
 
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
+      ctx.lineCap = 'butt';
+      ctx.lineJoin = 'miter';
 
-      ctx.lineWidth = Math.max(3, Math.round(size * 0.2));
-      ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+      ctx.lineWidth = Math.max(4, Math.round(size * 0.3));
+      ctx.strokeStyle = 'rgba(255,255,255,0.95)';
       strokeCross(ctx, left, top, right, bottom);
 
-      ctx.lineWidth = Math.max(2, Math.round(size * 0.13));
-      ctx.strokeStyle = '#e5402f';
+      ctx.lineWidth = Math.max(3, Math.round(size * 0.22));
+      ctx.strokeStyle = '#e60012';
       strokeCross(ctx, left, top, right, bottom);
 
       var data = ctx.getImageData(0, 0, size, size);
