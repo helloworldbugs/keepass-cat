@@ -17,6 +17,17 @@ $options-wall-padding: 20px;
 $options-width: 800px;
 
 /*
+ * A row of action buttons. Materialize's .btn carries no margin of its own, so
+ * buttons placed next to each other touch; the gap separates them, and wrapping
+ * keeps them from overflowing on a narrow window.
+ */
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/*
  * Shared list table for the settings page, matching the WebDAV server table:
  * fixed layout with pinned columns, one line per cell, and the long text columns
  * fading out at the cut instead of being ellipsised.

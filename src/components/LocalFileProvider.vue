@@ -379,7 +379,7 @@ export default {
         </tbody>
       </table>
     </template>
-    <div v-if="enabled" class="box-bar roomy local-file-actions">
+    <div v-if="enabled" class="box-bar roomy settings-actions">
       <a
         class="waves-effect waves-light btn local-file-new"
         :class="{ disabled: busy }"
@@ -506,12 +506,6 @@ export default {
 #local-file-manager {
   .local-file-badge {
     color: var(--keepass-cat-keyfile-active);
-  }
-
-  .local-file-actions {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
   }
 
   .local-file-notice {

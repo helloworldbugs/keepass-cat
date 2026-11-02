@@ -131,10 +131,12 @@ export default {
         accept=".key,.keyx"
         @change="handleAdd"
       />
-      <a class="waves-effect waves-light btn" @click="createKeyFile">{{ $t('New key file') }}</a>
-      <a class="waves-effect waves-light btn" @click="selectFileInput">{{
-        $t('Import key file')
-      }}</a>
+      <div class="settings-actions">
+        <a class="waves-effect waves-light btn" @click="createKeyFile">{{ $t('New key file') }}</a>
+        <a class="waves-effect waves-light btn" @click="selectFileInput">{{
+          $t('Import key file')
+        }}</a>
+      </div>
       <p v-if="errorMessage" class="box-bar error white-text">
         {{ $t(errorMessage) }}
       </p>
