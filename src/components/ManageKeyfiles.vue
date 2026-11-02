@@ -27,6 +27,15 @@ export default {
         });
       }
     },
+    // KeePass 2 writes XML key files (.keyx) and still reads the legacy binary ones
+    // (.key); anything else was picked with "All files" and used as raw bytes, so it
+    // is reported as a custom key file.
+    keyFileType(file) {
+      const name = (file.name || '').toLowerCase();
+      if (name.endsWith('.keyx')) return this.$t('XML');
+      if (name.endsWith('.key')) return this.$t('Binary');
+      return this.$t('Other');
+    },
     selectFileInput() {
       document.getElementById('file').click();
     },
@@ -91,17 +100,14 @@ export default {
       <thead>
         <tr>
           <th>{{ $t('File name') }}</th>
-          <th>{{ $t('Folder') }}</th>
+          <th>{{ $t('Type') }}</th>
           <th>{{ $t('Actions') }}</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="(file, file_index) in keyFiles" :key="file.name">
           <td :title="file.name">{{ file.name }}</td>
-          <!-- Key files are stored inside the extension, so they have no folder. -->
-          <td class="kdbx-table-dim" :title="$t('Key files are stored inside the extension.')">
-            &mdash;
-          </td>
+          <td class="kdbx-table-dim">{{ keyFileType(file) }}</td>
           <td>
             <a class="selectable kdbx-table-action" @click="removeKeyFile(file_index)">{{
               $t('remove')

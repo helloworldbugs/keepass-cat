@@ -74,6 +74,11 @@ export default {
       const state = this.permission[id];
       return !!state && state !== 'granted' && state !== 'unsupported';
     },
+    permissionLabel(file) {
+      const state = this.permission[file.id];
+      if (!state || state === 'none' || state === 'unsupported') return '—';
+      return state === 'granted' ? this.$t('Authorised') : this.$t('Needs permission');
+    },
     async refresh() {
       this.busy = true;
       this.error = '';
@@ -322,16 +327,18 @@ export default {
         <thead>
           <tr>
             <th>{{ $t('File name') }}</th>
-            <th>{{ $t('Folder') }}</th>
+            <th>{{ $t('Status') }}</th>
             <th>{{ $t('Actions') }}</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="file in files" :key="file.id">
             <td :title="file.alias">{{ file.alias }}</td>
-            <!-- The File System Access API exposes no path, only the file name. -->
-            <td class="kdbx-table-dim" :title="$t('The browser does not expose the folder of a local file.')">
-              &mdash;
+            <td
+              class="kdbx-table-status"
+              :class="needsPermission(file.id) ? 'is-warn' : 'is-ok'"
+            >
+              {{ permissionLabel(file) }}
             </td>
             <td>
               <a class="selectable kdbx-table-action" @click="openChangeDialog(file)">{{

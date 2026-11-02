@@ -76,6 +76,15 @@ $options-width: 800px;
     color: var(--keepass-cat-text-muted, #999);
   }
 
+  /* Permission state in the local-file list. */
+  .kdbx-table-status.is-ok {
+    color: $green;
+  }
+
+  .kdbx-table-status.is-warn {
+    color: var(--keepass-cat-keyfile-active, #b8860b);
+  }
+
   .kdbx-table-action {
     margin-right: 12px;
     font-size: 14px;
