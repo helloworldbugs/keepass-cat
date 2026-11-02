@@ -277,11 +277,4 @@ table {
     mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
   }
 }
-
-.warning-box {
-  border: 3px solid red;
-  p {
-    margin: 4px;
-  }
-}
 </style>

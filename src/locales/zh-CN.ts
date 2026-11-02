@@ -167,7 +167,7 @@ const zhCN: Record<string, string> = {
 
   // ===== Options: Advanced Settings =====
   'Clipboard Expiration Time': '剪贴板过期时间',
-  'When you copy a password, Keepass Cat clears the clipboard again after the timeout you choose. Copying a username or a one-time code does not start the timer.': '复制密码后，Keepass Cat 会在你设定的时间后自动清空剪贴板。复制用户名或一次性验证码不会开始计时。',
+  'When you copy a password, Keepass Cat clears the clipboard again after the timeout you choose.': '复制密码后，Keepass Cat 会在你设定的时间后自动清空剪贴板。',
   '1 minute': '1 分钟',
   '15 seconds': '15 秒',
   '3 minutes': '3 分钟',

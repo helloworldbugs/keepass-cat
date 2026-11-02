@@ -23,7 +23,7 @@ export default {
           </svg>
           {{ $t(providerManager.chooseTitle) }}
         </span>
-        <span v-show="error.length" class="error pill">{{ error }}</span>
+        <span v-show="error.length" class="error pill">{{ $t(error) }}</span>
       </div>
       <div>
         <div class="switch">

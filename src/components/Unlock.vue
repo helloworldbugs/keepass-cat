@@ -116,9 +116,6 @@ export default defineComponent({
     };
   },
   computed: {
-    rememberPassword: function () {
-      return this.rememberPeriod !== 0;
-    },
     selectedKeyFileName: function () {
       if (this.selectedKeyFile !== undefined) return this.selectedKeyFile.name;
       return this.$t('No keyfile selected. (click to change)');

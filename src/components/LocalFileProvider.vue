@@ -11,8 +11,9 @@
   name in different folders are indistinguishable - the second one gets a numbered
   suffix when it is added, and the name itself is not editable.
 
-  The rows deliberately mirror ManageKeyfiles: one bar per file, with the remove
-  icon right behind the name instead of pushed to the far edge of the row.
+  The list is the same table the key-file screen uses (see .kdbx-table in
+  settings.scss): the second column carries something the user can act on, since
+  the API exposes no folder to show.
 -->
 <script>
 import GenericProviderUi from '@/components/GenericProviderUi.vue';
@@ -359,8 +360,8 @@ export default {
         <p v-if="!files.length" class="description">{{ $t('No local files added yet.') }}</p>
       </template>
     </div>
-    <!-- The file bars are part of what the switch turns on: switching the provider
-         off has to fold the list away with the rest of the controls, otherwise the
+    <!-- The list is part of what the switch turns on: switching the provider
+         off has to fold it away with the rest of the controls, otherwise the
          names stay on screen for a provider the picker no longer offers. -->
     <template v-if="enabled">
       <table v-if="files.length" class="kdbx-table">
@@ -400,7 +401,7 @@ export default {
     </template>
     <div v-if="enabled" class="box-bar roomy settings-actions">
       <a
-        class="waves-effect waves-light btn local-file-new"
+        class="waves-effect waves-light btn"
         :class="{ disabled: busy }"
         @click="openCreateDialog"
         >{{ $t('New password database') }}</a
@@ -498,7 +499,7 @@ export default {
           </select>
         </div>
 
-        <p v-if="dialogError" class="local-dialog-error">{{ dialogError }}</p>
+        <p v-if="dialogError" class="local-dialog-error">{{ $t(dialogError) }}</p>
         <p class="local-dialog-hint">
           {{ $t('There is no way to recover a forgotten password: keep it somewhere safe.') }}
         </p>

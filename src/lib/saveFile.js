@@ -7,13 +7,12 @@
  * the bytes directly. Firefox has no such API: the file goes through a regular
  * download instead, which is the only way a page can produce a file there.
  */
-export async function saveBinaryFile(suggestedName, bytes, types) {
+export async function saveBinaryFile(suggestedName, bytes) {
   if (typeof window !== 'undefined' && typeof window.showSaveFilePicker === 'function') {
     let handle;
     try {
       handle = await window.showSaveFilePicker({
         suggestedName: suggestedName,
-        types: types,
         excludeAcceptAllOption: false,
       });
     } catch (err) {
