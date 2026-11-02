@@ -6,30 +6,15 @@ import * as Base64 from 'base64-arraybuffer';
 import * as Case from 'case';
 // import pako from 'pako'
 import * as kdbxweb from 'kdbxweb';
-import argon2 from 'argon2-browser/dist/argon2-bundled.min.js';
+// Registers the Argon2 implementation on kdbxweb's CryptoEngine as a side effect.
+// It lives in its own module because the settings page creates databases too.
+import '@/lib/kdbx';
 import { i18n } from '@/services/i18n';
 // storage.session is used for the ETag/hash cache. The polyfill is kept on purpose:
 // its promises are guaranteed across the Chrome versions we support (minimum 102) and
 // on Firefox, while the raw chrome.* namespace is not promise-uniform there.
 import browser from 'webextension-polyfill';
 
-kdbxweb.CryptoEngine.setArgon2Impl(
-  (password, salt, memory, iterations, length, parallelism, type, version) => {
-    console.log('Using argon2 implementation', version);
-    return argon2
-      .hash({
-        pass: new Uint8Array(password),
-        salt: new Uint8Array(salt),
-        time: iterations,
-        mem: memory,
-        hashLen: length,
-        parallelism,
-        type,
-        version,
-      })
-      .then((v) => v.hash);
-  }
-);
 
 import { parseUrl } from '@/lib/utils.js';
 import { matchLevel } from '@/lib/matchLevel.js';

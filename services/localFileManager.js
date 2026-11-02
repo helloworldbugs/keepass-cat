@@ -186,6 +186,7 @@ function LocalFileManager() {
     // Settings screen
     listFiles: listFiles,
     addFiles: addFiles,
+    registerHandle: registerHandle,
     removeFile: removeFile,
     getFilePermission: getFilePermission,
     // Picker interface shared with every other provider
@@ -449,6 +450,27 @@ function LocalFileManager() {
 
     _records = records;
     return added;
+  }
+
+  /**
+   * Registers a handle the caller already holds — the "create a new database" flow
+   * writes the file itself through showSaveFilePicker, so there is nothing to pick.
+   */
+  async function registerHandle(handle) {
+    assertSupported();
+    const records = await loadRecords();
+    const id = newId();
+    const record = {
+      id: id,
+      cacheId: id,
+      alias: uniqueAlias(handle.name || 'database.kdbx', records),
+      addedAt: Date.now(),
+      handle: handle,
+    };
+    await putStoredRecord(id, record);
+    records.push(record);
+    _records = records;
+    return record;
   }
 
   async function isAlreadyAdded(handle, records) {
