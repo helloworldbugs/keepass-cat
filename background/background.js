@@ -15,8 +15,6 @@ import {
   openPopup,
   setBadgeText,
   setBadgeBackgroundColor,
-  setBadgeTextColor,
-  canSetBadgeTextColor,
   setIcon,
 } from '@/lib/browser.js';
 import { matchLevel } from '@/lib/matchLevel.js';
@@ -516,9 +514,8 @@ function Background(protectedMemory, localMemory, settings, notifications) {
         if (count > 0) {
           applyNormalIcon(tab.id);
           setBadgeText({ text: String(count), tabId: tab.id });
-          // A tab can have been locked a moment ago; reset both, or the count
-          // would inherit the red text / transparent background.
-          if (canSetBadgeTextColor) setBadgeTextColor({ color: '#ffffff', tabId: tab.id });
+          // No text colour: Chrome picks the one with the better contrast against
+          // the blue, which is what it did before this badge work existed.
           setBadgeBackgroundColor({ color: '#4688F1', tabId: tab.id });
         } else {
           applyNormalIcon(tab.id);
