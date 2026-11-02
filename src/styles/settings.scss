@@ -79,7 +79,8 @@ $options-width: 800px;
   }
 
   /* Actions are short words with an icon: never let them wrap. */
-  td:nth-child(3) {
+  td:nth-child(3),
+  td:nth-child(4) {
     white-space: nowrap;
   }
 
@@ -97,15 +98,33 @@ $options-width: 800px;
   }
 
   .kdbx-table-action {
-    margin-right: 68px;
+    margin-right: 0;
     font-size: 14px;
-
-    &:last-child {
-      margin-right: 0;
-    }
 
     .fa {
       margin-right: 2px;
+    }
+  }
+
+  /* Split the actions across two columns the way the WebDAV server table does:
+     the table layout decides the spacing, so the two lists stay in step at any
+     window width instead of relying on a hand-tuned margin. */
+  &.kdbx-table-split {
+    th:nth-child(1),
+    td:nth-child(1) {
+      width: 42%;
+    }
+
+    th:nth-child(2),
+    td:nth-child(2) {
+      width: 21%;
+    }
+
+    th:nth-child(3),
+    td:nth-child(3),
+    th:nth-child(4),
+    td:nth-child(4) {
+      width: auto;
     }
   }
 

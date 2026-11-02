@@ -364,12 +364,14 @@ export default {
          off has to fold it away with the rest of the controls, otherwise the
          names stay on screen for a provider the picker no longer offers. -->
     <template v-if="enabled">
-      <table v-if="files.length" class="kdbx-table">
+      <table v-if="files.length" class="kdbx-table kdbx-table-split">
         <thead>
           <tr>
             <th>{{ $t('File name') }}</th>
             <th>{{ $t('Status') }}</th>
-            <th>{{ $t('Actions') }}</th>
+            <!-- Two action columns, like the WebDAV server table: the gap between
+                 the links is the column layout's business, not a fixed margin. -->
+            <th colspan="2">{{ $t('Actions') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -393,6 +395,8 @@ export default {
               <a class="selectable kdbx-table-action" @click="openChangeDialog(file)">
                 <i class="fa fa-key" /> {{ $t('Change password') }}
               </a>
+            </td>
+            <td>
               <a class="selectable kdbx-table-action" @click="removeFile(file)">
                 <i class="fa fa-times-circle" /> {{ $t('remove') }}
               </a>
