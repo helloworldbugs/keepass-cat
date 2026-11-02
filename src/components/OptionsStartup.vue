@@ -8,18 +8,24 @@ export default {
   data() {
     return {
       // The local-file provider needs the File System Access API, which Firefox
-      // does not have: the "create one here" path only makes sense where the
-      // database settings can actually create a file.
+      // does not have. Two separate questions: whether files can be *used* at all
+      // (the provider section), and whether a database can be *created* here
+      // (the save picker).
       localFileSupported: false,
+      canCreateLocalDatabase: false,
     };
   },
   mounted() {
     this.localFileSupported = !!(this.localFileManager && this.localFileManager.isSupported());
+    this.canCreateLocalDatabase = !!(
+      this.localFileManager && this.localFileManager.canCreateDatabase()
+    );
   },
   methods: {
     // The section's create button only exists while the provider is switched on,
     // so the hand-off asks it to switch on when it renders.
     startLocalDatabase() {
+      if (!this.canCreateLocalDatabase) return;
       requestLocalFileExpansion();
       this.$router.route('/manage/databases');
     },
@@ -43,17 +49,27 @@ export default {
         {{ $t('Keepass Cat brings that file into the browser: it reads the .kdbx you already have and fills in your logins as you browse. The file stays with you - we upload nothing, and there is no account to create.') }}
       </p>
 
-      <template v-if="localFileSupported">
-        <p>
-          {{ $t('Never used KeePass? Create a local password database with the button below and you can try it out in a minute.') }}
-        </p>
+      <p>
+        {{ $t('Never used KeePass? Create a local password database and you can try it out in a minute.') }}
+      </p>
 
-        <div class="settings-actions">
-          <a class="waves-effect waves-light btn" @click="startLocalDatabase">{{
-            $t('New local database')
-          }}</a>
-        </div>
-      </template>
+      <div class="settings-actions">
+        <a
+          class="waves-effect waves-light btn"
+          :class="{ 'is-unavailable': !canCreateLocalDatabase }"
+          :aria-disabled="!canCreateLocalDatabase"
+          :tabindex="canCreateLocalDatabase ? 0 : -1"
+          @click="startLocalDatabase"
+          >{{ $t('New local database') }}</a
+        >
+      </div>
+
+      <!-- The button keeps its place in a browser that cannot write local files: a
+           missing button reads as a missing feature, while a greyed one with a note
+           underneath says what to use instead. -->
+      <p v-if="!canCreateLocalDatabase" class="platform-note">
+        {{ $t('Sorry - creating a local password database needs Chrome or Edge, because only those browsers let an extension write the file. Firefox fully supports WebDAV storage, so a database kept on your cloud drive works just the same - please give it a try.') }}
+      </p>
 
       <p v-if="localFileSupported">
         {{ $t('Already using KeePass with a .kdbx of your own? Add it with the button below. Keep it on this machine, or on a WebDAV server so several devices share one database - once it is added, autofill works here in the browser.') }}
@@ -125,6 +141,25 @@ export default {
      to the next section. */
   .settings-actions {
     margin: 4px 0 24px 0;
+  }
+
+  /* A control this build knows about but the browser cannot run: greyed out and
+     inert, with the reason printed underneath instead of hidden in a tooltip. */
+  .btn.is-unavailable {
+    background-color: var(--keepass-cat-bg-hover, #eef0f2);
+    color: var(--keepass-cat-text-muted, #999);
+    box-shadow: none;
+    pointer-events: none;
+  }
+
+  .platform-note {
+    margin: -8px 0 24px 0;
+    padding: 8px 12px;
+    border-radius: 4px;
+    background: var(--keepass-cat-bg-dark, #d1d3d5);
+    color: var(--keepass-cat-text, #2c3e50);
+    font-size: 13px;
+    line-height: 1.5;
   }
 }
 </style>

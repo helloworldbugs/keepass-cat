@@ -110,6 +110,13 @@ function isSupported() {
   return typeof window !== 'undefined' && typeof window.showOpenFilePicker === 'function';
 }
 
+// Reading an existing database only needs the open picker, but creating one needs
+// the *save* picker. A browser that has one without the other would otherwise
+// offer a create button that fails on click, so the two are asked separately.
+function canCreateDatabase() {
+  return typeof window !== 'undefined' && typeof window.showSaveFilePicker === 'function';
+}
+
 function assertSupported() {
   if (!isSupported()) {
     throw new Error(
@@ -206,6 +213,7 @@ function LocalFileManager() {
       return setEnabled(false);
     },
     isSupported: isSupported,
+    canCreateDatabase: canCreateDatabase,
   };
 
   function isEnabled() {
