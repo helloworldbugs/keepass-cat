@@ -46,6 +46,18 @@ const baseManifest: Omit<Manifest.WebExtensionManifest, 'manifest_version'> = {
     page: './dist/options.html',
     open_in_tab: true,
   },
+
+  // Runs on every page so the inline autofill icon can appear next to password
+  // fields. This is the same bundle the autofill path injects on demand; the
+  // icon's own init is guarded, so a second injection is a no-op.
+  content_scripts: [
+    {
+      matches: ['http://*/*', 'https://*/*'],
+      js: ['dist/contentScripts/index.global.js'],
+      run_at: 'document_idle',
+      all_frames: true,
+    },
+  ],
 };
 
 /**

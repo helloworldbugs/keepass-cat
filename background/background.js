@@ -198,10 +198,64 @@ function Background(protectedMemory, localMemory, settings, notifications) {
       });
   }
 
+  // The inline icon on password fields. The content script asks which entries
+  // match the page it is on (titles and usernames only) and later asks for one of
+  // them to be filled by id; the password itself never leaves the background.
+  if (message.m == 'inlineMatches' || message.m == 'inlineFill') {
+    var pageTab = sender && sender.tab;
+    var pageUrl = pageTab && pageTab.url;
+    if (!pageTab || !pageUrl || !/^https?:/i.test(pageUrl)) {
+      sendResponse(message.m == 'inlineFill' ? { ok: false } : { matches: [] });
+      return;
+    }
+    unlockedEntries().then(function (entries) {
+      if (message.m == 'inlineMatches') {
+        var matched = entries ? entriesForPage(entries, pageUrl) : [];
+        sendResponse({
+          matches: matched
+            .filter(function (e) {
+              // Entries without a UUID cannot be identified in a later fill message.
+              return typeof e.id === 'string' && e.id;
+            })
+            .map(function (e) {
+              return {
+                id: e.id,
+                title: e.title || '',
+                userName: decryptProtectedField(e, 'userName'),
+              };
+            }),
+          labels: { autofill: i18n.t('Autofill from Keepass Cat') },
+        });
+        return;
+      }
+
+      var entry = null;
+      for (var i = 0; entries && i < entries.length; i++) {
+        if (entries[i].id === message.id) {
+          entry = entries[i];
+          break;
+        }
+      }
+      var password = entry ? decryptProtectedField(entry, 'password') : '';
+      if (!password) {
+        sendResponse({ ok: false });
+        return;
+      }
+      return performAutofill(pageTab.id, decryptProtectedField(entry, 'userName'), password).then(
+        function () {
+          copyTotpForShortcut(pageTab.id, entry);
+          sendResponse({ ok: true });
+        }
+      );
+    }).catch(function () {
+      sendResponse(message.m == 'inlineFill' ? { ok: false } : { matches: [] });
+    });
+    return true; // async response
+  }
+
   if (message.m == 'autofill') {
       performAutofill(message.tabId, message.u, message.p);
     }
-
     if (message.m == 'fillTotp') {
       chrome.scripting.executeScript(
         {
@@ -260,6 +314,33 @@ function Background(protectedMemory, localMemory, settings, notifications) {
   // must never throw.
   function fallbackToPopup() {
     try { openPopup(); } catch (e) { console.warn('[shortcut] openPopup failed:', e); }
+  }
+
+  // Entries of the unlocked database, or null while it is locked. Mirrors the
+  // shortcut path: the decrypted list lives in protected memory for the life of
+  // the service worker and is simply gone once the vault is locked.
+  function unlockedEntries() {
+    return protectedMemory
+      .getData('secureCache.entries')
+      .then(function (entries) {
+        if (typeof entries === 'string') entries = protectedMemory.deserialize(entries);
+        return Array.isArray(entries) && entries.length ? entries : null;
+      })
+      .catch(function () {
+        return null;
+      });
+  }
+
+  // Same cascade as the badge and the shortcut: the highest matching level wins,
+  // and nothing below the first level that has entries is offered.
+  function entriesForPage(entries, pageUrl) {
+    for (var level = 4; level >= 1; level--) {
+      var matched = entries.filter(function (e) {
+        return matchLevel(pageUrl, e) === level;
+      });
+      if (matched.length) return matched;
+    }
+    return [];
   }
 
   // Shortcut autofill (Firefox has no default key; user assigns one manually)

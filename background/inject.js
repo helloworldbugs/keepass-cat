@@ -1,4 +1,5 @@
 import { isVisible, parseUrl } from '@/lib/utils.js';
+import { initInlineIcon } from './icon.js';
 /* 
 Inject script
 
@@ -458,3 +459,7 @@ var filler = (function () {
     fillTotpAtCursor: fillTotpAtCursor,
   };
 })();
+
+// The inline icon lives in this same bundle (see icon.js). initInlineIcon() is a
+// no-op on the re-injections performed by the autofill path.
+initInlineIcon();

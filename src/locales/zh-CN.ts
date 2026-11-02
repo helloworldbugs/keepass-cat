@@ -51,6 +51,8 @@ const zhCN: Record<string, string> = {
   '24h': '24h',
   'exit': '退出时',
   '∞': '永久',
+  // ===== In-page autofill icon =====
+  'Autofill from Keepass Cat': '用 Keepass Cat 自动填充',
   'Unlock Database': '解锁数据库',
   'Settings': '设置',
   'Database': '数据库',
