@@ -1,6 +1,6 @@
 # Chrome Web Store Listing — Keepass Cat
 
-> Last Updated: 2026-10-27
+> Last Updated: 2026-11-02
 > Single source of truth for the Chrome Web Store (and, where noted, Firefox AMO) listing.
 >
 > **Maintenance:** update this file whenever `scripts/manifest.ts` gains or loses a
@@ -172,6 +172,7 @@ https://github.com/helloworldbugs/keepass-cat
 
 | Version | Date | Changes | Status |
 |---------|------|---------|--------|
+| 1.4.0 | 2026-11-02 | Create a local database from the settings page (KDBX4 + Argon2, optional key file) and change a local database's unlock password, adding, swapping or dropping its key file; create a key file in the extension or import one; the local-file and key-file lists are tables with a status or type column. First-run users are sent to a rewritten guide that explains KeePass and offers either a new local database (with a note where the browser cannot write local files) or their existing .kdbx. Fixes: only a copied password arms the clipboard timer, and local-file errors are translated | Submitted |
 | 1.3.3 | 2026-10-29 | Entry rows slide in on hover again, eased over a quarter of a second; the 1.3.2 hover fix had left the slide unanimated, which read as a jump | Published |
 | 1.3.2 | 2026-10-28 | Local files: add and keep several .kdbx files at once, each with its own name, remove action and remembered password; a file added by an earlier version is migrated on first open without losing it. The .kdbx picker only offers .kdbx, and the key-file dialog only .key/.keyx. A provider's database list folds away when its switch is off | Published |
 | 1.3.1 | 2026-10-28 | Unlock screen: slider with tick marks and a value bubble, larger keyfile picker with a "No keyfile" row, keyfile icon turns gold when one is chosen, password field focused on open; clipboard timeout offers 15 s / 30 s / 1 min / 3 min / 5 min / 10 min with a per-copy alarm; entry rows no longer clip descenders and are more compact; the WebDAV action cells no longer wrap; the username clipboard notice is translated | Published |
