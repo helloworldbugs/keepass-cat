@@ -196,15 +196,18 @@ export function initInlineIcon() {
     'box-shadow:0 1px 4px rgba(0,0,0,.26);opacity:.8;' +
     'transition:opacity .12s,box-shadow .12s,transform .12s}' +
     'button:hover,button:focus-visible{opacity:1;box-shadow:0 2px 8px rgba(0,0,0,.32);transform:scale(1.06)}' +
-    'svg{width:14px;height:14px;display:block;fill:#0089ec}' +
+    'svg{width:14px;height:14px;display:block;fill:none;stroke:#0089ec;' +
+    'stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}' +
     '@media (prefers-color-scheme: dark){' +
     'button{background:rgba(45,45,45,.96);border-color:rgba(255,255,255,.18)}' +
-    'svg{fill:#4da3ff}}' +
+    'svg{stroke:#4da3ff}}' +
     '</style>' +
     '<button type="button" tabindex="-1">' +
     '<svg viewBox="0 0 16 16" aria-hidden="true">' +
-    '<path d="M11.2 1a4.8 4.8 0 0 0-4.53 6.37L1 13v2h2.6l1-1v-1.4h1.4l1-1v-1.4h1.4l1.13-1.13' +
-    'A4.8 4.8 0 1 0 11.2 1zm1.4 4.2a1.4 1.4 0 1 1 0-2.8 1.4 1.4 0 0 1 0 2.8z"/>' +
+    '<circle cx="4.7" cy="8" r="2.7"/>' +
+    '<path d="M7.4 8h6.2"/>' +
+    '<path d="M10.6 8v2.7"/>' +
+    '<path d="M13 8v1.9"/>' +
     '</svg></button>';
 
   function createIcon(field) {
