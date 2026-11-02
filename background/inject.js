@@ -63,7 +63,7 @@ window.__keepassCatMessageListener = function (message, sender, sendResponse) {
       return;
 
     //passed the origin check - go ahead and fill the password
-    filler.fillPassword(message.u, message.p);
+    filler.fillPassword(message.u, message.p, message.force);
   }
 
   if (message.m == 'fillTotpAtCursor') {
@@ -107,7 +107,11 @@ var filler = (function () {
 
   // Field helpers live in fieldDetect.js (shared with the inline icon).
 
-  function fillPassword(username, password) {
+  // `force` is set only when the user picked an entry from the inline list. The
+  // username-only fallback below refuses to overwrite typed text by design (the
+  // shortcut must not clobber what you are in the middle of typing), but choosing
+  // an entry *is* the instruction to replace it.
+  function fillPassword(username, password, force) {
     identifyPasswordFields();
     var filled = false;
 
@@ -128,23 +132,29 @@ var filler = (function () {
           !filled &&
           isElementInViewport(pair.u) &&
           isElementInViewport(pair.p) &&
-          isVisible(pair.p) && password != null
+          isVisible(pair.p) &&
+          (username != null || password != null)
         ) {
           // Username first, password second — the same order the focused-field
           // path above uses. Some login pages reset their form when the username
           // changes, which clears the password field and erases a password
           // written just before it. Writing the password last leaves nothing
           // running after it to undo the write.
+          //
+          // Either half may be missing (an entry that holds only a username, or
+          // only a password): fill what exists and leave the other field as it is.
           if (isVisible(pair.u) && username != null) {
             //sometimes the username is invisible, i.e. google login
-            fillField(pair.u, username);
+            filled = fillField(pair.u, username);
           }
-          filled = fillField(pair.p, password);
+          if (password != null) {
+            filled = fillField(pair.p, password);
+          }
         }
       }
     }
 
-    if (!filled) {
+    if (!filled && password != null) {
       for (var i = 0; i < lonelyPasswords.length; i++) {
         var lonelyPassword = lonelyPasswords[i];
         if (!filled && isElementInViewport(lonelyPassword) && isVisible(lonelyPassword)) {
@@ -169,7 +179,7 @@ var filler = (function () {
       username != null
     ) {
       var candidate = qualifyingCandidates[0];
-      if (candidate.value === '') {
+      if (force || candidate.value === '') {
         fillField(candidate, username);
       }
     }

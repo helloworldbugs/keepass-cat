@@ -57,7 +57,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
   // Inject the content script into all frames of the tab and ask each frame to
   // fill the given credentials. Shared by the popup autofill message and the
   // background-only shortcut path.
-  function performAutofill(tabId, userName, password) {
+  function performAutofill(tabId, userName, password, force) {
     var fillAllFrames = function() {
       chrome.webNavigation.getAllFrames({tabId: tabId}, function(frames) {
         if (!frames) return;
@@ -69,6 +69,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
             u: userName,
             p: password,
             o: frameOrigin,
+            force: !!force,
           }, {frameId: f.frameId});
         });
       });
@@ -237,11 +238,16 @@ function Background(protectedMemory, localMemory, settings, notifications) {
         }
       }
       var password = entry ? decryptProtectedField(entry, 'password') : '';
-      if (!password) {
+      var userName = entry ? decryptProtectedField(entry, 'userName') : '';
+      // An entry may legitimately hold only one of the two - a username-only test
+      // entry, or a password-only one. Fill what exists and pass null for the
+      // other: performAutofill() treats null as "leave this field alone", so a
+      // missing password never clears what the page already has.
+      if (!password && !userName) {
         sendResponse({ ok: false });
         return;
       }
-      return performAutofill(pageTab.id, decryptProtectedField(entry, 'userName'), password).then(
+      return performAutofill(pageTab.id, userName || null, password || null, true).then(
         function () {
           copyTotpForShortcut(pageTab.id, entry);
           sendResponse({ ok: true });
