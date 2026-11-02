@@ -1,11 +1,34 @@
 <script>
+import { requestLocalFileExpansion } from '@/lib/onboarding.js';
+
 export default {
-  props: {},
+  props: {
+    localFileManager: Object,
+  },
+  data() {
+    return {
+      // The local-file provider needs the File System Access API, which Firefox
+      // does not have: the "create one here" path only makes sense where the
+      // database settings can actually create a file.
+      localFileSupported: false,
+    };
+  },
+  mounted() {
+    this.localFileSupported = !!(this.localFileManager && this.localFileManager.isSupported());
+  },
+  methods: {
+    // The section's create button only exists while the provider is switched on,
+    // so the hand-off asks it to switch on when it renders.
+    startLocalDatabase() {
+      requestLocalFileExpansion();
+      this.$router.route('/manage/databases');
+    },
+  },
 };
 </script>
 
 <template>
-  <div>
+  <div class="getting-started">
     <div class="box-bar roomy">
       <div class="unlockLogo stack-item optionsheader">
         <img src="@/assets/icons/exported/logo.png" width="256px" height="256px" />
@@ -13,27 +36,40 @@ export default {
       </div>
 
       <p>
-        {{ $t('Keepass Cat helps you keep track of all your accounts by storing your passwords in an encrypted file called a Keepass Database. You choose where this file is stored - most people keep them on a WebDAV server for easy access and syncing between laptops, desktops, and phones. To use Keepass Cat, you should first enable the WebDAV provider below.') }}
-      </p>
-
-      <a class="waves-effect waves-light btn" @click="$router.route('/manage/databases')"
-        >{{ $t('1. Cloud Storage Setup') }}</a
-      >
-
-      <p>
-        {{ $t('Optionally, you may also import any required keyfiles. A keyfile can be used together with a password to provide even better security, or even used instead of one.') }}
-      </p>
-
-      <a class="waves-effect waves-light btn" @click="$router.route('/manage/keyfiles')"
-        >{{ $t('2. Keyfile Setup (optional)') }}</a
-      >
-
-      <p>
-        {{ $t('That\'s it! Keepass Cat will automatically discover any Keepass databases that your have in your cloud storage, and allow you to switch between databases from the browser popup.') }}
+        {{ $t('KeePass is the oldest and most trusted open-source password manager: over twenty years of development, with your passwords kept in an encrypted file (.kdbx) that you own rather than on a company\'s server.') }}
       </p>
 
       <p>
-        {{ $t('If you are a new Keepass user, you will be prompted to create a new database from the popup window after you enable a cloud storage provider. Most people keep all their passwords in a single database, so you will only need to do this once.') }}
+        {{ $t('Keepass Cat brings that file into the browser: it reads the .kdbx you already have and fills in your logins as you browse. The file stays with you - we upload nothing, and there is no account to create.') }}
+      </p>
+
+      <template v-if="localFileSupported">
+        <p>
+          {{ $t('Never used KeePass? Create a local password database with the button below and you can try it out in a minute.') }}
+        </p>
+
+        <div class="settings-actions">
+          <a class="waves-effect waves-light btn" @click="startLocalDatabase">{{
+            $t('New local database')
+          }}</a>
+        </div>
+      </template>
+
+      <p v-if="localFileSupported">
+        {{ $t('Already using KeePass with a .kdbx of your own? Add it with the button below. Keep it on this machine, or on a WebDAV server so several devices share one database - once it is added, autofill works here in the browser.') }}
+      </p>
+      <p v-else>
+        {{ $t('Already using KeePass with a .kdbx of your own? Add it with the button below, on a WebDAV server so several devices share one database - once it is added, autofill works here in the browser.') }}
+      </p>
+
+      <div class="settings-actions">
+        <a class="waves-effect waves-light btn" @click="$router.route('/manage/databases')">{{
+          $t('Manage Databases')
+        }}</a>
+      </div>
+
+      <p>
+        {{ $t('Keepass Cat runs entirely on your machine: there is no server and no account. The database is only read into memory while it is unlocked, the master password is not remembered by default, and a copied password is cleared from the clipboard when its timer runs out.') }}
       </p>
     </div>
 
@@ -74,8 +110,21 @@ export default {
 
 <style lang="scss">
 @import '../styles/settings.scss';
+
 .optionsheader {
   text-align: left;
   font-size: 28px;
+}
+
+.getting-started {
+  p {
+    margin: 0 0 16px 0;
+  }
+
+  /* The button belongs to the paragraph above it, so it sits closer to that than
+     to the next section. */
+  .settings-actions {
+    margin: 4px 0 24px 0;
+  }
 }
 </style>

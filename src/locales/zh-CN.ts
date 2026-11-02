@@ -154,12 +154,13 @@ const zhCN: Record<string, string> = {
 
   // ===== Options: Getting Started =====
   'Getting Started with Keepass Cat': 'Keepass Cat 快速入门',
-  'Keepass Cat helps you keep track of all your accounts by storing your passwords in an encrypted file called a Keepass Database. You choose where this file is stored - most people keep them on a WebDAV server for easy access and syncing between laptops, desktops, and phones. To use Keepass Cat, you should first enable the WebDAV provider below.': 'Keepass Cat 帮助你将所有密码存储在一个加密的文件中（即 KeePass 数据库）。你可以选择文件的存储位置——大多数人会将文件放在 WebDAV 服务器上，以便在笔记本、台式机和手机之间同步。要使用 Keepass Cat，你需要先启用下方的 WebDAV 提供程序。',
-  'Optionally, you may also import any required keyfiles. A keyfile can be used together with a password to provide even better security, or even used instead of one.': '你还可以导入所需的密钥文件。密钥文件可与密码一起使用以增强安全性，也可以替代密码。',
-  'That\'s it! Keepass Cat will automatically discover any Keepass databases that your have in your cloud storage, and allow you to switch between databases from the browser popup.': '就这样！Keepass Cat 会自动在云存储中发现你的 KeePass 数据库，并允许从浏览器弹窗中切换数据库。',
-  'If you are a new Keepass user, you will be prompted to create a new database from the popup window after you enable a cloud storage provider. Most people keep all their passwords in a single database, so you will only need to do this once.': '如果你是新用户，启用云存储后，将提示你从弹窗创建新数据库。大多数人将所有密码保存在一个数据库中，因此只需要执行一次。',
-  '1. Cloud Storage Setup': '1. 云存储设置',
-  '2. Keyfile Setup (optional)': '2. 密钥文件设置（可选）',
+  'KeePass is the oldest and most trusted open-source password manager: over twenty years of development, with your passwords kept in an encrypted file (.kdbx) that you own rather than on a company\'s server.': 'KeePass 是世界上历史最悠久、也最受信任的开源密码管理器：二十多年来持续开发，你的密码保存在一个由你自己保管的加密文件（.kdbx）里，而不是放在某家公司的服务器上。',
+  'Keepass Cat brings that file into the browser: it reads the .kdbx you already have and fills in your logins as you browse. The file stays with you - we upload nothing, and there is no account to create.': 'Keepass Cat 把这个文件带进浏览器：它读取你已有的 .kdbx，在浏览网页时自动填入账号和密码。文件始终留在你手里——我们不上传任何内容，也不需要注册账号。',
+  'Never used KeePass? Create a local password database with the button below and you can try it out in a minute.': '如果你还没用过 KeePass，点下面的按钮新建一个本地密码库，一分钟就能上手体验。',
+  'New local database': '新建本地数据库',
+  'Already using KeePass with a .kdbx of your own? Add it with the button below. Keep it on this machine, or on a WebDAV server so several devices share one database - once it is added, autofill works here in the browser.': '如果你已经在用 KeePass，手里也有自己的 .kdbx 文件，用下面的按钮把它添加进来：可以放在本机，也可以放在 WebDAV 云盘上，让几台设备共用同一份密码库。添加之后，浏览器里的自动填充就可以用了。',
+  'Already using KeePass with a .kdbx of your own? Add it with the button below, on a WebDAV server so several devices share one database - once it is added, autofill works here in the browser.': '如果你已经在用 KeePass，手里也有自己的 .kdbx 文件，用下面的按钮把它添加进来：连接 WebDAV 云盘，让几台设备共用同一份密码库。添加之后，浏览器里的自动填充就可以用了。',
+  'Keepass Cat runs entirely on your machine: there is no server and no account. The database is only read into memory while it is unlocked, the master password is not remembered by default, and a copied password is cleared from the clipboard when its timer runs out.': 'Keepass Cat 完全在你的设备上运行：没有服务器，也没有账号。密码库只会在解锁期间读进内存，主密码默认不会被记住；复制出来的密码也会在设定的时间后从剪贴板自动清除。',
   'Support Keepass Cat': '支持 Keepass Cat',
 
   // ===== Options: Manage Keyfiles =====

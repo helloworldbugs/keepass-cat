@@ -5,7 +5,11 @@
     <!-- Router View -->
     <div id="overflowbox">
       <div id="contentbox">
-        <options-startup v-if="show.startup.visible" id="/" :settings="services.settings" />
+        <options-startup
+          v-if="show.startup.visible"
+          id="/"
+          :local-file-manager="services.localFileManager"
+        />
         <manage-databases
           v-if="show.manageDatabases.visible"
           id="/manage/databases"

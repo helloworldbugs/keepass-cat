@@ -4,6 +4,7 @@
 function Links() {
   var my = {
     openOptions: openOptions,
+    openOptionsStartup: openOptionsStartup,
     openOptionsKeyfiles: openOptionsKeyfiles,
     openOptionsDatabases: openOptionsDatabases,
   };
@@ -23,6 +24,13 @@ function Links() {
 
   function openOptionsWelcome() {
     chrome.runtime.openOptionsPage();
+  }
+
+  // A first-run user is sent to the guide, not to the provider list: the guide
+  // explains what to do and offers the two ways in. The hash is explicit so an
+  // options tab that is already open elsewhere cannot decide the landing tab.
+  function openOptionsStartup() {
+    openOptionsPath('/dist/options.html#/');
   }
 
   function openOptionsDatabases() {

@@ -17,6 +17,7 @@
 <script>
 import GenericProviderUi from '@/components/GenericProviderUi.vue';
 import { createLocalDatabase, changeLocalDatabasePassword } from '$services/localDatabaseOps.js';
+import { takeLocalFileExpansionRequest } from '@/lib/onboarding.js';
 
 const KEEP_CURRENT_KEYFILE = '__keep__';
 // Selecting this entry in the create dialog opens the key-file settings instead of
@@ -69,9 +70,27 @@ export default {
     };
   },
   mounted() {
-    this.refresh();
+    this.init();
   },
   methods: {
+    async init() {
+      await this.refresh();
+      await this.expandIfRequested();
+    },
+    // The Getting Started page leaves a one-shot request when its "new local
+    // database" button is used: switching the provider on is what reveals the
+    // create button below. Consumed here so an ordinary visit never flips it.
+    async expandIfRequested() {
+      const requested = takeLocalFileExpansionRequest();
+      if (!requested || this.enabled) return;
+      this.enabled = true;
+      try {
+        await this.providerManager.enable();
+      } catch (err) {
+        this.error = this.messageFor(err);
+      }
+      await this.refresh();
+    },
     messageFor(err) {
       return (err && err.message) || String(err);
     },
