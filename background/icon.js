@@ -204,10 +204,10 @@ export function initInlineIcon() {
     '</style>' +
     '<button type="button" tabindex="-1">' +
     '<svg viewBox="0 0 16 16" aria-hidden="true">' +
-    '<circle cx="4.7" cy="8" r="2.7"/>' +
-    '<path d="M7.4 8h6.2"/>' +
-    '<path d="M10.6 8v2.7"/>' +
-    '<path d="M13 8v1.9"/>' +
+    '<circle cx="5.4" cy="6.4" r="2.9"/>' +
+    '<path d="M7.5 8.5 12.7 13.7"/>' +
+    '<path d="M9.7 10.7 11.2 9.2"/>' +
+    '<path d="M11.4 12.4 12.9 10.9"/>' +
     '</svg></button>';
 
   function createIcon(field) {
