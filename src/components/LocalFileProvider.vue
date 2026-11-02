@@ -359,15 +359,15 @@ export default {
       </table>
     </template>
     <div v-if="enabled" class="box-bar roomy local-file-actions">
-      <a class="waves-effect waves-light btn" :class="{ disabled: busy }" @click="addFiles">{{
-        $t('Add .kdbx files')
-      }}</a>
       <a
         class="waves-effect waves-light btn local-file-new"
         :class="{ disabled: busy }"
         @click="openCreateDialog"
-        >{{ $t('New password database') }}</a
+        >{{ $t('New local password database') }}</a
       >
+      <a class="waves-effect waves-light btn" :class="{ disabled: busy }" @click="addFiles">{{
+        $t('Import local database files')
+      }}</a>
     </div>
     <p v-if="notice" class="box-bar roomy small local-file-notice">{{ notice }}</p>
 
@@ -377,12 +377,12 @@ export default {
     <div v-if="dialog" class="local-dialog-backdrop" @click.self="closeDialog">
       <div class="local-dialog">
         <h5>
-          {{ dialog === 'create' ? $t('New password database') : $t('Change password') }}
+          {{ dialog === 'create' ? $t('New local password database') : $t('Change password') }}
         </h5>
 
         <div v-if="dialog === 'create'" class="field">
           <label for="local-db-name">{{ $t('Database name') }}</label>
-          <input id="local-db-name" v-model="form.name" type="text" :placeholder="$t('My passwords')" />
+          <input id="local-db-name" v-model="form.name" type="text" />
         </div>
 
         <template v-if="dialog === 'change'">

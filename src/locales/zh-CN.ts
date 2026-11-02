@@ -22,10 +22,9 @@ const zhCN: Record<string, string> = {
   'Binary': '二进制',
   'Other': '其他',
   'File name': '文件名',
-  'New password database': '新建密码库',
+  'New local password database': '新建本地密码库',
   'Change password': '修改密码',
   'Database name': '密码库名称',
-  'My passwords': '我的密码',
   'Current unlock password': '当前解锁密码',
   'Current key file': '当前密钥文件',
   'No key file': '不使用密钥文件',
@@ -200,7 +199,7 @@ const zhCN: Record<string, string> = {
 
   // ===== Provider: Local file =====
   'Re-authorise': '重新授权',
-  'Add .kdbx files': '添加 .kdbx 文件',
+  'Import local database files': '导入本地数据库文件',
   'No local files added yet.': '尚未添加本地文件。',
   'File permission was denied. Choose the file again to grant access.': '文件权限已被拒绝。请重新选择文件以授予访问权限。',
   'Local file access is not supported in this browser. Use Chrome or another browser with the File System Access API.': '当前浏览器不支持本地文件访问。请使用 Chrome 或其他支持 File System Access API 的浏览器。',

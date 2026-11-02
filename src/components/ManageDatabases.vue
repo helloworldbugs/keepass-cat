@@ -26,12 +26,12 @@ export default {
 
 <template>
   <div>
-    <webdav-provider :provider-manager="webdavManager" :settings="settings" />
     <local-file-provider
       v-if="localFileSupported"
       :provider-manager="localFileManager"
       :settings="settings"
     />
+    <webdav-provider :provider-manager="webdavManager" :settings="settings" />
   </div>
 </template>
 
