@@ -88,6 +88,7 @@ export default {
       <span class="user" :title="entry.userName || ''">
         {{ entry.userName || $t('(empty)') }}
       </span>
+      <span v-if="entry.is_expired" class="expired-tag">{{ $t('Expired') }}</span>
       <span
         v-if="entry.groupName"
         class="group-label"
@@ -171,6 +172,18 @@ export default {
     font-size: 10px;
     color: var(--keepass-cat-text-muted);
     margin-top: 1px;
+  }
+  // A struck-through row alone is easy to miss; the tag says why. Only expired
+  // entries get the extra line (they are the exception, not the rule).
+  .expired-tag {
+    display: inline-block;
+    margin-top: 3px;
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 10px;
+    line-height: 1.6;
+    color: var(--keepass-cat-text-muted);
+    background: var(--keepass-cat-bg-hover);
   }
   .buttons {
     flex: 0 0 auto;

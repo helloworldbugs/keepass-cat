@@ -12,6 +12,7 @@ export default {
       autofillShortcut: true,
       inlineIconEnabled: true,
       autoFillOnLoad: false,
+      ignoreExpired: true,
       fillTotpEnabled: true,
       copyTotpOnAutofill: true,
       notificationsEnabled: ['expiration', 'clipboard'],
@@ -54,6 +55,9 @@ export default {
     saveAutoFillOnLoad() {
       this.settings.getSetAutoFillOnLoad(this.autoFillOnLoad);
     },
+    saveIgnoreExpired() {
+      this.settings.getSetIgnoreExpired(this.ignoreExpired);
+    },
     openShortcuts() {
       chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
     },
@@ -72,6 +76,9 @@ export default {
       })
       this.settings.getSetAutoFillOnLoad().then(val => {
         this.autoFillOnLoad = val
+      })
+      this.settings.getSetIgnoreExpired().then(val => {
+        this.ignoreExpired = val
       })
       this.settings.getSetFillTotpEnabled().then(val => {
         this.fillTotpEnabled = val
@@ -176,6 +183,26 @@ export default {
       </div>
       <p class="totp-note">
         {{ $t('A login page is filled as soon as it finishes loading, but only when one entry matches and the fields are still empty. Pages that match several entries are left alone.') }}
+      </p>
+    </div>
+
+    <div class="box-bar roomy">
+      <h4>{{ $t('Entry matching') }}</h4>
+    </div>
+    <div class="box-bar roomy lighter">
+      <div class="switch">
+        <label>
+          <input
+            v-model="ignoreExpired"
+            type="checkbox"
+            @change="saveIgnoreExpired"
+          >
+          <span class="lever" />
+          {{ $t('Ignore expired entries') }}
+        </label>
+      </div>
+      <p class="totp-note">
+        {{ $t('Expired entries are never matched to a page and are never autofilled. They stay in the database, struck through and marked as expired, and remain editable.') }}
       </p>
     </div>
 

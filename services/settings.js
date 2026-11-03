@@ -347,6 +347,12 @@ function Settings(secureCache) {
     return keyGetSetter('autoFillOnLoad', enabled, false, 'boolean');
   };
 
+  // Expired entries stay in the database but stop matching pages. On by default:
+  // an expired entry is a password the user asked to retire.
+  exports.getSetIgnoreExpired = function (enabled) {
+    return keyGetSetter('ignoreExpired', enabled, true, 'boolean');
+  };
+
   exports.getSetFillTotpEnabled = function (enabled) {
     return keyGetSetter('fillTotpEnabled', enabled, true, 'boolean');
   };

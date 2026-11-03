@@ -18,10 +18,22 @@ import {
   setIcon,
 } from '@/lib/browser.js';
 import { matchLevel } from '@/lib/matchLevel.js';
+import { setIgnoreExpired } from '@/lib/matchLevel.js';
 import { Otp } from '@/lib/otp.js';
 
 function Background(protectedMemory, localMemory, settings, notifications) {
   console.log('Background worker registered.');
+
+  // The matching rule reads its switch once at startup and follows later changes,
+  // so the badge, the in-page icon, autofill and the shortcut all agree on whether
+  // an expired entry is a candidate.
+  settings.getSetIgnoreExpired().then(setIgnoreExpired).catch(function () {});
+  chrome.storage.onChanged.addListener(function (changes, area) {
+    if (area === 'local' && changes.ignoreExpired) {
+      setIgnoreExpired(changes.ignoreExpired.newValue);
+      updateBadgeForTab();
+    }
+  });
   chrome.runtime.onInstalled.addListener(settings.upgrade);
   chrome.runtime.onStartup.addListener(forgetStuff);
 
@@ -255,9 +267,15 @@ function Background(protectedMemory, localMemory, settings, notifications) {
                   id: e.id,
                   title: e.title || '',
                   userName: decryptProtectedField(e, 'userName'),
+                  // Only shown while the "ignore expired" switch is off, since an
+                  // expired entry is not in the list otherwise.
+                  expired: !!(e.expiry && Date.parse(e.expiry) < Date.now()),
                 };
               }),
-            labels: { autofill: i18n.t('Autofill from Keepass Cat') },
+            labels: {
+              autofill: i18n.t('Autofill from Keepass Cat'),
+              expired: i18n.t('Expired'),
+            },
             autoFill: !!autoFill,
           });
         });

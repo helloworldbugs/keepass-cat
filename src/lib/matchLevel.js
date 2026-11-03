@@ -20,6 +20,26 @@ const registrableDomain = (hostname) => {
 };
 
 /**
+ * Whether expired entries take part in matching. On by default and kept in step
+ * with the setting: the extension watches the storage key and updates this flag,
+ * so the rule lives here instead of at every call site.
+ */
+let ignoreExpired = true;
+
+export function setIgnoreExpired(value) {
+  ignoreExpired = !!value;
+}
+
+// Reads the entry's own expiry (KeePass stores it as an ISO timestamp) rather than
+// the is_expired snapshot taken when the database was unlocked, which goes stale
+// if an entry expires while the vault stays open.
+function isExpired(entry) {
+  if (!entry || !entry.expiry) return false;
+  const time = Date.parse(entry.expiry);
+  return !isNaN(time) && time < Date.now();
+}
+
+/**
  * Unified URL matching: returns match level 4-1, or 0 for no match.
  * @param {string} pageUrl - current page URL
  * @param {object} entry - entry with .url, optional .matchRegex
@@ -28,6 +48,7 @@ const registrableDomain = (hostname) => {
  */
 const matchLevel = (pageUrl, entry) => {
   if (!pageUrl || !entry || !entry.url) return 0;
+  if (ignoreExpired && isExpired(entry)) return 0;
 
   var safeParse = function (raw) {
     try {

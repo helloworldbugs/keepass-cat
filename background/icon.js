@@ -339,9 +339,12 @@ export function initInlineIcon() {
       const title = document.createElement('b');
       title.textContent = entry.title || entry.userName || '—';
       button.appendChild(title);
-      if (entry.userName) {
+      if (entry.userName || entry.expired) {
         const user = document.createElement('span');
-        user.textContent = entry.userName;
+        const parts = [];
+        if (entry.userName) parts.push(entry.userName);
+        if (entry.expired) parts.push(labels.expired || 'expired');
+        user.textContent = parts.join(' · ');
         button.appendChild(user);
       }
       // Activate on pointer events, not only on click: a page that cancels

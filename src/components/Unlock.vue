@@ -1,5 +1,6 @@
 <script>
 import { parseUrl } from '@/lib/utils.js';
+import { setIgnoreExpired } from '@/lib/matchLevel.js';
 import { setBadgeText, setBadgeBackgroundColor } from '@/lib/browser.js';
 
 import EntryList from '@/components/EntryList.vue';
@@ -147,6 +148,9 @@ export default defineComponent({
     },
   },
   async mounted() {    perfLog('mount');
+    // The popup matches entries with the same rule as the background; this switch
+    // decides whether expired entries are candidates at all.
+    this.settings.getSetIgnoreExpired().then(setIgnoreExpired).catch(() => {});
     // Prime the group names from the last snapshot: the entries may come from the
     // cache without the database being loaded, and a group with no entries must
     // still appear in the group pickers.
