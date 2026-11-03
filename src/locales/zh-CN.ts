@@ -181,8 +181,6 @@ const zhCN: Record<string, string> = {
   'Choose which type of notification do you want to receive from Keepass Cat.': '选择你希望从 Keepass Cat 收到的通知类型。',
   'Password expiration': '密码过期通知',
   'Clipboard events': '剪贴板事件通知',
-  'Stored Data': '已存储数据',
-  'The following objects represent the current data cached in local storage. This data is only available to Keepass Cat, and is never sent over any network connection.': '以下对象代表当前在本地存储中缓存的数据。这些数据仅供 Keepass Cat 使用，绝不会通过网络发送。',
 
   // ===== Providers: WebDAV =====
   'The URL below should have the path of a FOLDER, not an individual FILE. The webDAV provider works by recursively scanning all files within the folder you specify. Your keepass databases will be discovered by their file extension (.kdbx).': '下方的 URL 应为文件夹路径，而非单个文件。WebDAV 提供程序会递归扫描指定文件夹中的所有文件，通过文件扩展名（.kdbx）发现 KeePass 数据库。',

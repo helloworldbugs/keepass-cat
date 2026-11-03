@@ -1,5 +1,4 @@
 <script>
-import JSONFormatter from 'json-formatter-js'
 import { isFirefox } from '@/lib/utils'
 
 export default {
@@ -16,56 +15,6 @@ export default {
       fillTotpEnabled: true,
       copyTotpOnAutofill: true,
       notificationsEnabled: ['expiration', 'clipboard'],
-      jsonState: [{
-        k: 'databaseUsages',                      // key
-        f: this.settings.getSetDatabaseUsages,    // getter
-        delete: {
-          f: this.settings.destroyLocalStorage, // remover
-          arg: 'databaseUsages',                // remover args
-          op: 'Delete'                          // remover button name
-        }
-      },
-      {
-        k: 'webdavServerList',
-        f: this.settings.getSetWebdavServerList,
-        delete: {
-          f: this.settings.destroyLocalStorage,
-          arg: 'webdavServerList',
-          op: 'Delete'
-        }
-      },
-      {
-        k: 'webdavDirectoryMap',
-        f: this.settings.getSetWebdavDirectoryMap,
-        delete: {
-          f: this.settings.destroyLocalStorage,
-          arg: 'webdavDirectoryMap',
-          op: 'Delete'
-        }
-      },
-      {
-        k: 'selectedDatabase',
-        f: this.settings.getCurrentDatabaseChoice,
-        delete: {
-          f: this.settings.destroyLocalStorage,
-          arg: 'selectedDatabase',
-          op: 'Delete'
-        }
-      },
-      {
-        k: 'keyFiles',
-        f: this.settings.getKeyFiles,
-        delete: {
-          f: this.settings.deleteAllKeyFiles,
-          arg: undefined,
-          op: 'Delete'
-        }
-      },
-      {
-        k: 'forgetTimes',
-        f: this.settings.getAllForgetTimes
-      },
-      ]
     }
   },
   watch: {
@@ -133,18 +82,6 @@ export default {
       this.settings.getSetNotificationsEnabled().then(val => {
         this.notificationsEnabled = val
       })
-      this.jsonState.forEach(blob => {
-        blob.f().then(result => {
-          if (result && Object.keys(result).length) {
-            let formatter = new JSONFormatter(result)
-            let place = document.getElementById(blob.k)
-            while (place.firstChild) place.removeChild(place.firstChild);
-            place.appendChild(formatter.render())
-          } else {
-            document.getElementById(blob.k).parentNode.parentNode.remove();
-          }
-        });
-      });
     }
   }
 }
@@ -335,30 +272,6 @@ export default {
         </div>
       </div>
     </div>
-
-    <div class="box-bar roomy">
-      <h4>{{ $t('Stored Data') }}</h4>
-      <p>
-        {{ $t('The following objects represent the current data cached in local storage. This data is only available to Keepass Cat, and is never sent over any network connection.') }}
-      </p>
-    </div>
-    <div
-      v-for="blob in jsonState"
-      class="box-bar lighter roomy"
-    >
-      <p>{{ blob.k }}</p>
-      <div class="between">
-        <div
-          :id="blob.k"
-          class="json"
-        />
-        <a
-          v-if="blob.delete !== undefined"
-          class="waves-effect waves-light btn"
-          @click="blob.delete.f(blob.delete.arg); init();"
-        >{{ $t(blob.delete.op) }}</a>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -420,15 +333,6 @@ export default {
       pointer-events: none;
     }
   }
-}
-
-.json {
-	font-size: 12px;
-	/* The JSON viewer renders strings with `white-space: pre`, which never
-	   wraps and would otherwise push the page (and the Delete button) wide.
-	   Let the block shrink and scroll its own long lines instead. */
-	min-width: 0;
-	overflow-x: auto;
 }
 
 h4 {

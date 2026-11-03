@@ -39,16 +39,6 @@ function Settings(secureCache) {
     });
   };
 
-  exports.deleteAllKeyFiles = function () {
-    return chromePromise.storage.local.remove('keyFiles');
-  };
-
-  exports.destroyLocalStorage = function (key) {
-    if (key.length) {
-      return chromePromise.storage.local.remove(key);
-    }
-  };
-
   exports.addKeyFile = function (name, key) {
     return exports.getKeyFiles().then(function (keyFiles) {
       var matches = keyFiles.filter(function (keyFile) {
