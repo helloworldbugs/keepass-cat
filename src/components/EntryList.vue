@@ -100,7 +100,6 @@ export default {
           :unlocked-state="unlockedState"
           show-group
           dense
-          flair
         />
       </div>
       <div v-if="filteredEntries && searchTerm.length > 0">
@@ -111,7 +110,6 @@ export default {
           :unlocked-state="unlockedState"
           show-group
           dense
-          flair
         />
       </div>
     </div>

@@ -16,8 +16,6 @@ export default {
     showGroup: Boolean,
     // 6px instead of 8px: the popup's match list is height-constrained.
     dense: Boolean,
-    // The match list's rows slide on hover; the browse rows never have.
-    flair: Boolean,
     // Appended to the edit route so the editor knows where to go back to.
     editQuery: { type: String, default: '' },
     // Set by a parent that owns a single ticker for many rows (the browse view can
@@ -100,8 +98,8 @@ export default {
 
 <template>
   <div
-    class="entry-row selectable between"
-    :class="{ 'is-dense': dense, 'is-expired': isExpired, flair: flair }"
+    class="entry-row selectable between flair"
+    :class="{ 'is-dense': dense, 'is-expired': isExpired }"
     @click="autofill"
   >
     <div class="text-info" :class="{ strike: isExpired }">

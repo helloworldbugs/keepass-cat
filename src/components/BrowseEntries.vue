@@ -376,7 +376,6 @@ export default {
             :unlocked-state="unlockedState"
             :otp-seconds="otpCountdowns[entry.id] || null"
             edit-query="?from=browse"
-            flair
           />
         </div>
       </div>
