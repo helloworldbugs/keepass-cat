@@ -1199,7 +1199,11 @@ export default {
   border-bottom: 1px solid var(--keepass-cat-border-light);
 }
 
-.history-toggle {
+// The two dropdown triggers share their look and their hover pill; only the icon
+// differs (sized just below). The negative margin keeps the text exactly where it
+// was while the tint extends past it.
+.history-toggle,
+.expiry-toggle {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1207,8 +1211,6 @@ export default {
   color: var(--keepass-cat-text-subtle);
   cursor: pointer;
   white-space: nowrap;
-  // A quiet pill on hover, like the other inline actions. The negative margin
-  // keeps the text exactly where it was while the tint extends past it.
   padding: 2px 6px;
   margin: -2px -6px;
   border-radius: 4px;
@@ -1216,9 +1218,11 @@ export default {
   &:hover {
     background: var(--keepass-cat-bg-hover);
   }
-  .fa-history {
-    font-size: 13px;
-  }
+}
+
+.history-toggle .fa-history,
+.expiry-toggle .fa-clock-o {
+  font-size: 13px;
 }
 
 .history-time {
@@ -1521,27 +1525,6 @@ export default {
   flex: 1 1 auto;
   gap: 8px;
   min-width: 0;
-}
-
-.expiry-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--keepass-cat-text-subtle);
-  cursor: pointer;
-  white-space: nowrap;
-  // Same hover pill as the history toggle; negative margin keeps the text put.
-  padding: 2px 6px;
-  margin: -2px -6px;
-  border-radius: 4px;
-  transition: background-color 0.12s ease;
-  &:hover {
-    background: var(--keepass-cat-bg-hover);
-  }
-  .fa-clock-o {
-    font-size: 13px;
-  }
 }
 
 .expiry-value {
