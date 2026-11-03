@@ -223,6 +223,16 @@ export default {
       if (protectedOtp) return !!(protectedOtp.value && protectedOtp.value.length > 0);
       return !!entry.otp;
     },
+    // Read the entry's own timestamp rather than the is_expired snapshot taken at
+    // unlock time, which goes stale while the vault stays open.
+    isExpired(entry) {
+      if (!entry) return false;
+      if (entry.expiry) {
+        const time = Date.parse(entry.expiry);
+        return !isNaN(time) && time < Date.now();
+      }
+      return !!entry.is_expired;
+    },
     // Resolve an entry's OTP period once, then reuse it. Never decrypt on a tick.
     totpPeriod(entry) {
       const cached = this.otpPeriods[entry.id];
@@ -394,6 +404,7 @@ export default {
             v-for="entry in getGroupEntries(group)"
             :key="entry.id"
             class="entry-row selectable"
+            :class="{ 'is-expired': isExpired(entry) }"
             @click="autofill(entry)"
           >
             <div class="entry-info">
@@ -405,6 +416,7 @@ export default {
                 class="entry-user"
                 :title="entry.userName || ''"
               >{{ entry.userName || '' }}</span>
+              <span v-if="isExpired(entry)" class="expired-tag">{{ $t('Expired') }}</span>
             </div>
             <span v-if="hasTotp(entry)" class="otp-countdown">{{ otpCountdowns[entry.id] }}s</span>
             <span v-if="hasTotp(entry)" class="fa-stack entry-copy-otp" @click.stop="copyEntryTotp(entry)" :title="$t('Copy OTP code')">
@@ -593,6 +605,25 @@ export default {
       }
       .entry-title { font-size: 14px; }
       .entry-user { font-size: 11px; color: var(--keepass-cat-text-subtle); }
+      // Expired entries stay in the database; say so instead of relying on a
+      // strikethrough that is easy to miss at 11px.
+      .expired-tag {
+        display: inline-block;
+        margin-top: 2px;
+        padding: 0 4px;
+        border-radius: 3px;
+        font-size: 10px;
+        line-height: 1.6;
+        color: var(--keepass-cat-text-muted);
+        background: var(--keepass-cat-bg-hover);
+      }
+    }
+    &.is-expired {
+      .entry-title,
+      .entry-user {
+        text-decoration: line-through;
+        color: var(--keepass-cat-text-muted);
+      }
     }
     .entry-copy-user,
     .entry-copy,
