@@ -144,7 +144,7 @@ export default {
 </script>
 
 <template>
-  <div>
+  <div class="advanced-settings">
     <div class="box-bar roomy">
       <h4>{{ $t('Clipboard Expiration Time') }}</h4>
       <p>
@@ -336,6 +336,15 @@ export default {
 </template>
 
 <style lang="scss">
+// Materialize's h4 is 2.28rem (about 36px), which in a settings page reads as a
+// page title rather than a section label. 20px puts it just above the body text
+// without competing with the nav bar.
+.advanced-settings h4 {
+  font-size: 20px;
+  line-height: 1.35;
+  margin: 0 0 6px;
+}
+
 // The shortcut hint sits directly under the switch it explains.
 .shortcut-hint {
   margin: 8px 0 0;
