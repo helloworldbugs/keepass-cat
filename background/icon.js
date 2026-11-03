@@ -550,7 +550,15 @@ export function initInlineIcon() {
         return;
       }
     });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
+    // `attributes` matters as much as `childList`: a login form that lives in the
+    // DOM but is revealed by a class/style change (a modal) produces no node
+    // insertions at all, and would otherwise never be scanned.
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'style', 'hidden'],
+    });
   }
 
   scan();
