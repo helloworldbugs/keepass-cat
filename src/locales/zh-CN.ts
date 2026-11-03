@@ -98,6 +98,17 @@ const zhCN: Record<string, string> = {
   'Delete error: ': '删除错误：',
   '(empty)': '（空）',
 
+  // ===== Entry History =====
+  'History': '历史版本',
+  'Current version': '当前版本',
+  'No earlier versions yet.': '暂无更早的版本',
+  'Restore': '恢复',
+  'History entry not found': '找不到该历史版本',
+  'Press Save to apply this change.': '点击保存后才会生效。',
+  'Version restored.': '版本已恢复。',
+  'Version deleted.': '版本已删除。',
+  'Loading...': '加载中...',
+
   // ===== Custom Fields =====
   'Custom fields': '自定义字段',
   'Protect stores the value as KeePass does with "Protect value in process memory".': '「保护」与 KeePass 的「在进程内存中保护该值」是同一种存储方式。',

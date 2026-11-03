@@ -714,6 +714,106 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     });
   };
 
+  /*
+   * Entry history lives inside the .kdbx: each <Entry> may carry a <History> list
+   * of full snapshots, written by whichever client last edited it. Listing returns
+   * metadata only - a version's fields are decrypted when the user opens it.
+   */
+  my.getEntryHistory = function (entryId) {
+    return my.ensureDbLoaded().then(function () {
+      var entry = findKdbxEntryById(entryId);
+      if (!entry) throw new Error(i18n.t('Entry not found in database'));
+      return (entry.history || []).map(function (version, index) {
+        var times = version.times || {};
+        return {
+          index: index,
+          time: times.lastModTime ? times.lastModTime.toISOString() : null,
+          title: readKdbxFieldValue(version.fields && version.fields.get('Title')),
+          userName: readKdbxFieldValue(version.fields && version.fields.get('UserName')),
+        };
+      });
+    });
+  };
+
+  my.getHistoryVersion = function (entryId, index) {
+    return my.ensureDbLoaded().then(function () {
+      var entry = findKdbxEntryById(entryId);
+      var version = entry && entry.history && entry.history[index];
+      if (!version) throw new Error(i18n.t('History entry not found'));
+      var fields = version.fields || new Map();
+      var customFields = [];
+      fields.forEach(function (value, name) {
+        if (isHiddenCustomFieldName(name)) return;
+        customFields.push({
+          name: name,
+          value: readKdbxFieldValue(value),
+          isProtected: isProtectedKdbxValue(value),
+        });
+      });
+      return {
+        index: index,
+        time: version.times && version.times.lastModTime
+          ? version.times.lastModTime.toISOString()
+          : null,
+        title: readKdbxFieldValue(fields.get('Title')),
+        userName: readKdbxFieldValue(fields.get('UserName')),
+        url: readKdbxFieldValue(fields.get('URL')),
+        notes: readKdbxFieldValue(fields.get('Notes')),
+        password: readKdbxFieldValue(fields.get('Password')),
+        otp: readKdbxFieldValue(fields.get('otp')),
+        expires: !!(version.times && version.times.expires),
+        expiry: version.times && version.times.expiryTime
+          ? version.times.expiryTime.toISOString()
+          : null,
+        customFields: customFields,
+      };
+    });
+  };
+
+  /*
+   * Applies a pending delete/restore to the in-memory database and saves it, so the
+   * caller's Save button is what commits either action. Restoring copies the
+   * version's fields (values cloned, not shared with the history item that stays in
+   * the file) and its expiry, then stamps a fresh modification time.
+   */
+  my.applyHistoryChange = function (entryId, change) {
+    return my.ensureDbLoaded().then(function () {
+      var entry = findKdbxEntryById(entryId);
+      if (!entry) throw new Error(i18n.t('Entry not found in database'));
+      var version = entry.history && entry.history[change.index];
+      if (!version) throw new Error(i18n.t('History entry not found'));
+
+      if (change.type === 'delete') {
+        entry.history.splice(change.index, 1);
+      } else {
+        // Snapshot the state being replaced first, so a restore can itself be
+        // undone from the same list. KeePass keeps the newest N versions, which
+        // the database's own meta states.
+        entry.pushHistory();
+        var maxItems = _db.meta && _db.meta.historyMaxItems;
+        if (maxItems > 0 && entry.history.length > maxItems) {
+          entry.history.splice(0, entry.history.length - maxItems);
+        }
+        var fields = new Map();
+        (version.fields || new Map()).forEach(function (value, key) {
+          fields.set(
+            key,
+            isProtectedKdbxValue(value) ? kdbxweb.ProtectedValue.fromString(value.getText()) : value
+          );
+        });
+        entry.fields = fields;
+        if (version.times) {
+          entry.times.expires = !!version.times.expires;
+          if (version.times.expiryTime) entry.times.expiryTime = new Date(version.times.expiryTime);
+        }
+        // kdbxweb keeps the modified stamp on `times.lastModTime`, which is what
+        // KeePass reads to order and sync entries.
+        entry.times.lastModTime = new Date();
+      }
+      return _db.save();
+    });
+  };
+
   /* WebDAV still uploads through the background service worker. */
   function uploadViaBackground(arrayBuffer) {
     console.log('[keepassService] uploadDatabase size:', arrayBuffer && arrayBuffer.byteLength);

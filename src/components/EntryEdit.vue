@@ -33,6 +33,7 @@ const DEFAULT_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000;
 // The footer label has no room for a timezone, so it shows the local time in a
 // compact form; the input remains the place for precise edits.
 function formatDateTime(dateish) {
+  if (!dateish) return '';
   const date = dateish instanceof Date ? dateish : new Date(dateish);
   if (isNaN(date.getTime())) return '';
   const pad = (n) => String(n).padStart(2, '0');
@@ -99,6 +100,14 @@ export default {
       expiryMenuOpen: false,
       // Which preset is highlighted; a date loaded from the file counts as custom.
       expiryChoice: 'never',
+      // Entry history: the list is fetched when the menu opens; `viewingHistory`
+      // puts the form into a read-only view of a version, and `pendingHistory` is
+      // the delete/restore that the Save button will commit.
+      historyOpen: false,
+      historyLoading: false,
+      historyList: [],
+      viewingHistory: null,
+      pendingHistory: null,
       // Snapshot of the names present when the form opened. Compared against
       // the rows at save time to work out what was deleted or renamed.
       loadedCustomNames: [],
@@ -174,6 +183,14 @@ export default {
     expiryCustomOpen() {
       return this.expires && this.expiryChoice === 'custom';
     },
+    // A history version is shown read-only: the form is not the live entry.
+    readOnly() {
+      return !!this.viewingHistory;
+    },
+    // Viewing a version without choosing delete/restore leaves nothing to save.
+    saveDisabled() {
+      return this.saving || (this.viewingHistory && !this.pendingHistory);
+    },
   },
   mounted() {
     // The form is remounted per entry, but reset explicitly as well so a
@@ -182,6 +199,7 @@ export default {
     // Close the expiry preset list on any click outside it; the toggle and the
     // options stop propagation, so their own clicks never reach this.
     document.addEventListener('click', this.closeExpiryMenu);
+    document.addEventListener('click', this.closeHistoryMenu);
     let route = this.$router.getRoute();
     let rawEntryId = route.entryId || '';
     // Strip query params from entryId (e.g. "abc123?from=browse" → "abc123")
@@ -303,6 +321,7 @@ export default {
     this.messageTimer = null;
     this.navTimer = null;
     document.removeEventListener('click', this.closeExpiryMenu);
+    document.removeEventListener('click', this.closeHistoryMenu);
   },
   methods: {
     // Select value: the UUID when known, otherwise the legacy group name.
@@ -509,6 +528,101 @@ export default {
       // 'now' falls through with `when` already at the current time.
       this.expiresAt = toDateTimeLocal(when);
     },
+
+    /* --------------------------------------------------------------- history */
+
+    closeHistoryMenu() {
+      this.historyOpen = false;
+    },
+    async toggleHistoryMenu() {
+      this.historyOpen = !this.historyOpen;
+      if (!this.historyOpen) return;
+      this.historyLoading = true;
+      try {
+        const list = await this.keepassService.getEntryHistory(this.entry.id);
+        // Newest first: the file stores snapshots oldest-first, and the version
+        // a user wants is almost always the most recent one.
+        this.historyList = list.slice().reverse().map((item) => ({
+          ...item,
+          timeLabel: formatDateTime(item.time) || this.$t('(empty)'),
+        }));
+      } catch (err) {
+        this.historyList = [];
+        this.showMessage('error', this.$t('Error: ') + err.message);
+      } finally {
+        this.historyLoading = false;
+      }
+    },
+    // Show a version: the form becomes a read-only view of it, password in clear.
+    async selectHistoryVersion(item) {
+      try {
+        const version = await this.keepassService.getHistoryVersion(this.entry.id, item.index);
+        this.editFields = {
+          title: version.title || '',
+          userName: version.userName || '',
+          url: version.url || '',
+          notes: version.notes || '',
+          password: version.password || '',
+          otp: version.otp || '',
+        };
+        this.loadedOtp = version.otp || '';
+        this.hasSavedOtp = !!version.otp;
+        // Keeps the OTP value on screen read-only; the add/remove/scan controls
+        // are hidden by the .is-readonly rules.
+        this.otpEditing = !!version.otp;
+        this.otpRemoved = false;
+        // The version's own custom fields, shown read-only with the rest.
+        this.customFields = (version.customFields || []).map((f) => ({
+          key: this.customKeySeq++,
+          name: f.name,
+          value: f.value || '',
+          isProtected: !!f.isProtected,
+          originalName: f.name,
+        }));
+        this.loadedCustomNames = (version.customFields || []).map((f) => f.name);
+        this.viewingHistory = { index: item.index, label: formatDateTime(version.time) };
+        this.pendingHistory = null;
+        this.expires = !!version.expires;
+        this.expiresAt = version.expiry ? toDateTimeLocal(version.expiry) : '';
+        this.expiryChoice = this.expires ? 'custom' : 'never';
+        this.expiryMenuOpen = false;
+        this.historyOpen = false;
+      } catch (err) {
+        this.showMessage('error', this.$t('Error: ') + err.message);
+      }
+    },
+    selectCurrentVersion() {
+      this.historyOpen = false;
+      this.viewingHistory = null;
+      this.pendingHistory = null;
+      this.restoreEditFieldsFromEntry();
+      this.loadCustomFields(this.entry.id);
+    },
+    // Re-read the live entry into the form (also used when leaving a version).
+    restoreEditFieldsFromEntry() {
+      if (!this.entry) return;
+      this.editFields = {
+        title: this.entry.title || '',
+        userName: this.entry.userName || '',
+        url: this.entry.url || '',
+        notes: this.entry.notes || '',
+        password: this.unlockedState.getDecryptedAttribute(this.entry, 'password'),
+        otp: this.unlockedState.getDecryptedAttribute(this.entry, 'otp') || '',
+      };
+      const otp = this.editFields.otp;
+      this.loadedOtp = otp;
+      this.hasSavedOtp = !!otp;
+      this.otpEditing = !!otp;
+      this.otpRemoved = false;
+      this.expires = !!this.entry.expires;
+      this.expiresAt = this.entry.expiry ? toDateTimeLocal(this.entry.expiry) : '';
+      this.expiryChoice = this.expires ? 'custom' : 'never';
+    },
+    markHistory(type) {
+      if (!this.viewingHistory) return;
+      this.pendingHistory = { type: type, index: this.viewingHistory.index };
+      this.showMessage('progress', this.$t('Press Save to apply this change.'), 3000);
+    },
     // Capture the visible part of the page and pull the otpauth:// URL out of a
     // QR code, so the user does not need a third-party scanner (which can hand
     // over a truncated URL). Best-effort: every failure becomes a toast.
@@ -544,8 +658,30 @@ export default {
       }
     },
     async save() {
+      // Viewing a version with nothing marked: there is nothing to commit.
+      if (this.viewingHistory && !this.pendingHistory) return;
       this.saving = true;
       this.showMessage('progress', this.$t('Saving...'));
+
+      // Delete/restore of a history version: the service mutates the in-memory
+      // database, so this Save is what makes it permanent.
+      if (this.pendingHistory) {
+        try {
+          const buffer = await this.keepassService.applyHistoryChange(
+            this.entry.id, this.pendingHistory
+          );
+          const restored = this.pendingHistory.type === 'restore';
+          await this.persist(
+            buffer,
+            restored ? this.$t('Version restored.') : this.$t('Version deleted.'),
+            1600
+          );
+        } catch (err) {
+          this.showMessage('error', this.$t('Error: ') + err.message);
+        }
+        this.saving = false;
+        return;
+      }
 
       // Expiry is on the entry's times; `{ expires: false }` switches it off and
       // leaves the stored timestamp alone, like KeePass does.
@@ -613,37 +749,46 @@ export default {
           );
         }
         
-        this.showMessage('progress', this.$t('Uploading...'));
-        await this.keepassService.uploadDatabase(newBuffer);
-        
-        // Refresh cache from server to avoid re-unlock spinner
-        try {
-          let freshEntries = await this.keepassService.reparseLocal();
-          this.unlockedState.cacheSet('allEntries', freshEntries);
-          if (this.secureCache) {
-            this.secureCache.save('secureCache.entries', freshEntries);
-            this.secureCache.save('secureCache.entries', freshEntries, 'local');
-          }
-        } catch (e) {
-          // Fallback: clear cache so next open re-downloads
-          this.unlockedState.clearCache();
-          if (this.secureCache) {
-            this.secureCache.clear('secureCache.entries');
-            this.secureCache.clear('secureCache.entries', 'local');
-          }
-        }
-        
-        this.showMessage('success', customPayload.invalidCount > 0
-          ? this.$t('Saved. {0} custom field(s) were skipped due to errors.', customPayload.invalidCount)
-          : this.$t('Saved!'));
-        // Success needs enough dwell time to be read; the skipped-fields
-        // variant carries more information so it stays a little longer. This
-        // navigation timer stays separate from the toast's auto-hide timer.
-        this.navTimer = setTimeout(() => this.$router.goBack(), customPayload.invalidCount > 0 ? 1900 : 1400);
+        await this.persist(
+          newBuffer,
+          customPayload.invalidCount > 0
+            ? this.$t('Saved. {0} custom field(s) were skipped due to errors.', customPayload.invalidCount)
+            : this.$t('Saved!'),
+          // Success needs enough dwell time to be read; the skipped-fields
+          // variant carries more information so it stays a little longer.
+          customPayload.invalidCount > 0 ? 1900 : 1400
+        );
       } catch (err) {
         this.showMessage('error', this.$t('Error: ') + err.message);
       }
       this.saving = false;
+    },
+    // Uploads a freshly saved buffer, refreshes the cache the lists read from, then
+    // goes back once the toast has been readable. Shared by the normal save and the
+    // history delete/restore path.
+    async persist(newBuffer, message, dwellMs) {
+      this.showMessage('progress', this.$t('Uploading...'));
+      await this.keepassService.uploadDatabase(newBuffer);
+
+      // Refresh cache from server to avoid re-unlock spinner
+      try {
+        let freshEntries = await this.keepassService.reparseLocal();
+        this.unlockedState.cacheSet('allEntries', freshEntries);
+        if (this.secureCache) {
+          this.secureCache.save('secureCache.entries', freshEntries);
+          this.secureCache.save('secureCache.entries', freshEntries, 'local');
+        }
+      } catch (e) {
+        // Fallback: clear cache so next open re-downloads
+        this.unlockedState.clearCache();
+        if (this.secureCache) {
+          this.secureCache.clear('secureCache.entries');
+          this.secureCache.clear('secureCache.entries', 'local');
+        }
+      }
+
+      this.showMessage('success', message);
+      this.navTimer = setTimeout(() => this.$router.goBack(), dwellMs || 1400);
     },
     async deleteEntry() {
       if (this.deleteClick === 0) {
@@ -694,7 +839,7 @@ export default {
              the bar height, driven by the 18px title line, never grows. -->
         <button
           class="bar-save-btn"
-          :disabled="saving"
+          :disabled="saveDisabled"
           :title="$t('Save')"
           @click.stop="save"
         >
@@ -703,7 +848,48 @@ export default {
         </button>
       </template>
     </go-back>
-    <div class="edit-form" v-if="entry || isNew">
+    <div class="edit-form" v-if="entry || isNew" :class="{ 'is-readonly': readOnly }">
+      <div v-if="!isNew" class="history-bar">
+        <span class="history-toggle selectable" @click.stop="toggleHistoryMenu">
+          <i class="fa fa-history" />
+          <span>{{ $t('History') }}</span>
+          <i :class="['fa', historyOpen ? 'fa-caret-up' : 'fa-caret-down']" />
+        </span>
+        <span v-if="viewingHistory" class="history-time">{{ viewingHistory.label }}</span>
+        <span v-if="viewingHistory" class="history-actions">
+          <span
+            class="history-action is-delete selectable"
+            :class="{ 'is-pending': pendingHistory && pendingHistory.type === 'delete' }"
+            @click.stop="markHistory('delete')"
+          >{{ $t('Delete') }}</span>
+          <span
+            class="history-action is-restore selectable"
+            :class="{ 'is-pending': pendingHistory && pendingHistory.type === 'restore' }"
+            @click.stop="markHistory('restore')"
+          >{{ $t('Restore') }}</span>
+        </span>
+        <div v-if="historyOpen" class="history-menu">
+          <div v-if="historyLoading" class="history-empty">{{ $t('Loading...') }}</div>
+          <template v-else>
+            <span class="history-option selectable" @click.stop="selectCurrentVersion">
+              <span class="history-option-time">{{ $t('Current version') }}</span>
+            </span>
+            <div v-if="!historyList.length" class="history-empty">
+              {{ $t('No earlier versions yet.') }}
+            </div>
+            <span
+              v-for="item in historyList"
+              :key="item.index"
+              class="history-option selectable"
+              :class="{ 'is-active': viewingHistory && viewingHistory.index === item.index }"
+              @click.stop="selectHistoryVersion(item)"
+            >
+              <span class="history-option-time">{{ item.timeLabel }}</span>
+              <span class="history-option-info">{{ item.title || $t('(empty)') }} · {{ item.userName || $t('(empty)') }}</span>
+            </span>
+          </template>
+        </div>
+      </div>
       <div class="edit-field">
         <label>{{ $t('Group') }}</label>
         <select v-model="selectedGroupUuid">
@@ -728,7 +914,7 @@ export default {
           <div class="password-input-wrap">
             <input
               v-model="editFields.password"
-              :type="isPasswordVisible ? 'text' : 'password'"
+              :type="isPasswordVisible || readOnly ? 'text' : 'password'"
               spellcheck="false"
             />
             <!-- Floats inside the input's right edge; the input reserves room
@@ -761,7 +947,7 @@ export default {
         <label>{{ $t('Notes') }}</label>
         <textarea v-model="editFields.notes" rows="4"></textarea>
       </div>
-      <div class="edit-field">
+      <div v-if="!readOnly || otpEditing" class="edit-field">
         <label>{{ $t('OTP') }}</label>
         <div v-if="otpEditing" class="otp-row">
           <input
@@ -797,7 +983,7 @@ export default {
           </p>
         </template>
       </div>
-      <div class="custom-fields-section">
+      <div v-if="!readOnly || customFields.length" class="custom-fields-section">
         <div class="custom-fields-header">
           <label class="custom-section-label">{{ $t('Custom fields') }}</label>
           <p class="custom-hint">{{ $t('Protect stores the value as KeePass does with "Protect value in process memory".') }}</p>
@@ -861,7 +1047,7 @@ export default {
             <i class="fa fa-clock-o" />
             <span class="expiry-title">{{ $t('Expiry time') }}</span>
             <span class="expiry-value" :class="{ 'is-warning': expiryInPast }">{{ expiryLabel }}</span>
-            <i :class="['fa', expiryMenuOpen ? 'fa-caret-up' : 'fa-caret-down']" />
+            <i v-if="!readOnly" :class="['fa', expiryMenuOpen ? 'fa-caret-up' : 'fa-caret-down']" />
           </span>
           <div v-if="expiryMenuOpen" class="expiry-menu">
             <span
@@ -937,6 +1123,166 @@ export default {
 
 .edit-form {
   padding: $wall-padding;
+}
+
+// Entry history sits between the top bar and the first field: the same quiet
+// shape as the footer's expiry control, with the versions' times in the list.
+.history-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--keepass-cat-border-light);
+}
+
+.history-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--keepass-cat-text-subtle);
+  cursor: pointer;
+  white-space: nowrap;
+  .fa-history {
+    font-size: 13px;
+  }
+}
+
+.history-time {
+  padding-left: 10px;
+  border-left: 1px solid var(--keepass-cat-border);
+  font-size: 12px;
+  color: var(--keepass-cat-text-muted);
+  white-space: nowrap;
+}
+
+.history-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  // Pinned to the right end of the bar, level with the version's own time.
+  margin-left: auto;
+}
+
+.history-action {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  &.is-delete {
+    color: var(--keepass-cat-text-subtle);
+    &:hover {
+      color: var(--keepass-cat-delete-hover);
+      background: var(--keepass-cat-bg-hover);
+    }
+  }
+  &.is-restore {
+    color: var(--keepass-cat-blue);
+    &:hover {
+      background: var(--keepass-cat-bg-hover);
+    }
+  }
+  // Chosen, waiting for the top bar's Save: shown as a filled pill so the
+  // pending action is obvious without a second confirmation dialog.
+  &.is-pending {
+    background: var(--keepass-cat-bg-hover);
+    font-weight: 700;
+  }
+}
+
+.history-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 220px;
+  max-width: 280px;
+  max-height: 240px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--keepass-cat-bg-dark) transparent;
+  margin-top: 4px;
+  padding: 4px;
+  background: var(--keepass-cat-bg-light);
+  border: 1px solid var(--keepass-cat-border);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+.history-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  &:hover {
+    background: var(--keepass-cat-bg-hover);
+  }
+  &.is-active .history-option-time {
+    color: var(--keepass-cat-blue);
+    font-weight: 600;
+  }
+}
+
+.history-option-time {
+  font-size: 12px;
+  color: var(--keepass-cat-text);
+}
+
+.history-option-info {
+  font-size: 11px;
+  color: var(--keepass-cat-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.history-empty {
+  padding: 8px;
+  font-size: 12px;
+  color: var(--keepass-cat-text-muted);
+}
+
+// A version is shown, not edited: every control that would change the entry is
+// gone and the fields no longer take clicks, while the text itself stays fully
+// readable (the password in clear, as KeePass shows history).
+.edit-form.is-readonly {
+  .history-toggle {
+    color: var(--keepass-cat-blue);
+  }
+  .password-toggle,
+  .generate-btn,
+  .otp-add-btn,
+  .otp-remove,
+  .otp-qr,
+  .remove-btn,
+  .protect-toggle,
+  .add-field-btn,
+  .custom-hint,
+  .delete-btn {
+    display: none;
+  }
+  // The expiry line stays visible as information, but cannot open its presets.
+  .expiry-control {
+    pointer-events: none;
+    .expiry-input {
+      display: none;
+    }
+  }
+  input,
+  textarea,
+  select {
+    pointer-events: none;
+    background: var(--keepass-cat-bg);
+    border-color: var(--keepass-cat-border-light);
+  }
 }
 
 .delete-btn {
