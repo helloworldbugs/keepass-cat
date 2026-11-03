@@ -714,6 +714,41 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     });
   };
 
+  /* Names reported as changed when two history snapshots are compared. */
+  var HISTORY_FIELDS = ['Title', 'UserName', 'Password', 'URL', 'Notes', 'otp'];
+
+  function historyFieldText(version, name) {
+    return readKdbxFieldValue(version.fields && version.fields.get(name));
+  }
+
+  function historyExpiryValue(version) {
+    var times = version.times || {};
+    return times.expires ? (times.expiryTime ? new Date(times.expiryTime).getTime() : 0) : null;
+  }
+
+  /*
+   * Which fields differ between two snapshots. Built-ins first, then custom
+   * fields present in either one, then expiry - the order the list shows them in.
+   */
+  function changedHistoryFields(older, newer) {
+    var changed = [];
+    HISTORY_FIELDS.forEach(function (name) {
+      if (historyFieldText(older, name) !== historyFieldText(newer, name)) changed.push(name);
+    });
+    var names = [];
+    [older, newer].forEach(function (version) {
+      if (!version.fields) return;
+      version.fields.forEach(function (value, name) {
+        if (!isHiddenCustomFieldName(name) && names.indexOf(name) < 0) names.push(name);
+      });
+    });
+    names.forEach(function (name) {
+      if (historyFieldText(older, name) !== historyFieldText(newer, name)) changed.push(name);
+    });
+    if (historyExpiryValue(older) !== historyExpiryValue(newer)) changed.push('expiry');
+    return changed;
+  }
+
   /*
    * Entry history lives inside the .kdbx: each <Entry> may carry a <History> list
    * of full snapshots, written by whichever client last edited it. Listing returns
@@ -723,13 +758,16 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     return my.ensureDbLoaded().then(function () {
       var entry = findKdbxEntryById(entryId);
       if (!entry) throw new Error(i18n.t('Entry not found in database'));
-      return (entry.history || []).map(function (version, index) {
+      var history = entry.history || [];
+      return history.map(function (version, index) {
         var times = version.times || {};
         return {
           index: index,
           time: times.lastModTime ? times.lastModTime.toISOString() : null,
-          title: readKdbxFieldValue(version.fields && version.fields.get('Title')),
-          userName: readKdbxFieldValue(version.fields && version.fields.get('UserName')),
+          // What the edit that produced this snapshot touched, worked out against
+          // the snapshot before it. The oldest one has no predecessor to compare
+          // with, so it carries no list.
+          changedFields: index > 0 ? changedHistoryFields(history[index - 1], version) : [],
         };
       });
     });

@@ -2,6 +2,7 @@
 import GoBack from '@/components/GoBack.vue';
 import { Otp } from '@/lib/otp.js';
 import { scanVisibleTabForOtpUrl } from '@/lib/qrScan.js';
+import { i18n } from '@/services/i18n';
 
 // An error toast clears itself after this long, leaving the user on the form so
 // they can fix the problem. Success/progress toasts are driven elsewhere.
@@ -534,6 +535,28 @@ export default {
     closeHistoryMenu() {
       this.historyOpen = false;
     },
+    // Field names are stored as KDBX names; custom fields keep their own name.
+    historyFieldLabel(name) {
+      const keys = {
+        Title: 'Title',
+        UserName: 'Username',
+        Password: 'Password',
+        URL: 'URL',
+        Notes: 'Notes',
+        otp: 'OTP',
+        expiry: 'Expiry time',
+      };
+      return keys[name] ? this.$t(keys[name]) : name;
+    },
+    // "Changed: Password, Notes". Only the first three names are spelled out so a
+    // version that touched every custom field cannot produce a wall of text.
+    historyChangeLabel(fields) {
+      const labels = fields.map((name) => this.historyFieldLabel(name));
+      const shown = labels.slice(0, 3);
+      const extra = labels.length - shown.length;
+      const list = shown.join(i18n.isZh ? '、' : ', ') + (extra > 0 ? ' +' + extra : '');
+      return this.$t('Changed: {0}', list);
+    },
     async toggleHistoryMenu() {
       this.historyOpen = !this.historyOpen;
       if (!this.historyOpen) return;
@@ -885,14 +908,16 @@ export default {
               @click.stop="selectHistoryVersion(item)"
             >
               <span class="history-option-time">{{ item.timeLabel }}</span>
-              <span class="history-option-info">{{ item.title || $t('(empty)') }} · {{ item.userName || $t('(empty)') }}</span>
+              <span v-if="item.changedFields && item.changedFields.length" class="history-option-info">
+                {{ historyChangeLabel(item.changedFields) }}
+              </span>
             </span>
           </template>
         </div>
       </div>
       <div class="edit-field">
         <label>{{ $t('Group') }}</label>
-        <select v-model="selectedGroupUuid">
+        <select v-model="selectedGroupUuid" :disabled="readOnly">
           <option
             v-for="g in groups"
             :key="groupOptionValue(g)"
@@ -902,11 +927,11 @@ export default {
       </div>
       <div class="edit-field">
         <label>{{ $t('Title') }}</label>
-        <input v-model="editFields.title" type="text" />
+        <input v-model="editFields.title" type="text" :readonly="readOnly" />
       </div>
       <div class="edit-field">
         <label>{{ $t('Username') }}</label>
-        <input v-model="editFields.userName" type="text" />
+        <input v-model="editFields.userName" type="text" :readonly="readOnly" />
       </div>
       <div class="edit-field">
         <label>{{ $t('Password') }}</label>
@@ -915,6 +940,7 @@ export default {
             <input
               v-model="editFields.password"
               :type="isPasswordVisible || readOnly ? 'text' : 'password'"
+              :readonly="readOnly"
               spellcheck="false"
             />
             <!-- Floats inside the input's right edge; the input reserves room
@@ -941,11 +967,11 @@ export default {
       </div>
       <div class="edit-field">
         <label>{{ $t('URL') }}</label>
-        <input v-model="editFields.url" type="text" :placeholder="$t('e.g. https://site.com or regex:.*\\.domain\\.com/.*')" />
+        <input v-model="editFields.url" type="text" :readonly="readOnly" :placeholder="$t('e.g. https://site.com or regex:.*\\.domain\\.com/.*')" />
       </div>
       <div class="edit-field">
         <label>{{ $t('Notes') }}</label>
-        <textarea v-model="editFields.notes" rows="4"></textarea>
+        <textarea v-model="editFields.notes" rows="4" :readonly="readOnly"></textarea>
       </div>
       <div v-if="!readOnly || otpEditing" class="edit-field">
         <label>{{ $t('OTP') }}</label>
@@ -954,6 +980,7 @@ export default {
             ref="otpInput"
             v-model="editFields.otp"
             type="text"
+            :readonly="readOnly"
             placeholder="otpauth://totp/...?secret=..."
           />
           <span
@@ -1010,6 +1037,7 @@ export default {
                 v-model="field.name"
                 class="custom-name"
                 type="text"
+                :readonly="readOnly"
                 :placeholder="$t('Field name')"
               />
               <label class="protect-toggle" :title="$t('Protect')">
@@ -1028,6 +1056,7 @@ export default {
               v-model="field.value"
               class="custom-value"
               type="text"
+              :readonly="readOnly"
               :placeholder="$t('Field value')"
             />
             <div v-if="customFieldErrors[field.key]" class="row-error">
@@ -1064,6 +1093,7 @@ export default {
             v-model="expiresAt"
             class="expiry-input"
             type="datetime-local"
+            :readonly="readOnly"
           />
         </div>
         <span
@@ -1276,10 +1306,23 @@ export default {
       display: none;
     }
   }
+  // The group picker is disabled (it could still be changed from the keyboard
+  // otherwise) but keeps the normal colours instead of the greyed-out disabled look.
+  select {
+    pointer-events: none;
+    &:disabled {
+      opacity: 1;
+      color: var(--keepass-cat-text);
+      -webkit-text-fill-color: var(--keepass-cat-text);
+      background: var(--keepass-cat-bg);
+      border-color: var(--keepass-cat-border-light);
+    }
+  }
+  // Text fields stay clickable so their contents can be selected and copied;
+  // the `readonly` attribute set in the template is what stops edits.
   input,
   textarea,
   select {
-    pointer-events: none;
     background: var(--keepass-cat-bg);
     border-color: var(--keepass-cat-border-light);
   }

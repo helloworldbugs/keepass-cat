@@ -107,6 +107,7 @@ const zhCN: Record<string, string> = {
   'Press Save to apply this change.': '点击保存后才会生效。',
   'Version restored.': '版本已恢复。',
   'Version deleted.': '版本已删除。',
+  'Changed: {0}': '修改：{0}',
   'Loading...': '加载中...',
 
   // ===== Custom Fields =====
