@@ -14,8 +14,6 @@ export default {
     // The match list shows which group an entry belongs to; the browse view already
     // groups its rows, so the label would repeat the header above it.
     showGroup: Boolean,
-    // 6px instead of 8px: the popup's match list is height-constrained.
-    dense: Boolean,
     // Appended to the edit route so the editor knows where to go back to.
     editQuery: { type: String, default: '' },
     // Set by a parent that owns a single ticker for many rows (the browse view can
@@ -99,7 +97,7 @@ export default {
 <template>
   <div
     class="entry-row selectable between flair"
-    :class="{ 'is-dense': dense, 'is-expired': isExpired }"
+    :class="{ 'is-expired': isExpired }"
     @click="autofill"
   >
     <div class="text-info" :class="{ strike: isExpired }">
@@ -147,17 +145,14 @@ export default {
   // property.
   transition: background-color 0.12s ease;
   width: 100%;
-  padding: 8px $wall-padding;
+  // 6px: the popup's match list is height-constrained and this is the one density
+  // both lists use - a shared row should not look tighter in one of them.
+  padding: 6px $wall-padding;
   box-sizing: border-box;
   border-bottom: 1px solid $light-gray;
   background-color: $light-background-color;
   display: flex;
   overflow-x: hidden;
-
-  // The popup's match list trades padding for rows.
-  &.is-dense {
-    padding: 6px $wall-padding;
-  }
 
   .text-info {
     flex: 1 1 auto;

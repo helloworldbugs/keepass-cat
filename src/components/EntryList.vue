@@ -99,7 +99,6 @@ export default {
           :entry="entry"
           :unlocked-state="unlockedState"
           show-group
-          dense
         />
       </div>
       <div v-if="filteredEntries && searchTerm.length > 0">
@@ -109,7 +108,6 @@ export default {
           :entry="entry"
           :unlocked-state="unlockedState"
           show-group
-          dense
         />
       </div>
     </div>
