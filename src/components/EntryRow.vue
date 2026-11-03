@@ -1,10 +1,29 @@
 <script>
-import { parseUrl } from '@/lib/utils.js';
-import { Otp } from '@/lib/otp.js';
+import { Otp, entryHasTotp } from '@/lib/otp.js';
+import { entryIsExpired } from '@/lib/entryExpiry.js';
+
+/*
+ * One entry, as a row. Shared by the match list (EntryList) and the database view
+ * (BrowseEntries): the two screens differ in how they collect and order entries,
+ * not in how an entry looks, so the row lives here once.
+ */
 export default {
   props: {
     entry: Object,
     unlockedState: Object,
+    // The match list shows which group an entry belongs to; the browse view already
+    // groups its rows, so the label would repeat the header above it.
+    showGroup: Boolean,
+    // 6px instead of 8px: the popup's match list is height-constrained.
+    dense: Boolean,
+    // The match list's rows slide on hover; the browse rows never have.
+    flair: Boolean,
+    // Appended to the edit route so the editor knows where to go back to.
+    editQuery: { type: String, default: '' },
+    // Set by a parent that owns a single ticker for many rows (the browse view can
+    // hold hundreds of entries). Null means this row keeps its own interval, which
+    // is fine for the handful of rows a match list shows.
+    otpSeconds: { type: Number, default: null },
   },
   data() {
     return {
@@ -18,16 +37,18 @@ export default {
       if (this.entry.title.length > 0) return this.entry.title;
       return this.entry.url;
     },
-    // OTP is enabled iff the entry has a non-empty `otp` value, whether it is
-    // stored as a protected field (protectedData.otp) or a plain-text field.
     hasTotp: function () {
-      const protectedOtp = this.entry.protectedData && this.entry.protectedData.otp;
-      if (protectedOtp) return !!(protectedOtp.value && protectedOtp.value.length > 0);
-      return !!this.entry.otp;
+      return entryHasTotp(this.entry);
+    },
+    isExpired: function () {
+      return entryIsExpired(this.entry);
+    },
+    displayedSeconds: function () {
+      return this.otpSeconds === null ? this.otpTimeleft : this.otpSeconds;
     },
   },
   mounted() {
-    if (this.hasTotp) this.setupOtpCountdown();
+    if (this.hasTotp && this.otpSeconds === null) this.setupOtpCountdown();
   },
   beforeUnmount() {
     clearInterval(this.otpLoop);
@@ -51,7 +72,7 @@ export default {
     },
     edit(e) {
       e.stopPropagation();
-      this.$router.route('/entry-edit/' + this.entry.id);
+      this.$router.route('/entry-edit/' + this.entry.id + this.editQuery);
     },
     copyOtp(e) {
       e.stopPropagation();
@@ -78,25 +99,24 @@ export default {
 </script>
 
 <template>
-    <div
-    class="entry-list-item selectable between flair"
+  <div
+    class="entry-row selectable between"
+    :class="{ 'is-dense': dense, 'is-expired': isExpired, flair: flair }"
     @click="autofill"
   >
-    <div class="text-info" :class="{ strike: entry.is_expired }">
+    <div class="text-info" :class="{ strike: isExpired }">
       <span class="header" :title="header">{{ header }}</span>
       <br />
       <span class="user" :title="entry.userName || ''">
         {{ entry.userName || $t('(empty)') }}
       </span>
-      <span v-if="entry.is_expired" class="expired-tag">{{ $t('Expired') }}</span>
-      <span
-        v-if="entry.groupName"
-        class="group-label"
-        :title="entry.groupName"
-      >{{ entry.groupName }}</span>
+      <span v-if="isExpired" class="expired-tag">{{ $t('Expired') }}</span>
+      <span v-if="showGroup && entry.groupName" class="group-label" :title="entry.groupName">{{
+        entry.groupName
+      }}</span>
     </div>
     <div class="buttons" :class="{ 'no-otp': !hasTotp }">
-      <span v-if="hasTotp" class="otp-countdown">{{ otpTimeleft }}s</span>
+      <span v-if="hasTotp" class="otp-countdown">{{ displayedSeconds }}s</span>
       <span v-if="hasTotp" class="fa-stack copy-otp" @click="copyOtp" :title="$t('Copy OTP code')">
         <i class="fa fa-circle fa-stack-2x" />
         <i class="fa fa-clock-o fa-stack-1x fa-inverse" />
@@ -123,24 +143,29 @@ export default {
 
 <style lang="scss">
 @import '../styles/settings.scss';
-.entry-list-item {
-  // Only the hover tint changes; ll made every hover animate every property.
+
+.entry-row {
+  // Only the hover tint changes; `transition: all` made every hover animate every
+  // property.
   transition: background-color 0.12s ease;
   width: 100%;
-  // 6px, not 10px: the popup is 600px tall at most, and every pixel of padding
-  // here costs a match row. The three text lines keep their 1.4 line-height, so
-  // the descenders stay intact.
-  padding: 6px $wall-padding;
+  padding: 8px $wall-padding;
   box-sizing: border-box;
   border-bottom: 1px solid $light-gray;
   background-color: $light-background-color;
   display: flex;
   overflow-x: hidden;
+
+  // The popup's match list trades padding for rows.
+  &.is-dense {
+    padding: 6px $wall-padding;
+  }
+
   .text-info {
     flex: 1 1 auto;
     min-width: 0;
-    // Every line is a block now, so the <br> that separated the header from
-    // the username would only add an empty extra line. Drop it.
+    // Every line is a block, so the <br> that separated the header from the
+    // username would only add an empty extra line. Drop it.
     br {
       display: none;
     }
@@ -174,7 +199,7 @@ export default {
     margin-top: 1px;
   }
   // A struck-through row alone is easy to miss; the tag says why. Only expired
-  // entries get the extra line (they are the exception, not the rule).
+  // entries get the extra line.
   .expired-tag {
     display: inline-block;
     margin-top: 3px;

@@ -1,9 +1,9 @@
 <script>
-import EntryListItem from '@/components/EntryListItem.vue';
+import EntryRow from '@/components/EntryRow.vue';
 
 export default {
   components: {
-    EntryListItem,
+    EntryRow,
   },
   props: {
     messages: Object,
@@ -93,19 +93,25 @@ export default {
         {{ allMessages.warn || allMessages.error || allMessages.success }}
       </div>
       <div v-if="priorityEntries && searchTerm.length == 0">
-        <entry-list-item
+        <entry-row
           v-for="entry in priorityEntries"
           :key="entry.id"
           :entry="entry"
           :unlocked-state="unlockedState"
+          show-group
+          dense
+          flair
         />
       </div>
       <div v-if="filteredEntries && searchTerm.length > 0">
-        <entry-list-item
+        <entry-row
           v-for="entry in filteredEntries"
           :key="entry.id"
           :entry="entry"
           :unlocked-state="unlockedState"
+          show-group
+          dense
+          flair
         />
       </div>
     </div>

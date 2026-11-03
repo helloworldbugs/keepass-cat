@@ -154,4 +154,13 @@ Otp.parseUrl = function (url) {
   return new Otp(url, params);
 };
 
-export { Otp };
+// OTP is enabled iff the entry has a non-empty `otp` value, whether it is stored
+// as a protected field (protectedData.otp) or as a plain-text field. Shared by the
+// entry row and the browse view's countdown ticker.
+function entryHasTotp(entry) {
+  const protectedOtp = entry && entry.protectedData && entry.protectedData.otp;
+  if (protectedOtp) return !!(protectedOtp.value && protectedOtp.value.length > 0);
+  return !!(entry && entry.otp);
+}
+
+export { Otp, entryHasTotp };

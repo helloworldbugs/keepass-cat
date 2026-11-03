@@ -2,6 +2,7 @@
 // the only module that needs the Public Suffix List, and utils.js is also pulled
 // into the content script, which must stay small.
 import { getDomain } from 'tldts';
+import { entryIsExpired } from '@/lib/entryExpiry.js';
 
 // The registrable domain (eTLD+1) of a hostname, e.g.
 //   webvpn.fjut.edu.cn -> fjut.edu.cn   (edu.cn is a public suffix)
@@ -30,14 +31,8 @@ export function setIgnoreExpired(value) {
   ignoreExpired = !!value;
 }
 
-// Reads the entry's own expiry (KeePass stores it as an ISO timestamp) rather than
-// the is_expired snapshot taken when the database was unlocked, which goes stale
-// if an entry expires while the vault stays open.
-function isExpired(entry) {
-  if (!entry || !entry.expiry) return false;
-  const time = Date.parse(entry.expiry);
-  return !isNaN(time) && time < Date.now();
-}
+// Reads the entry's own expiry rather than the is_expired snapshot taken when the
+// database was unlocked, which goes stale if an entry expires while it stays open.
 
 /**
  * Unified URL matching: returns match level 4-1, or 0 for no match.
@@ -48,7 +43,7 @@ function isExpired(entry) {
  */
 const matchLevel = (pageUrl, entry) => {
   if (!pageUrl || !entry || !entry.url) return 0;
-  if (ignoreExpired && isExpired(entry)) return 0;
+  if (ignoreExpired && entryIsExpired(entry)) return 0;
 
   var safeParse = function (raw) {
     try {

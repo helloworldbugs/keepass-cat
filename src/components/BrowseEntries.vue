@@ -1,7 +1,11 @@
 <script>
-import { Otp } from '@/lib/otp.js';
+import { Otp, entryHasTotp } from '@/lib/otp.js';
+import EntryRow from '@/components/EntryRow.vue';
 
 export default {
+  components: {
+    EntryRow,
+  },
   props: {
     unlockedState: Object,
     keepassService: Object,
@@ -198,41 +202,6 @@ export default {
       }
       return null;
     },
-    autofill(entry) {
-      this.unlockedState.autofill(entry);
-    },
-    editEntry(entry) {
-      this.$router.route('/entry-edit/' + entry.id + '?from=browse');
-    },
-    openUrl(entry) {
-      if (entry.url) chrome.tabs.create({ url: entry.url });
-    },
-    copyEntryPassword(entry) {
-      this.unlockedState.copyPassword(entry);
-    },
-    copyEntryUsername(entry) {
-      this.unlockedState.copyUsername(entry);
-    },
-    copyEntryTotp(entry) {
-      this.unlockedState.copyTotp(entry);
-    },
-    // Same condition as the match list (EntryListItem.vue): OTP is enabled iff
-    // the entry has a non-empty `otp` value, protected or plain-text.
-    hasTotp(entry) {
-      const protectedOtp = entry.protectedData && entry.protectedData.otp;
-      if (protectedOtp) return !!(protectedOtp.value && protectedOtp.value.length > 0);
-      return !!entry.otp;
-    },
-    // Read the entry's own timestamp rather than the is_expired snapshot taken at
-    // unlock time, which goes stale while the vault stays open.
-    isExpired(entry) {
-      if (!entry) return false;
-      if (entry.expiry) {
-        const time = Date.parse(entry.expiry);
-        return !isNaN(time) && time < Date.now();
-      }
-      return !!entry.is_expired;
-    },
     // Resolve an entry's OTP period once, then reuse it. Never decrypt on a tick.
     totpPeriod(entry) {
       const cached = this.otpPeriods[entry.id];
@@ -248,7 +217,7 @@ export default {
     tickOtp() {
       const now = Date.now();
       this.allEntries.forEach(entry => {
-        if (!this.hasTotp(entry)) return;
+        if (!entryHasTotp(entry)) return;
         const ms = this.totpPeriod(entry) * 1000;
         const left = Math.ceil((ms - (now % ms)) / 1000);
         if (this.otpCountdowns[entry.id] !== left) {
@@ -400,46 +369,14 @@ export default {
           <span class="group-count">{{ getGroupEntries(group).length }}</span>
         </div>
         <div v-if="expandedGroups[groupKey(group)]" class="group-entries">
-          <div
+          <entry-row
             v-for="entry in getGroupEntries(group)"
             :key="entry.id"
-            class="entry-row selectable"
-            :class="{ 'is-expired': isExpired(entry) }"
-            @click="autofill(entry)"
-          >
-            <div class="entry-info">
-              <span
-                class="entry-title"
-                :title="entry.title"
-              >{{ entry.title || $t('(empty)') }}</span>
-              <span
-                class="entry-user"
-                :title="entry.userName || ''"
-              >{{ entry.userName || '' }}</span>
-              <span v-if="isExpired(entry)" class="expired-tag">{{ $t('Expired') }}</span>
-            </div>
-            <span v-if="hasTotp(entry)" class="otp-countdown">{{ otpCountdowns[entry.id] }}s</span>
-            <span v-if="hasTotp(entry)" class="fa-stack entry-copy-otp" @click.stop="copyEntryTotp(entry)" :title="$t('Copy OTP code')">
-              <i class="fa fa-circle fa-stack-2x" />
-              <i class="fa fa-clock-o fa-stack-1x fa-inverse" />
-            </span>
-            <span class="fa-stack entry-url" @click.stop="openUrl(entry)" :title="$t('Open URL')">
-              <i class="fa fa-circle fa-stack-2x" />
-              <i class="fa fa-external-link fa-stack-1x fa-inverse" />
-            </span>
-            <span class="fa-stack entry-copy-user" @click.stop="copyEntryUsername(entry)" :title="$t('Copy username')">
-              <i class="fa fa-circle fa-stack-2x" />
-              <i class="fa fa-user fa-stack-1x fa-inverse" />
-            </span>
-            <span class="fa-stack entry-copy" @click.stop="copyEntryPassword(entry)" :title="$t('Copy password')">
-              <i class="fa fa-circle fa-stack-2x" />
-              <i class="fa fa-clipboard fa-stack-1x fa-inverse" />
-            </span>
-            <span class="fa-stack entry-edit" @click.stop="editEntry(entry)" :title="$t('Edit entry')">
-              <i class="fa fa-circle fa-stack-2x" />
-              <i class="fa fa-pencil fa-stack-1x fa-inverse" />
-            </span>
-          </div>
+            :entry="entry"
+            :unlocked-state="unlockedState"
+            :otp-seconds="otpCountdowns[entry.id] || null"
+            edit-query="?from=browse"
+          />
         </div>
       </div>
       <!-- New Group -->
@@ -579,76 +516,6 @@ export default {
   &:hover { opacity: 0.7; }
 }
 
-.group-entries {
-  .entry-row {
-    display: flex; align-items: center;
-    padding: 8px $wall-padding;
-    border-bottom: 1px solid var(--keepass-cat-border-light);
-    overflow-x: hidden;
-    &:hover { background: var(--keepass-cat-bg-hover); }
-    .entry-info {
-      flex: 1 1 auto;
-      min-width: 0;
-      .entry-title,
-      .entry-user {
-        display: block;
-        max-width: 100%;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: clip;
-        // Materialize's 1.15 line-height is shorter than the glyph box, and
-        // `overflow: hidden` then clipped the descenders of "g", "y" and "p".
-        line-height: 1.4;
-        // Dissolve the cut like the popup entry rows rather than truncating with dots.
-        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
-        mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
-      }
-      .entry-title { font-size: 14px; }
-      .entry-user { font-size: 11px; color: var(--keepass-cat-text-subtle); }
-      // Expired entries stay in the database; say so instead of relying on a
-      // strikethrough that is easy to miss at 11px.
-      .expired-tag {
-        display: inline-block;
-        margin-top: 2px;
-        padding: 0 4px;
-        border-radius: 3px;
-        font-size: 10px;
-        line-height: 1.6;
-        color: var(--keepass-cat-text-muted);
-        background: var(--keepass-cat-bg-hover);
-      }
-    }
-    &.is-expired {
-      .entry-title,
-      .entry-user {
-        text-decoration: line-through;
-        color: var(--keepass-cat-text-muted);
-      }
-    }
-    .entry-copy-user,
-    .entry-copy,
-    .entry-copy-otp,
-    .entry-url,
-    .entry-edit {
-      flex: 0 0 auto;
-      opacity: 0.3; font-size: 16px; &:hover { opacity: 0.8; }
-    }
-    // Fixed-ish column so the row never reflows as the number ticks.
-    .otp-countdown {
-      flex: 0 0 auto;
-      font-size: 11px;
-      color: var(--keepass-cat-text-subtle);
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      min-width: 22px;
-    }
-    @media (prefers-color-scheme: dark) {
-      .entry-copy-user, .entry-copy, .entry-copy-otp, .entry-url, .entry-edit { opacity: 0.6; }
-      .entry-copy-user:hover, .entry-copy:hover, .entry-copy-otp:hover, .entry-url:hover, .entry-edit:hover { opacity: 0.35; }
-    }
-  }
-}
 
 .new-group-area {
   border-top: 2px solid $light-gray;
