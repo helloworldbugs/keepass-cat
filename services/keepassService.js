@@ -686,6 +686,18 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
       }
 
       /*
+       * Dropping a history version travels with the same save as the form, so
+       * anything the user typed after choosing Delete is written too instead of
+       * being silently replaced by the version deletion.
+       */
+      if (options && options.deleteHistoryIndex !== undefined && options.deleteHistoryIndex !== null) {
+        if (!kdbxEntry.history || !kdbxEntry.history[options.deleteHistoryIndex]) {
+          throw new Error(i18n.t('History entry not found'));
+        }
+        kdbxEntry.history.splice(options.deleteHistoryIndex, 1);
+      }
+
+      /*
        * Removals first, then writes, so a rename (old name in
        * removedFieldNames, new name in customFields) can never delete the
        * freshly written field. Custom removals are blocked from ever touching
@@ -767,7 +779,9 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
   /*
    * Entry history lives inside the .kdbx: each <Entry> may carry a <History> list
    * of full snapshots, written by whichever client last edited it. Listing returns
-   * metadata only - a version's fields are decrypted when the user opens it.
+   * only what the menu shows - the values are decrypted just far enough to work
+   * out which fields each snapshot changed, and the full version is read when the
+   * user opens it.
    */
   my.getEntryHistory = function (entryId) {
     return my.ensureDbLoaded().then(function () {
@@ -804,7 +818,6 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
         });
       });
       return {
-        index: index,
         time: version.times && version.times.lastModTime
           ? version.times.lastModTime.toISOString()
           : null,
@@ -820,27 +833,6 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
           : null,
         customFields: customFields,
       };
-    });
-  };
-
-  /*
-   * Drops one snapshot from the in-memory database and saves it, so the caller's
-   * Save button is what makes the deletion permanent. Restoring needs no service
-   * call of its own: the version's values are loaded into the normal form and
-   * saved by saveEntry, which snapshots the replaced state first.
-   */
-  my.deleteHistoryVersion = function (entryId, index) {
-    return my.ensureDbLoaded().then(function () {
-      var entry = findKdbxEntryById(entryId);
-      if (!entry) throw new Error(i18n.t('Entry not found in database'));
-      if (!entry.history || !entry.history[index]) {
-        throw new Error(i18n.t('History entry not found'));
-      }
-      entry.history.splice(index, 1);
-      // The entry changed even though its fields did not, so other clients must
-      // see a newer stamp or they may keep the deleted version.
-      entry.times.lastModTime = new Date();
-      return _db.save();
     });
   };
 

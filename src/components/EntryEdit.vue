@@ -717,21 +717,6 @@ export default {
       this.saving = true;
       this.showMessage('progress', this.$t('Saving...'));
 
-      // A deleted snapshot is dropped from the in-memory database here; this Save
-      // is what makes it permanent.
-      if (this.pendingDelete !== null) {
-        try {
-          const buffer = await this.keepassService.deleteHistoryVersion(
-            this.entry.id, this.pendingDelete
-          );
-          await this.persist(buffer, this.$t('Version deleted.'));
-        } catch (err) {
-          this.showMessage('error', this.$t('Error: ') + err.message);
-        }
-        this.saving = false;
-        return;
-      }
-
       // Expiry is on the entry's times; `{ expires: false }` switches it off and
       // leaves the stored timestamp alone, like KeePass does.
       let expiry;
@@ -795,18 +780,24 @@ export default {
           newBuffer = await this.keepassService.saveEntry(
             this.entry.id, this.editFields,
             customPayload.customFields, customPayload.removedFieldNames, expiry,
-            // A restore keeps the state it replaced, so it can be undone.
-            { pushHistory: this.historyRestore }
+            {
+              // A restore keeps the state it replaced, so it can be undone.
+              pushHistory: this.historyRestore,
+              // A pending history deletion rides along with this same save.
+              deleteHistoryIndex: this.pendingDelete,
+            }
           );
         }
         
         await this.persist(
           newBuffer,
-          customPayload.invalidCount > 0
-            ? this.$t('Saved. {0} custom field(s) were skipped due to errors.', customPayload.invalidCount)
+          this.pendingDelete !== null
+            ? this.$t('Version deleted.')
             : this.historyRestore
               ? this.$t('Version restored.')
-              : this.$t('Saved!'),
+              : customPayload.invalidCount > 0
+                ? this.$t('Saved. {0} custom field(s) were skipped due to errors.', customPayload.invalidCount)
+                : this.$t('Saved!'),
           // Success needs enough dwell time to be read; the skipped-fields
           // message carries more information, so it stays a little longer.
           customPayload.invalidCount > 0 ? 1900 : 1400
@@ -817,8 +808,8 @@ export default {
       this.saving = false;
     },
     // Uploads a freshly saved buffer, refreshes the cache the lists read from, then
-    // goes back once the toast has been readable. Shared by the normal save and the
-    // history delete/restore path.
+    // goes back once the toast has been readable. Every save ends here: a plain
+    // edit, a restored version or a dropped history version.
     async persist(newBuffer, message, dwellMs) {
       this.showMessage('progress', this.$t('Uploading...'));
       await this.keepassService.uploadDatabase(newBuffer);
