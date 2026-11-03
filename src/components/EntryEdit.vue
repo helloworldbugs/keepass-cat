@@ -30,6 +30,25 @@ function toDateTimeLocal(dateish) {
 // entry immediately invisible to matching.
 const DEFAULT_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000;
 
+// The footer label has no room for a timezone, so it shows the local time in a
+// compact form; the input remains the place for precise edits.
+function formatDateTime(dateish) {
+  const date = dateish instanceof Date ? dateish : new Date(dateish);
+  if (isNaN(date.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return (
+    date.getFullYear() +
+    '-' +
+    pad(date.getMonth() + 1) +
+    '-' +
+    pad(date.getDate()) +
+    ' ' +
+    pad(date.getHours()) +
+    ':' +
+    pad(date.getMinutes())
+  );
+}
+
 export default {
   components: { GoBack },
   props: {
@@ -73,10 +92,13 @@ export default {
       // is the exact name as loaded from the file (null for rows the user
       // added) so a rename can delete the old field and write the new one.
       customFields: [],
-      // Expiry lives on the entry's times, not in its fields: a switch plus a
-      // local datetime-local value. `expires=false` means "never".
+      // Expiry lives on the entry's times, not in its fields: a preset list in the
+      // footer row, plus a datetime-local input when "Custom" is chosen.
       expires: false,
       expiresAt: '',
+      expiryMenuOpen: false,
+      // Which preset is highlighted; a date loaded from the file counts as custom.
+      expiryChoice: 'never',
       // Snapshot of the names present when the form opened. Compared against
       // the rows at save time to work out what was deleted or renamed.
       loadedCustomNames: [],
@@ -125,17 +147,41 @@ export default {
       return 'fa-spinner fa-spin';
     },
     // With "ignore expired entries" on by default, a past date hides the entry
-    // from every page the moment it is saved - say so before that happens.
+    // from every page the moment it is saved - the label says so in the warning
+    // colour instead of explaining it in a paragraph.
     expiryInPast() {
       if (!this.expires || !this.expiresAt) return false;
       const time = Date.parse(this.expiresAt);
       return !isNaN(time) && time < Date.now();
+    },
+    expiryOptions() {
+      return [
+        { key: 'never', label: this.$t('Never expires') },
+        { key: 'now', label: this.$t('Expire now') },
+        { key: '1w', label: this.$t('1 week') },
+        { key: '2w', label: this.$t('2 weeks') },
+        { key: '1m', label: this.$t('1 month') },
+        { key: '3m', label: this.$t('3 months') },
+        { key: '6m', label: this.$t('6 months') },
+        { key: '1y', label: this.$t('1 year') },
+        { key: 'custom', label: this.$t('Custom') },
+      ];
+    },
+    expiryLabel() {
+      if (!this.expires) return this.$t('Never expires');
+      return formatDateTime(this.expiresAt);
+    },
+    expiryCustomOpen() {
+      return this.expires && this.expiryChoice === 'custom';
     },
   },
   mounted() {
     // The form is remounted per entry, but reset explicitly as well so a
     // revealed password can never carry over to the next entry.
     this.isPasswordVisible = false;
+    // Close the expiry preset list on any click outside it; the toggle and the
+    // options stop propagation, so their own clicks never reach this.
+    document.addEventListener('click', this.closeExpiryMenu);
     let route = this.$router.getRoute();
     let rawEntryId = route.entryId || '';
     // Strip query params from entryId (e.g. "abc123?from=browse" → "abc123")
@@ -192,6 +238,7 @@ export default {
         // entry never expires).
         this.expires = !!this.entry.expires;
         this.expiresAt = this.entry.expiry ? toDateTimeLocal(this.entry.expiry) : '';
+        this.expiryChoice = this.expires ? 'custom' : 'never';
       }
     }
     // Load groups keyed by UUID (same-named groups stay distinct), merging in
@@ -255,6 +302,7 @@ export default {
     if (this.navTimer) clearTimeout(this.navTimer);
     this.messageTimer = null;
     this.navTimer = null;
+    document.removeEventListener('click', this.closeExpiryMenu);
   },
   methods: {
     // Select value: the UUID when known, otherwise the legacy group name.
@@ -427,10 +475,39 @@ export default {
     },
     // Turning expiry on needs a date to start from; a month out is far enough that
     // a stray click cannot retire the entry on save.
-    onExpiryToggle() {
-      if (this.expires && !this.expiresAt) {
-        this.expiresAt = toDateTimeLocal(new Date(Date.now() + DEFAULT_EXPIRY_MS));
+    toggleExpiryMenu() {
+      this.expiryMenuOpen = !this.expiryMenuOpen;
+    },
+    closeExpiryMenu() {
+      this.expiryMenuOpen = false;
+    },
+    // Presets are relative to now; "custom" keeps whatever date is already there
+    // (or a month out) and reveals the picker.
+    chooseExpiry(option) {
+      this.expiryMenuOpen = false;
+      this.expiryChoice = option.key;
+      if (option.key === 'never') {
+        this.expires = false;
+        return;
       }
+      this.expires = true;
+      if (option.key === 'custom') {
+        if (!this.expiresAt) this.expiresAt = toDateTimeLocal(new Date(Date.now() + DEFAULT_EXPIRY_MS));
+        this.$nextTick(() => {
+          const el = this.$refs.expiryInput;
+          if (el && el.focus) el.focus();
+        });
+        return;
+      }
+      const when = new Date();
+      if (option.key === '1w') when.setDate(when.getDate() + 7);
+      else if (option.key === '2w') when.setDate(when.getDate() + 14);
+      else if (option.key === '1m') when.setMonth(when.getMonth() + 1);
+      else if (option.key === '3m') when.setMonth(when.getMonth() + 3);
+      else if (option.key === '6m') when.setMonth(when.getMonth() + 6);
+      else if (option.key === '1y') when.setFullYear(when.getFullYear() + 1);
+      // 'now' falls through with `when` already at the current time.
+      this.expiresAt = toDateTimeLocal(when);
     },
     // Capture the visible part of the page and pull the otpauth:// URL out of a
     // QR code, so the user does not need a third-party scanner (which can hand
@@ -720,29 +797,6 @@ export default {
           </p>
         </template>
       </div>
-      <div class="edit-field expiry-field">
-        <label>{{ $t('Expiry time') }}</label>
-        <div class="switch">
-          <label>
-            <input
-              v-model="expires"
-              type="checkbox"
-              @change="onExpiryToggle"
-            >
-            <span class="lever" />
-            {{ $t('Set an expiry time') }}
-          </label>
-        </div>
-        <input
-          v-if="expires"
-          v-model="expiresAt"
-          class="expiry-input"
-          type="datetime-local"
-        />
-        <p v-if="expiryInPast" class="expiry-hint">
-          {{ $t('That time has already passed: the entry counts as expired and will not be matched to any page.') }}
-        </p>
-      </div>
       <div class="custom-fields-section">
         <div class="custom-fields-header">
           <label class="custom-section-label">{{ $t('Custom fields') }}</label>
@@ -802,6 +856,30 @@ export default {
         </template>
       </div>
       <div class="edit-actions">
+        <div class="expiry-control">
+          <span class="expiry-toggle selectable" @click.stop="toggleExpiryMenu">
+            <i class="fa fa-clock-o" />
+            <span class="expiry-title">{{ $t('Expiry time') }}</span>
+            <span class="expiry-value" :class="{ 'is-warning': expiryInPast }">{{ expiryLabel }}</span>
+            <i :class="['fa', expiryMenuOpen ? 'fa-caret-up' : 'fa-caret-down']" />
+          </span>
+          <div v-if="expiryMenuOpen" class="expiry-menu">
+            <span
+              v-for="option in expiryOptions"
+              :key="option.key"
+              class="expiry-option selectable"
+              :class="{ 'is-active': option.key === expiryChoice }"
+              @click.stop="chooseExpiry(option)"
+            >{{ option.label }}</span>
+          </div>
+          <input
+            v-if="expiryCustomOpen"
+            ref="expiryInput"
+            v-model="expiresAt"
+            class="expiry-input"
+            type="datetime-local"
+          />
+        </div>
         <span
           v-if="!isNew"
           class="delete-btn selectable"
@@ -997,10 +1075,87 @@ export default {
 // The form now ends with Delete; Save moved to the top bar's #extra slot.
 .edit-actions {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin-top: 20px;
   padding-top: 14px;
   border-top: 2px solid $light-gray;
+}
+
+// Expiry sits on the left of the footer row: a clock, the label, and the date in
+// a quieter style. Clicking the label opens the preset list above it.
+.expiry-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.expiry-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--keepass-cat-text-subtle);
+  cursor: pointer;
+  white-space: nowrap;
+  .fa-clock-o {
+    font-size: 13px;
+  }
+}
+
+.expiry-value {
+  color: var(--keepass-cat-text-muted);
+  &.is-warning {
+    color: var(--keepass-cat-keyfile-active);
+  }
+}
+
+.expiry-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 132px;
+  padding: 4px;
+  background: var(--keepass-cat-bg-light);
+  border: 1px solid var(--keepass-cat-border);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+.expiry-option {
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--keepass-cat-text);
+  white-space: nowrap;
+  &:hover {
+    background: var(--keepass-cat-bg-hover);
+  }
+  &.is-active {
+    color: var(--keepass-cat-blue);
+    font-weight: 600;
+  }
+}
+
+.expiry-input {
+  width: auto;
+  padding: 4px 6px;
+  font-size: 12px;
+  border: 1px solid $light-gray;
+  border-radius: 3px;
+  color: $text-color;
+  background: $light-background-color;
+  &:focus {
+    outline: none;
+    border-color: $blue;
+  }
 }
 
 // Status toast: fixed just below the shared top bar, so it is always on screen
@@ -1091,13 +1246,6 @@ export default {
   cursor: pointer;
   &:hover { background: var(--keepass-cat-bg-hover); }
   .fa { margin-right: 4px; }
-}
-
-.expiry-hint {
-  margin: 4px 0 0;
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--keepass-cat-keyfile-active);
 }
 
 .otp-hint {
