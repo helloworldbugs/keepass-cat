@@ -38,10 +38,12 @@ export function initInlineIcon() {
   let matchesAt = 0;
   let labels = { autofill: 'Keepass Cat' };
   let pending = null;
-  // Whether the user asked for pages to be filled on load, and whether this page
-  // has already had its one shot at it.
+  // Whether the user asked for pages to be filled on load, and the form we already
+  // handled. The form (not the page load) is the unit: closing a login modal and
+  // opening it again re-arms the fill, while re-rendering the same form does not.
   let autoFillOn = false;
-  let autoFillTried = false;
+  /** @type {Array<HTMLInputElement>|null} */
+  let autoFilledForm = null;
 
   /** @type {Map<HTMLInputElement, HTMLElement>} */
   const icons = new Map();
@@ -435,17 +437,34 @@ export function initInlineIcon() {
 
   // The optional "fill on page load" behaviour: one entry, empty fields, top frame,
   // once per page. Anything else is left to the user.
-  function maybeAutoFill(list) {
-    if (autoFillTried || !autoFillOn) return;
+  function maybeAutoFill(list, anchors) {
+    if (!autoFillOn) return;
     if (window.top !== window) return;
+    // The form is gone: the next time a login form shows up, it is a new one.
+    if (!anchors || !anchors.length) {
+      autoFilledForm = null;
+      return;
+    }
     if (!list || list.length !== 1) return;
-    autoFillTried = true;
-    if (credentialsAlreadyFilled()) return;
+    if (autoFilledForm && sameFields(autoFilledForm, anchors)) return;
+    if (credentialsAlreadyFilled(anchors)) {
+      // Already has content: remember it so we do not fill it later either.
+      autoFilledForm = anchors;
+      return;
+    }
+    autoFilledForm = anchors;
     fillEntry(list[0]);
   }
 
-  function credentialsAlreadyFilled() {
-    const anchors = anchorFields();
+  function sameFields(left, right) {
+    if (left.length !== right.length) return false;
+    for (let i = 0; i < left.length; i++) {
+      if (left[i] !== right[i]) return false;
+    }
+    return true;
+  }
+
+  function credentialsAlreadyFilled(anchors) {
     for (let i = 0; i < anchors.length; i++) {
       if (anchors[i].value) return true;
     }
@@ -463,6 +482,9 @@ export function initInlineIcon() {
     if (!document.documentElement) return;
     const fields = anchorFields();
     if (!fields.length) {
+      // Nothing to act on. If this is a modal that just closed, the next opening
+      // counts as a new form and may fill again.
+      autoFilledForm = null;
       removeAllIcons();
       closeList();
       return;
@@ -473,8 +495,9 @@ export function initInlineIcon() {
         closeList();
         return;
       }
-      syncIcons(anchorFields());
-      maybeAutoFill(list);
+      const anchors = anchorFields();
+      syncIcons(anchors);
+      maybeAutoFill(list, anchors);
     });
   }
 
