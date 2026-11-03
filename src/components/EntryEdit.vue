@@ -885,7 +885,7 @@ export default {
 </script>
 
 <template>
-  <div class="entry-edit-view">
+  <div class="entry-edit-view" :class="{ 'is-readonly': readOnly }">
     <go-back :message="$t('Back')">
       <template #extra>
         <!-- Save lives in the shared top bar (top-right). Compact by design so
@@ -901,7 +901,7 @@ export default {
         </button>
       </template>
     </go-back>
-    <div class="edit-form" v-if="entry || isNew" :class="{ 'is-readonly': readOnly }">
+    <div class="edit-form" v-if="entry || isNew">
       <div v-if="!isNew" class="history-bar">
         <span class="history-toggle selectable" @click.stop="toggleHistoryMenu">
           <i class="fa fa-history" />
@@ -1098,43 +1098,6 @@ export default {
           </div>
         </template>
       </div>
-      <div class="edit-actions">
-        <div class="expiry-control">
-          <span class="expiry-toggle selectable" @click.stop="toggleExpiryMenu">
-            <i class="fa fa-clock-o" />
-            <span class="expiry-title">{{ $t('Expiry time') }}</span>
-            <span class="expiry-value" :class="{ 'is-warning': expiryInPast }">{{ expiryLabel }}</span>
-            <i v-if="!readOnly" :class="['fa', expiryMenuOpen ? 'fa-caret-up' : 'fa-caret-down']" />
-          </span>
-          <div v-if="expiryMenuOpen" class="expiry-menu">
-            <span
-              v-for="option in expiryOptions"
-              :key="option.key"
-              class="expiry-option selectable"
-              :class="{ 'is-active': option.key === expiryChoice }"
-              @click.stop="chooseExpiry(option)"
-            >{{ option.label }}</span>
-          </div>
-          <input
-            v-if="expiryCustomOpen"
-            ref="expiryInput"
-            v-model="expiresAt"
-            class="expiry-input"
-            type="datetime-local"
-            :readonly="readOnly"
-          />
-        </div>
-        <span
-          v-if="!isNew"
-          class="delete-btn selectable"
-          :title="$t('Delete')"
-          @click="deleteEntry"
-        >
-          <i class="fa fa-trash" />
-          <span v-if="deleteClick === 0"> {{ $t('Delete') }}</span>
-          <span v-if="deleteClick === 1" class="confirm-text">{{ $t('Click again to confirm') }}</span>
-        </span>
-      </div>
       <div
         v-if="message"
         class="message"
@@ -1146,11 +1109,58 @@ export default {
         <span>{{ message }}</span>
       </div>
     </div>
+    <!-- Footer bar: pinned to the bottom of the viewport, same width and gutter as
+         the top bar, so the expiry and Delete never scroll away. -->
+    <div v-if="entry || isNew" class="edit-actions">
+      <div class="expiry-control">
+        <span class="expiry-toggle selectable" @click.stop="toggleExpiryMenu">
+          <i class="fa fa-clock-o" />
+          <span class="expiry-title">{{ $t('Expiry time') }}</span>
+          <span class="expiry-value" :class="{ 'is-warning': expiryInPast }">{{ expiryLabel }}</span>
+          <i v-if="!readOnly" :class="['fa', expiryMenuOpen ? 'fa-caret-up' : 'fa-caret-down']" />
+        </span>
+        <div v-if="expiryMenuOpen" class="expiry-menu">
+          <span
+            v-for="option in expiryOptions"
+            :key="option.key"
+            class="expiry-option selectable"
+            :class="{ 'is-active': option.key === expiryChoice }"
+            @click.stop="chooseExpiry(option)"
+          >{{ option.label }}</span>
+        </div>
+        <input
+          v-if="expiryCustomOpen"
+          ref="expiryInput"
+          v-model="expiresAt"
+          class="expiry-input"
+          type="datetime-local"
+          :readonly="readOnly"
+        />
+      </div>
+      <span
+        v-if="!isNew"
+        class="delete-btn selectable"
+        :title="$t('Delete')"
+        @click="deleteEntry"
+      >
+        <i class="fa fa-trash" />
+        <span v-if="deleteClick === 0"> {{ $t('Delete') }}</span>
+        <span v-if="deleteClick === 1" class="confirm-text">{{ $t('Click again to confirm') }}</span>
+      </span>
+    </div>
   </div>
 </template>
 
 <style lang="scss" scoped>
 @import '../styles/settings.scss';
+
+// The view fills the popup at minimum so the footer bar can sit at the bottom even
+// when an entry has few fields; the form grows to push it there.
+.entry-edit-view {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
 
 // Keep the shared top bar pinned while this form scrolls (the user wanted it
 // still there after scrolling to the bottom). :deep() keeps the rule scoped to
@@ -1180,6 +1190,8 @@ export default {
 }
 
 .edit-form {
+  // Fills the view so the footer bar is pushed to the bottom on short entries.
+  flex: 1 0 auto;
   padding: $wall-padding;
 }
 
@@ -1305,7 +1317,7 @@ export default {
 // Previewing a version: the form keeps its normal look and the text stays
 // selectable (the inputs are `readonly`), but the controls that would change it
 // are gone and the password starts visible, so the eye can mask it again.
-.edit-form.is-readonly {
+.entry-edit-view.is-readonly {
   .history-toggle {
     color: var(--keepass-cat-blue);
   }
@@ -1476,13 +1488,19 @@ export default {
 }
 
 // The form now ends with Delete; Save moved to the top bar's #extra slot.
+// Pinned to the bottom of the viewport while the form scrolls: it is the last
+// child of the 400px column, so its width and gutters match the top bar exactly,
+// and `sticky` keeps it in flow so the end of the form still scrolls clear of it.
 .edit-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 35;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 20px;
-  padding-top: 14px;
+  padding: 8px $wall-padding;
+  background: $background-color;
   border-top: 2px solid $light-gray;
 }
 
