@@ -724,7 +724,7 @@ export default {
           const buffer = await this.keepassService.deleteHistoryVersion(
             this.entry.id, this.pendingDelete
           );
-          await this.persist(buffer, this.$t('Version deleted.'), 2000);
+          await this.persist(buffer, this.$t('Version deleted.'), 1000);
         } catch (err) {
           this.showMessage('error', this.$t('Error: ') + err.message);
         }
@@ -807,9 +807,10 @@ export default {
             : this.historyRestore
               ? this.$t('Version restored.')
               : this.$t('Saved!'),
-          // Success needs enough dwell time to be read; the skipped-fields and
-          // restored-version messages carry more information, so they stay longer.
-          this.historyRestore ? 2000 : customPayload.invalidCount > 0 ? 1900 : 1400
+          // Success needs enough dwell time to be read; the skipped-fields
+          // message carries more information, so it stays a little longer. History
+          // actions are already understood, so they flash for only a second.
+          this.historyRestore ? 1000 : customPayload.invalidCount > 0 ? 1900 : 1400
         );
       } catch (err) {
         this.showMessage('error', this.$t('Error: ') + err.message);
