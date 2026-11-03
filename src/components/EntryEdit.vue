@@ -1207,6 +1207,15 @@ export default {
   color: var(--keepass-cat-text-subtle);
   cursor: pointer;
   white-space: nowrap;
+  // A quiet pill on hover, like the other inline actions. The negative margin
+  // keeps the text exactly where it was while the tint extends past it.
+  padding: 2px 6px;
+  margin: -2px -6px;
+  border-radius: 4px;
+  transition: background-color 0.12s ease;
+  &:hover {
+    background: var(--keepass-cat-bg-hover);
+  }
   .fa-history {
     font-size: 13px;
   }
@@ -1522,6 +1531,14 @@ export default {
   color: var(--keepass-cat-text-subtle);
   cursor: pointer;
   white-space: nowrap;
+  // Same hover pill as the history toggle; negative margin keeps the text put.
+  padding: 2px 6px;
+  margin: -2px -6px;
+  border-radius: 4px;
+  transition: background-color 0.12s ease;
+  &:hover {
+    background: var(--keepass-cat-bg-hover);
+  }
   .fa-clock-o {
     font-size: 13px;
   }
