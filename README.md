@@ -22,6 +22,8 @@ English | [中文](README_CN.md)
     - [Entry Operations](#entry-operations)
     - [🧩 Custom Fields](#-custom-fields)
     - [✏️ Editing an Entry](#️-editing-an-entry)
+    - [🕘 Entry History](#-entry-history)
+    - [🕐 Expiry and Expired Entries](#-expiry-and-expired-entries)
     - [📁 Group Management](#-group-management)
     - [🔐 OTP Two-Factor Authentication](#-otp-two-factor-authentication)
   - [⌨️ Keyboard Shortcuts](#️-keyboard-shortcuts)
@@ -31,7 +33,7 @@ English | [中文](README_CN.md)
     - [Badge Count Logic](#badge-count-logic)
     - [Regular Expression Matching](#regular-expression-matching)
   - [⚡ Autofill Engine](#-autofill-engine)
-    - [Two Trigger Methods](#two-trigger-methods)
+    - [Trigger Methods](#trigger-methods)
     - [Field Detection Algorithm](#field-detection-algorithm)
     - [Iframe Cross-Origin Autofill](#iframe-cross-origin-autofill)
   - [☁️ Storage Backends](#️-storage-backends)
@@ -59,6 +61,12 @@ English | [中文](README_CN.md)
 | ⚡ **One-Click Autofill** | Click an entry to autofill username and password; two-step logins (username first, password after the next step) fill one field per trigger |
 | 🧠 **4-Level Matching** | Original 4-level URL matching (with regex support) that ranks the best-matching entry |
 | ✏️ **CRUD** | Edit title, username, password (with strong password generator), URL, notes, custom fields, and OTP right in the popup; saves back to the KDBX file (on WebDAV, or a local file in Chrome) |
+| 🕘 **Version History** | Open an entry's past versions, see which fields each one changed, preview a version read-only (password in clear), then restore it — the replaced state is kept, so a restore can be undone — or delete it; both apply only on Save |
+| 🕐 **Expiry Date** | Give an entry an expiry date with one-click presets (never / now / 1 week … 1 year / custom); expired entries are skipped by default and marked in the database view |
+| 🖱️ **In-page Fill Icon** | A small key button inside login fields lists the matching entries and fills one; can be switched off |
+| 🔽 **Fill on Page Load** | Optional: fill the only matching entry as soon as the page finishes loading, while the fields are still empty |
+| 🆕 **Database Creation** | Create a new KDBX4 + Argon2 database from Settings (optional key file) and change its unlock password or key file later |
+| 🔑 **Key File Manager** | Create or import key files in the extension and reuse them across databases |
 | 🧩 **Custom Fields** | Arbitrary per-entry name/value fields with an optional **Protect** flag, stored as KDBX protected strings |
 | 📂 **Group Management** | Create, rename, and delete groups; move entries between groups |
 | 🔐 **OTP 2FA** | One-click copy of OTP codes (with countdown), with edit support (`otpauth://`) |
@@ -76,8 +84,10 @@ English | [中文](README_CN.md)
 | Action | Description |
 |--------|-------------|
 | ➕ **Create** | Fill in title, username, password, URL (regex supported), notes, and select a group |
-| ✏️ **Edit** | Click the pencil icon, modify any field, then click **Save** in the top-right of the top bar (the bar stays pinned while you scroll) |
-| 🗑️ **Delete** | Delete is the last item in the form and needs two clicks — the second one confirms; auto-uploads after delete |
+| ✏️ **Edit** | Click the pencil icon, modify any field, then click **Save** in the top-right of the pinned top bar |
+| 🗑️ **Delete** | In the bar pinned to the bottom of the edit page; two clicks — the second one confirms; uploads immediately after the second click |
+| 🕘 **History** | The row under the top bar lists earlier versions, newest first, each with the fields it changed. Pick one to preview it read-only, then **Restore** (turns it into the editable entry) or **Delete** it — Save applies either |
+| 🕐 **Expiry** | Left side of the bottom bar: clock + current value. Presets: never / now / 1 week / 2 weeks / 1 month / 3 months / 6 months / 1 year / custom |
 | 🧩 **Custom Fields** | Add, rename, edit, and remove arbitrary name/value fields at the bottom of the edit page; each field has a **Protect** checkbox |
 | 📋 **Copy** | One-click copy of username or password to the clipboard |
 | 🔗 **Open URL** | Click the icon to open the entry URL in a new tab |
@@ -94,8 +104,28 @@ English | [中文](README_CN.md)
 ### ✏️ Editing an Entry
 
 - Save is in the top-right of the pinned top bar, which stays visible however far you scroll
-- Delete is the last item in the form and needs two clicks; the second one confirms. The back arrow leaves without saving
+- The footer bar is pinned to the bottom as well: expiry on the left, Delete on the right; Delete needs two clicks, the second one confirms
+- The back arrow leaves without saving
 - Save results and errors appear just under the top bar and clear themselves (errors after about 5 seconds)
+
+### 🕘 Entry History
+
+KDBX entries can carry a history list of full snapshots, usually written by KeePass / KeePassXC. The row under the top bar opens it:
+
+- The list is newest first; the first row is the current version
+- Each version shows its modification time and the fields that edit touched (title, username, password, URL, notes, OTP, custom fields, expiry), worked out against the version before it
+- Selecting a version previews it read-only: the password is shown in clear (the eye masks it again), the text can still be selected and copied, and nothing can be edited
+- **Restore** turns the preview into the normal edit form; Save writes it and first pushes the state being replaced into history, so a restore can itself be undone
+- **Delete** hides that version from the list; Save drops it from the file
+- Nothing is written until Save; leaving the page discards a pending restore or delete
+- Ordinary edits made here do not create a snapshot (KeePass clients do); restoring is the exception. The limits come from the database's own `HistoryMaxItems` / `HistoryMaxSize`
+
+### 🕐 Expiry and Expired Entries
+
+- The bottom bar shows **Expiry time** and the current value; click it for presets: never / now / 1 week / 2 weeks / 1 month / 3 months / 6 months / 1 year / custom (a date-time picker)
+- A time in the past makes the entry expired immediately and the value turns gold
+- With **Settings → Entry matching → Ignore expired entries** on (the default), expired entries are never matched to a page and never autofilled; they stay in the database view, struck through and marked *Expired*, and remain editable
+- Switching expiry off keeps the stored date, the same way KeePass does, so turning it back on can reuse it
 
 ### 📁 Group Management
 
@@ -142,6 +172,8 @@ English | [中文](README_CN.md)
 ## 🧠 4-Level URL Matching
 
 An original **4-level URL matching algorithm** that drives both **badge count** and **autofill priority ranking**, ensuring the most relevant entry always ranks first. Levels are checked in order 4 → 3 → 2 → 1; the first hit wins, and the regex fallback is only tried last.
+
+> Expired entries are left out before ranking unless **Settings → Entry matching → Ignore expired entries** is turned off.
 
 ### Matching Levels
 
@@ -190,12 +222,14 @@ regex:192\.168\.\d+\.\d+:8080  →  matches a specific subnet and port
 
 ## ⚡ Autofill Engine
 
-### Two Trigger Methods
+### Trigger Methods
 
 | Method | Action | Use Case |
 |--------|--------|----------|
 | 🖱️ **Popup click** | Open the Keepass Cat popup and click an entry | Most common; browse and choose |
 | ⌨️ **Shortcut** | `Ctrl+Shift+Space` | Fast autofill, no mouse (default key) |
+| 🔑 **In-page key button** | A small key button appears inside login fields; clicking it lists the matching entries and fills the one you pick (switch: **Settings → In-page fill icon**) | Filling without opening the popup |
+| 🔽 **On page load** | Optional (**Settings → Auto-fill on page load → Fill when exactly one entry matches**): fills as soon as the page finishes loading, only when exactly one entry matches and the fields are still empty | Logging in without any click |
 
 ### Field Detection Algorithm
 
@@ -252,7 +286,7 @@ Some login pages show only the username and reveal the password after a **Next**
 
 ## ☁️ Storage Backends
 
-Keepass Cat opens KeePass databases from your **WebDAV** server or, in Chrome, **straight from disk**:
+Keepass Cat opens KeePass databases from your **WebDAV** server or, in Chrome, **straight from disk** — and can create a new local database for you:
 
 | Backend | Type | Description |
 |---------|------|-------------|
@@ -278,6 +312,7 @@ All backends implement the `FileManager` interface and are registered/dispatched
 A `.kdbx` file on your computer can be used directly — no upload, no copy inside the extension:
 
 - **Pick it once, from the settings page**: Manage databases → Local file → switch it on → *Choose .kdbx file*. The file handle is kept in IndexedDB, so the choice survives restarts.
+- **Create one here too**: *New password database* builds a KDBX4 (Argon2) file, optionally with a key file. *Change password* on a row re-encrypts it with a new password and can add, swap or drop its key file.
 - **Read and written in place**: saves go back to the same file from the page itself. The MV3 service worker has no File System Access API, so this path never goes through the background.
 - **External changes are detected**: before every save the file's SHA-256 is compared with the bytes that were loaded. If another client (KeePass, KeePassXC, a sync tool) changed the file in the meantime, the save is refused instead of overwriting it. Editing the *same* entry in both places is last-writer-wins — KeePass has no field-level merge either.
 - **Chrome may ask for the file grant again**: the File System Access API needs a user gesture and every popup is a new document. Chrome normally remembers the grant once you allowed it from the popup; when it does not, the first click in the popup (or the sync button) asks again.
@@ -334,6 +369,7 @@ Remember period:  [Never]  [30 min]  [2 h]  [4 h]  [8 h]  [24 h]  [This session]
 - Supports all four KeePass keyfile formats: XML (recommended), 32-byte, hex, and hash
 - Keyfiles can be combined with a master password or used alone
 - Keyfiles are stored in browser local storage; websites and other extensions cannot access them
+- Create a key file in the extension (**Settings → Key files → New key file**) or import an existing one; the same list is offered when creating a local database or changing its password
 
 ---
 
