@@ -541,6 +541,10 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
           }
         }
         if (db_entry.times) {
+          // `expires` is the on/off switch (KeePass keeps expiryTime even when it
+          // is off), `expiry` is the timestamp the UI shows. The editor needs both
+          // to tell "never expires" from "expires at ...".
+          entry.expires = !!db_entry.times.expires;
           if (db_entry.times.expires) {
             let expiry_date = Date.parse(db_entry.times.expiryTime);
             entry.expiry = db_entry.times.expiryTime.toString();
@@ -650,7 +654,17 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     });
   };
 
-  my.saveEntry = function (entryId, updatedFields, customFields, removedFieldNames) {
+  // Expiry is not a field: it lives on the entry's times. `undefined` leaves it
+  // alone, so only a caller that actually shows the control can change it.
+  function applyEntryExpiry(kdbxEntry, expiry) {
+    if (!expiry) return;
+    kdbxEntry.times.expires = !!expiry.expires;
+    if (expiry.expires && expiry.time) {
+      kdbxEntry.times.expiryTime = new Date(expiry.time);
+    }
+  }
+
+  my.saveEntry = function (entryId, updatedFields, customFields, removedFieldNames, expiry) {
     console.log('[keepassService] saveEntry called, _db:', !!_db, '_masterKey:', !!_masterKey);
     customFields = customFields || [];
     removedFieldNames = removedFieldNames || [];
@@ -690,6 +704,8 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
           customField.isProtected
         );
       }
+
+      applyEntryExpiry(kdbxEntry, expiry);
 
       return _db.save().then(function(saved) {
         console.log('[keepassService] save result type:', typeof saved, 'constructor:', saved && saved.constructor && saved.constructor.name);
@@ -969,7 +985,7 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     });
   };
 
-  my.addEntry = function (uuidOrGroupName, fields, customFields) {
+  my.addEntry = function (uuidOrGroupName, fields, customFields, expiry) {
     customFields = customFields || [];
     return my.ensureDbLoaded().then(function () {
       // UUID first (new callers), then the legacy name fallback.
@@ -994,6 +1010,7 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
           customField.isProtected
         );
       }
+      applyEntryExpiry(entry, expiry);
       return _db.save();
     });
   };

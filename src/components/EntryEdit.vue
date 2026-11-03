@@ -7,6 +7,29 @@ import { scanVisibleTabForOtpUrl } from '@/lib/qrScan.js';
 // they can fix the problem. Success/progress toasts are driven elsewhere.
 const ERROR_TOAST_MS = 5000;
 
+// KDBX keeps the expiry in UTC; a datetime-local input speaks local time, so the
+// two directions are converted here and nowhere else.
+function toDateTimeLocal(dateish) {
+  const date = dateish instanceof Date ? dateish : new Date(dateish);
+  if (isNaN(date.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return (
+    date.getFullYear() +
+    '-' +
+    pad(date.getMonth() + 1) +
+    '-' +
+    pad(date.getDate()) +
+    'T' +
+    pad(date.getHours()) +
+    ':' +
+    pad(date.getMinutes())
+  );
+}
+
+// A month out when the user first turns expiry on: picking "now" would make the
+// entry immediately invisible to matching.
+const DEFAULT_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000;
+
 export default {
   components: { GoBack },
   props: {
@@ -50,6 +73,10 @@ export default {
       // is the exact name as loaded from the file (null for rows the user
       // added) so a rename can delete the old field and write the new one.
       customFields: [],
+      // Expiry lives on the entry's times, not in its fields: a switch plus a
+      // local datetime-local value. `expires=false` means "never".
+      expires: false,
+      expiresAt: '',
       // Snapshot of the names present when the form opened. Compared against
       // the rows at save time to work out what was deleted or renamed.
       loadedCustomNames: [],
@@ -96,6 +123,13 @@ export default {
       if (this.messageKind === 'success') return 'fa-check';
       if (this.messageKind === 'error') return 'fa-exclamation-triangle';
       return 'fa-spinner fa-spin';
+    },
+    // With "ignore expired entries" on by default, a past date hides the entry
+    // from every page the moment it is saved - say so before that happens.
+    expiryInPast() {
+      if (!this.expires || !this.expiresAt) return false;
+      const time = Date.parse(this.expiresAt);
+      return !isNaN(time) && time < Date.now();
     },
   },
   mounted() {
@@ -154,6 +188,10 @@ export default {
           ? !!(protectedOtp.value && protectedOtp.value.length > 0)
           : !!this.entry.otp;
         this.otpEditing = this.hasSavedOtp;
+        // Expiry: `expires` is the switch, `expiry` the timestamp (absent when the
+        // entry never expires).
+        this.expires = !!this.entry.expires;
+        this.expiresAt = this.entry.expiry ? toDateTimeLocal(this.entry.expiry) : '';
       }
     }
     // Load groups keyed by UUID (same-named groups stay distinct), merging in
@@ -387,6 +425,13 @@ export default {
       this.otpRemoved = true;
       this.editFields.otp = '';
     },
+    // Turning expiry on needs a date to start from; a month out is far enough that
+    // a stray click cannot retire the entry on save.
+    onExpiryToggle() {
+      if (this.expires && !this.expiresAt) {
+        this.expiresAt = toDateTimeLocal(new Date(Date.now() + DEFAULT_EXPIRY_MS));
+      }
+    },
     // Capture the visible part of the page and pull the otpauth:// URL out of a
     // QR code, so the user does not need a third-party scanner (which can hand
     // over a truncated URL). Best-effort: every failure becomes a toast.
@@ -425,6 +470,21 @@ export default {
       this.saving = true;
       this.showMessage('progress', this.$t('Saving...'));
 
+      // Expiry is on the entry's times; `{ expires: false }` switches it off and
+      // leaves the stored timestamp alone, like KeePass does.
+      let expiry;
+      if (this.expires) {
+        const time = new Date(this.expiresAt);
+        if (!this.expiresAt || isNaN(time.getTime())) {
+          this.showMessage('error', this.$t('Choose an expiry date, or switch expiry off.'));
+          this.saving = false;
+          return;
+        }
+        expiry = { expires: true, time };
+      } else {
+        expiry = { expires: false };
+      }
+
       // OTP: what gets written depends on what the user did in this session.
       if (this.otpRemoved) {
         // The block's delete button was pressed → remove the stored field.
@@ -456,7 +516,7 @@ export default {
         let newBuffer;
         if (this.isNew) {
           newBuffer = await this.keepassService.addEntry(
-            this.selectedGroupUuid, this.editFields, customPayload.customFields
+            this.selectedGroupUuid, this.editFields, customPayload.customFields, expiry
           );
         } else {
           // Skip the move when the legacy entry's group could not be resolved
@@ -472,7 +532,7 @@ export default {
           }
           newBuffer = await this.keepassService.saveEntry(
             this.entry.id, this.editFields,
-            customPayload.customFields, customPayload.removedFieldNames
+            customPayload.customFields, customPayload.removedFieldNames, expiry
           );
         }
         
@@ -659,6 +719,29 @@ export default {
             {{ $t('OTP will be removed when you save.') }}
           </p>
         </template>
+      </div>
+      <div class="edit-field expiry-field">
+        <label>{{ $t('Expiry time') }}</label>
+        <div class="switch">
+          <label>
+            <input
+              v-model="expires"
+              type="checkbox"
+              @change="onExpiryToggle"
+            >
+            <span class="lever" />
+            {{ $t('Set an expiry time') }}
+          </label>
+        </div>
+        <input
+          v-if="expires"
+          v-model="expiresAt"
+          class="expiry-input"
+          type="datetime-local"
+        />
+        <p v-if="expiryInPast" class="expiry-hint">
+          {{ $t('That time has already passed: the entry counts as expired and will not be matched to any page.') }}
+        </p>
       </div>
       <div class="custom-fields-section">
         <div class="custom-fields-header">
@@ -1008,6 +1091,13 @@ export default {
   cursor: pointer;
   &:hover { background: var(--keepass-cat-bg-hover); }
   .fa { margin-right: 4px; }
+}
+
+.expiry-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--keepass-cat-keyfile-active);
 }
 
 .otp-hint {
