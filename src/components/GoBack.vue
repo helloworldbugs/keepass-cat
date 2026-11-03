@@ -27,6 +27,10 @@ export default {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  // The whole top bar (except the Save slot) goes back, so the label grows to
+  // cover that area: hovering anywhere left of Save nudges it, matching the click.
+  flex: 1 1 auto;
+  align-self: stretch;
   // A small nudge left on hover, matching the 0.12s easing used across the UI.
   transition: transform 0.12s ease;
   &:hover {
