@@ -372,6 +372,18 @@ export default {
   margin: 0 0 6px;
 }
 
+// The switch labels are the option names, not headings: one step down from the
+// section title keeps the hierarchy readable (body text is 14px).
+.advanced-settings .switch label {
+  font-size: 14px;
+}
+
+// The interval label sits in the same row as a switch and is the same level of
+// information, so it drops to that size too instead of inheriting .box-bar's 18px.
+.advanced-settings .expire-label {
+  font-size: 14px;
+}
+
 // The shortcut hint sits directly under the switch it explains.
 .shortcut-hint {
   margin: 8px 0 0;
