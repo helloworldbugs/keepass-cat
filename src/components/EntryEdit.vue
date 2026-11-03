@@ -948,6 +948,10 @@ export default {
   font-size: 13px;
   cursor: pointer;
   user-select: none;
+  // The expiry block beside it can grow a second line for the custom date picker;
+  // the label must stay on one line and keep its width.
+  white-space: nowrap;
+  flex-shrink: 0;
   &:hover { opacity: 0.7; }
   .confirm-text {
     color: var(--keepass-cat-red);
@@ -1075,7 +1079,7 @@ export default {
 // The form now ends with Delete; Save moved to the top bar's #extra slot.
 .edit-actions {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   margin-top: 20px;
@@ -1090,6 +1094,7 @@ export default {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  flex: 1 1 auto;
   gap: 8px;
   min-width: 0;
 }
