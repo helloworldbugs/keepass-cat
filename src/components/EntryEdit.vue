@@ -1488,20 +1488,20 @@ export default {
 }
 
 // The form now ends with Delete; Save moved to the top bar's #extra slot.
-// Pinned to the bottom of the viewport while the form scrolls. It is inset to the
-// same 16px gutter as the fields, so it reads as part of the form rather than a
-// full-bleed bar, and `sticky` keeps it in flow so the end of the form still
-// scrolls clear of it.
+// Pinned to the bottom of the viewport while the form scrolls, at the same height
+// as the top bar so the two read as a pair. Min-height lets it grow by one line
+// when the custom date picker widens the expiry control.
 .edit-actions {
   position: sticky;
   bottom: 0;
   z-index: 35;
+  box-sizing: border-box;
+  min-height: 39px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin: 0 $wall-padding;
-  padding: 8px 0;
+  padding: 4px $wall-padding;
   background: $background-color;
   border-top: 2px solid $light-gray;
 }
