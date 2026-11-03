@@ -1488,9 +1488,10 @@ export default {
 }
 
 // The form now ends with Delete; Save moved to the top bar's #extra slot.
-// Pinned to the bottom of the viewport while the form scrolls: it is the last
-// child of the 400px column, so its width and gutters match the top bar exactly,
-// and `sticky` keeps it in flow so the end of the form still scrolls clear of it.
+// Pinned to the bottom of the viewport while the form scrolls. It is inset to the
+// same 16px gutter as the fields, so it reads as part of the form rather than a
+// full-bleed bar, and `sticky` keeps it in flow so the end of the form still
+// scrolls clear of it.
 .edit-actions {
   position: sticky;
   bottom: 0;
@@ -1499,7 +1500,8 @@ export default {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px $wall-padding;
+  margin: 0 $wall-padding;
+  padding: 8px 0;
   background: $background-color;
   border-top: 2px solid $light-gray;
 }
