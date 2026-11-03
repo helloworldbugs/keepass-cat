@@ -886,7 +886,7 @@ export default {
 
 <template>
   <div class="entry-edit-view">
-    <go-back :message="$t('back to entry list')">
+    <go-back :message="$t('Back')">
       <template #extra>
         <!-- Save lives in the shared top bar (top-right). Compact by design so
              the bar height, driven by the 18px title line, never grows. -->

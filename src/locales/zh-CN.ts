@@ -75,7 +75,7 @@ const zhCN: Record<string, string> = {
   'New entry': '新建条目',
 
   // ===== Entry Details =====
-  'back to entry list': '返回条目列表',
+  'Back': '返回',
 
   // ===== Entry Edit =====
   'Delete': '删除',
