@@ -38,6 +38,10 @@ export function initInlineIcon() {
   let matchesAt = 0;
   let labels = { autofill: 'Keepass Cat' };
   let pending = null;
+  // Whether the user asked for pages to be filled on load, and whether this page
+  // has already had its one shot at it.
+  let autoFillOn = false;
+  let autoFillTried = false;
 
   /** @type {Map<HTMLInputElement, HTMLElement>} */
   const icons = new Map();
@@ -79,6 +83,7 @@ export function initInlineIcon() {
       if (res && Array.isArray(res.matches)) {
         matches = res.matches;
         matchesAt = Date.now();
+        autoFillOn = !!res.autoFill;
         if (res.labels && res.labels.autofill) labels = res.labels;
       } else if (res === null) {
         // The background did not answer (extension reloading, message channel
@@ -428,6 +433,31 @@ export function initInlineIcon() {
     });
   }
 
+  // The optional "fill on page load" behaviour: one entry, empty fields, top frame,
+  // once per page. Anything else is left to the user.
+  function maybeAutoFill(list) {
+    if (autoFillTried || !autoFillOn) return;
+    if (window.top !== window) return;
+    if (!list || list.length !== 1) return;
+    autoFillTried = true;
+    if (credentialsAlreadyFilled()) return;
+    fillEntry(list[0]);
+  }
+
+  function credentialsAlreadyFilled() {
+    const anchors = anchorFields();
+    for (let i = 0; i < anchors.length; i++) {
+      if (anchors[i].value) return true;
+    }
+    const inputs = document.getElementsByTagName('input');
+    for (let j = 0; j < inputs.length; j++) {
+      const field = inputs[j];
+      if ((field.getAttribute('type') || '').toLowerCase() !== 'password') continue;
+      if (field.value) return true;
+    }
+    return false;
+  }
+
   function scan() {
     scanTimer = 0;
     if (!document.documentElement) return;
@@ -444,6 +474,7 @@ export function initInlineIcon() {
         return;
       }
       syncIcons(anchorFields());
+      maybeAutoFill(list);
     });
   }
 

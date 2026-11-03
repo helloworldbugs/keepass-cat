@@ -351,6 +351,12 @@ function Settings(secureCache) {
     return keyGetSetter('inlineIconEnabled', enabled, true, 'boolean');
   };
 
+  // Filling without any click. Off by default: writing credentials into a form on
+  // its own is a decision the user has to make.
+  exports.getSetAutoFillOnLoad = function (enabled) {
+    return keyGetSetter('autoFillOnLoad', enabled, false, 'boolean');
+  };
+
   exports.getSetFillTotpEnabled = function (enabled) {
     return keyGetSetter('fillTotpEnabled', enabled, true, 'boolean');
   };

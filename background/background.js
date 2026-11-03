@@ -243,22 +243,24 @@ function Background(protectedMemory, localMemory, settings, notifications) {
     return unlockedEntries().then(function (entries) {
       if (message.m == 'inlineMatches') {
         var matched = entries ? entriesForPage(entries, pageUrl) : [];
-        sendResponse({
-          matches: matched
-            .filter(function (e) {
-              // Entries without a UUID cannot be identified in a later fill message.
-              return typeof e.id === 'string' && e.id;
-            })
-            .map(function (e) {
-              return {
-                id: e.id,
-                title: e.title || '',
-                userName: decryptProtectedField(e, 'userName'),
-              };
-            }),
-          labels: { autofill: i18n.t('Autofill from Keepass Cat') },
+        return settings.getSetAutoFillOnLoad().then(function (autoFill) {
+          sendResponse({
+            matches: matched
+              .filter(function (e) {
+                // Entries without a UUID cannot be identified in a later fill message.
+                return typeof e.id === 'string' && e.id;
+              })
+              .map(function (e) {
+                return {
+                  id: e.id,
+                  title: e.title || '',
+                  userName: decryptProtectedField(e, 'userName'),
+                };
+              }),
+            labels: { autofill: i18n.t('Autofill from Keepass Cat') },
+            autoFill: !!autoFill,
+          });
         });
-        return;
       }
 
       var entry = null;

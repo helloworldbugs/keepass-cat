@@ -12,6 +12,7 @@ export default {
       clipboardExpireEnabled: true,
       autofillShortcut: true,
       inlineIconEnabled: true,
+      autoFillOnLoad: false,
       fillTotpEnabled: true,
       copyTotpOnAutofill: true,
       notificationsEnabled: ['expiration', 'clipboard'],
@@ -101,6 +102,9 @@ export default {
     saveInlineIconEnabled() {
       this.settings.getSetInlineIconEnabled(this.inlineIconEnabled);
     },
+    saveAutoFillOnLoad() {
+      this.settings.getSetAutoFillOnLoad(this.autoFillOnLoad);
+    },
     openShortcuts() {
       chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
     },
@@ -116,6 +120,9 @@ export default {
       })
       this.settings.getSetInlineIconEnabled().then(val => {
         this.inlineIconEnabled = val
+      })
+      this.settings.getSetAutoFillOnLoad().then(val => {
+        this.autoFillOnLoad = val
       })
       this.settings.getSetFillTotpEnabled().then(val => {
         this.fillTotpEnabled = val
@@ -212,6 +219,26 @@ export default {
       </div>
       <p class="totp-note">
         {{ $t('Adds a small key button to the username field of login forms, so an entry can be filled without opening the extension.') }}
+      </p>
+    </div>
+
+    <div class="box-bar roomy">
+      <h4>{{ $t('Auto-fill on page load') }}</h4>
+    </div>
+    <div class="box-bar roomy lighter">
+      <div class="switch">
+        <label>
+          <input
+            v-model="autoFillOnLoad"
+            type="checkbox"
+            @change="saveAutoFillOnLoad"
+          >
+          <span class="lever" />
+          {{ $t('Fill when exactly one entry matches') }}
+        </label>
+      </div>
+      <p class="totp-note">
+        {{ $t('A login page is filled as soon as it finishes loading, but only when one entry matches and the fields are still empty. Pages that match several entries are left alone.') }}
       </p>
     </div>
 
