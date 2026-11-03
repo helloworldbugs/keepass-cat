@@ -1388,6 +1388,11 @@ export default {
   line-height: 1.2;
   white-space: nowrap;
   cursor: pointer;
+  // Same hover feedback as the plugin's other primary button (the unlock button).
+  transition: opacity 0.12s ease;
+  &:hover:not(:disabled) {
+    opacity: 0.7;
+  }
   &:disabled {
     opacity: 0.6;
     cursor: default;
