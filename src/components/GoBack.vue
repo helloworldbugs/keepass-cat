@@ -27,6 +27,11 @@ export default {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  // A small nudge left on hover, matching the 0.12s easing used across the UI.
+  transition: transform 0.12s ease;
+  &:hover {
+    transform: translateX(-3px);
+  }
   .fa {
     font-size: 14px;
     line-height: 1;
