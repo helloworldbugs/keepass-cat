@@ -101,14 +101,16 @@ export default {
       expiryMenuOpen: false,
       // Which preset is highlighted; a date loaded from the file counts as custom.
       expiryChoice: 'never',
-      // Entry history: the list is fetched when the menu opens; `viewingHistory`
-      // puts the form into a read-only view of a version, and `pendingHistory` is
-      // the delete/restore that the Save button will commit.
+      // Entry history: the list is fetched when the menu opens. `viewingHistory`
+      // previews a version read-only; `historyRestore` means that version has been
+      // pulled into the editable form; `pendingDelete` is the snapshot the Save
+      // button will drop.
       historyOpen: false,
       historyLoading: false,
       historyList: [],
       viewingHistory: null,
-      pendingHistory: null,
+      historyRestore: false,
+      pendingDelete: null,
       // Snapshot of the names present when the form opened. Compared against
       // the rows at save time to work out what was deleted or renamed.
       loadedCustomNames: [],
@@ -184,13 +186,23 @@ export default {
     expiryCustomOpen() {
       return this.expires && this.expiryChoice === 'custom';
     },
-    // A history version is shown read-only: the form is not the live entry.
+    // A version is previewed read-only until the user chooses to restore it; once
+    // restored it is just the normal edit form holding that version's values.
     readOnly() {
-      return !!this.viewingHistory;
+      return !!this.viewingHistory && !this.historyRestore;
     },
-    // Viewing a version without choosing delete/restore leaves nothing to save.
+    // Previewing a version leaves nothing to save; a pending delete or a restored
+    // version does.
     saveDisabled() {
-      return this.saving || (this.viewingHistory && !this.pendingHistory);
+      return this.saving || (this.viewingHistory && !this.historyRestore);
+    },
+    // A deleted snapshot disappears from the menu until the page is saved.
+    visibleHistory() {
+      if (this.pendingDelete === null) return this.historyList;
+      return this.historyList.filter((item) => item.index !== this.pendingDelete);
+    },
+    showHistoryActions() {
+      return !!this.viewingHistory && !this.historyRestore;
     },
   },
   mounted() {
@@ -594,7 +606,9 @@ export default {
         // are hidden by the .is-readonly rules.
         this.otpEditing = !!version.otp;
         this.otpRemoved = false;
-        // The version's own custom fields, shown read-only with the rest.
+        // The version's own custom fields, shown with the rest. `loadedCustomNames`
+        // deliberately keeps the live entry's names, so saving the restore removes
+        // any custom field the old version does not have.
         this.customFields = (version.customFields || []).map((f) => ({
           key: this.customKeySeq++,
           name: f.name,
@@ -602,9 +616,12 @@ export default {
           isProtected: !!f.isProtected,
           originalName: f.name,
         }));
-        this.loadedCustomNames = (version.customFields || []).map((f) => f.name);
         this.viewingHistory = { index: item.index, label: formatDateTime(version.time) };
-        this.pendingHistory = null;
+        this.historyRestore = false;
+        // Choosing another version abandons a pending delete.
+        this.pendingDelete = null;
+        // The password is plaintext in the preview; the eye toggles it back to dots.
+        this.isPasswordVisible = true;
         this.expires = !!version.expires;
         this.expiresAt = version.expiry ? toDateTimeLocal(version.expiry) : '';
         this.expiryChoice = this.expires ? 'custom' : 'never';
@@ -617,7 +634,8 @@ export default {
     selectCurrentVersion() {
       this.historyOpen = false;
       this.viewingHistory = null;
-      this.pendingHistory = null;
+      this.historyRestore = false;
+      this.pendingDelete = null;
       this.restoreEditFieldsFromEntry();
       this.loadCustomFields(this.entry.id);
     },
@@ -637,14 +655,27 @@ export default {
       this.hasSavedOtp = !!otp;
       this.otpEditing = !!otp;
       this.otpRemoved = false;
+      this.isPasswordVisible = false;
       this.expires = !!this.entry.expires;
       this.expiresAt = this.entry.expiry ? toDateTimeLocal(this.entry.expiry) : '';
       this.expiryChoice = this.expires ? 'custom' : 'never';
     },
-    markHistory(type) {
+    // Restoring takes the version over into the normal edit form: the action
+    // buttons go away, the fields become editable, and Save writes the entry (with
+    // the state being replaced pushed to history).
+    restoreHistoryVersion() {
+      if (!this.viewingHistory || this.historyRestore) return;
+      this.historyRestore = true;
+    },
+    // Deleting returns to the live entry and hides the version from the menu until
+    // the page is saved.
+    deleteHistoryVersion() {
       if (!this.viewingHistory) return;
-      this.pendingHistory = { type: type, index: this.viewingHistory.index };
-      this.showMessage('progress', this.$t('Press Save to apply this change.'), 3000);
+      this.pendingDelete = this.viewingHistory.index;
+      this.viewingHistory = null;
+      this.historyRestore = false;
+      this.restoreEditFieldsFromEntry();
+      this.loadCustomFields(this.entry.id);
     },
     // Capture the visible part of the page and pull the otpauth:// URL out of a
     // QR code, so the user does not need a third-party scanner (which can hand
@@ -681,24 +712,19 @@ export default {
       }
     },
     async save() {
-      // Viewing a version with nothing marked: there is nothing to commit.
-      if (this.viewingHistory && !this.pendingHistory) return;
+      // A preview with nothing chosen has nothing to commit.
+      if (this.viewingHistory && !this.historyRestore) return;
       this.saving = true;
       this.showMessage('progress', this.$t('Saving...'));
 
-      // Delete/restore of a history version: the service mutates the in-memory
-      // database, so this Save is what makes it permanent.
-      if (this.pendingHistory) {
+      // A deleted snapshot is dropped from the in-memory database here; this Save
+      // is what makes it permanent.
+      if (this.pendingDelete !== null) {
         try {
-          const buffer = await this.keepassService.applyHistoryChange(
-            this.entry.id, this.pendingHistory
+          const buffer = await this.keepassService.deleteHistoryVersion(
+            this.entry.id, this.pendingDelete
           );
-          const restored = this.pendingHistory.type === 'restore';
-          await this.persist(
-            buffer,
-            restored ? this.$t('Version restored.') : this.$t('Version deleted.'),
-            1600
-          );
+          await this.persist(buffer, this.$t('Version deleted.'), 2000);
         } catch (err) {
           this.showMessage('error', this.$t('Error: ') + err.message);
         }
@@ -768,7 +794,9 @@ export default {
           }
           newBuffer = await this.keepassService.saveEntry(
             this.entry.id, this.editFields,
-            customPayload.customFields, customPayload.removedFieldNames, expiry
+            customPayload.customFields, customPayload.removedFieldNames, expiry,
+            // A restore keeps the state it replaced, so it can be undone.
+            { pushHistory: this.historyRestore }
           );
         }
         
@@ -776,10 +804,12 @@ export default {
           newBuffer,
           customPayload.invalidCount > 0
             ? this.$t('Saved. {0} custom field(s) were skipped due to errors.', customPayload.invalidCount)
-            : this.$t('Saved!'),
-          // Success needs enough dwell time to be read; the skipped-fields
-          // variant carries more information so it stays a little longer.
-          customPayload.invalidCount > 0 ? 1900 : 1400
+            : this.historyRestore
+              ? this.$t('Version restored.')
+              : this.$t('Saved!'),
+          // Success needs enough dwell time to be read; the skipped-fields and
+          // restored-version messages carry more information, so they stay longer.
+          this.historyRestore ? 2000 : customPayload.invalidCount > 0 ? 1900 : 1400
         );
       } catch (err) {
         this.showMessage('error', this.$t('Error: ') + err.message);
@@ -879,16 +909,14 @@ export default {
           <i :class="['fa', historyOpen ? 'fa-caret-up' : 'fa-caret-down']" />
         </span>
         <span v-if="viewingHistory" class="history-time">{{ viewingHistory.label }}</span>
-        <span v-if="viewingHistory" class="history-actions">
+        <span v-if="showHistoryActions" class="history-actions">
           <span
             class="history-action is-delete selectable"
-            :class="{ 'is-pending': pendingHistory && pendingHistory.type === 'delete' }"
-            @click.stop="markHistory('delete')"
+            @click.stop="deleteHistoryVersion"
           >{{ $t('Delete') }}</span>
           <span
             class="history-action is-restore selectable"
-            :class="{ 'is-pending': pendingHistory && pendingHistory.type === 'restore' }"
-            @click.stop="markHistory('restore')"
+            @click.stop="restoreHistoryVersion"
           >{{ $t('Restore') }}</span>
         </span>
         <div v-if="historyOpen" class="history-menu">
@@ -901,7 +929,7 @@ export default {
               {{ $t('No earlier versions yet.') }}
             </div>
             <span
-              v-for="item in historyList"
+              v-for="item in visibleHistory"
               :key="item.index"
               class="history-option selectable"
               :class="{ 'is-active': viewingHistory && viewingHistory.index === item.index }"
@@ -939,7 +967,7 @@ export default {
           <div class="password-input-wrap">
             <input
               v-model="editFields.password"
-              :type="isPasswordVisible || readOnly ? 'text' : 'password'"
+              :type="isPasswordVisible ? 'text' : 'password'"
               :readonly="readOnly"
               spellcheck="false"
             />
@@ -1216,12 +1244,6 @@ export default {
       background: var(--keepass-cat-bg-hover);
     }
   }
-  // Chosen, waiting for the top bar's Save: shown as a filled pill so the
-  // pending action is obvious without a second confirmation dialog.
-  &.is-pending {
-    background: var(--keepass-cat-bg-hover);
-    font-weight: 700;
-  }
 }
 
 .history-menu {
@@ -1280,14 +1302,13 @@ export default {
   color: var(--keepass-cat-text-muted);
 }
 
-// A version is shown, not edited: every control that would change the entry is
-// gone and the fields no longer take clicks, while the text itself stays fully
-// readable (the password in clear, as KeePass shows history).
+// Previewing a version: the form keeps its normal look and the text stays
+// selectable (the inputs are `readonly`), but the controls that would change it
+// are gone and the password starts visible, so the eye can mask it again.
 .edit-form.is-readonly {
   .history-toggle {
     color: var(--keepass-cat-blue);
   }
-  .password-toggle,
   .generate-btn,
   .otp-add-btn,
   .otp-remove,
@@ -1295,7 +1316,6 @@ export default {
   .remove-btn,
   .protect-toggle,
   .add-field-btn,
-  .custom-hint,
   .delete-btn {
     display: none;
   }
@@ -1314,17 +1334,7 @@ export default {
       opacity: 1;
       color: var(--keepass-cat-text);
       -webkit-text-fill-color: var(--keepass-cat-text);
-      background: var(--keepass-cat-bg);
-      border-color: var(--keepass-cat-border-light);
     }
-  }
-  // Text fields stay clickable so their contents can be selected and copied;
-  // the `readonly` attribute set in the template is what stops edits.
-  input,
-  textarea,
-  select {
-    background: var(--keepass-cat-bg);
-    border-color: var(--keepass-cat-border-light);
   }
 }
 

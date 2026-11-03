@@ -664,13 +664,26 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     }
   }
 
-  my.saveEntry = function (entryId, updatedFields, customFields, removedFieldNames, expiry) {
+  my.saveEntry = function (entryId, updatedFields, customFields, removedFieldNames, expiry, options) {
     console.log('[keepassService] saveEntry called, _db:', !!_db, '_masterKey:', !!_masterKey);
     customFields = customFields || [];
     removedFieldNames = removedFieldNames || [];
     return my.ensureDbLoaded().then(() => {
       let kdbxEntry = findKdbxEntryById(entryId);
       if (!kdbxEntry) throw new Error(i18n.t('Entry not found in database'));
+
+      /*
+       * A restore starts from a form filled with an old version, so the state it
+       * replaces has to be kept: snapshot the entry as it is now, before any field
+       * is overwritten, and honour the same limit KeePass uses.
+       */
+      if (options && options.pushHistory) {
+        kdbxEntry.pushHistory();
+        var maxItems = _db.meta && _db.meta.historyMaxItems;
+        if (maxItems > 0 && kdbxEntry.history.length > maxItems) {
+          kdbxEntry.history.splice(0, kdbxEntry.history.length - maxItems);
+        }
+      }
 
       /*
        * Removals first, then writes, so a rename (old name in
@@ -706,6 +719,8 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
       }
 
       applyEntryExpiry(kdbxEntry, expiry);
+      // A save is a modification: KeePass orders and merges entries by this stamp.
+      kdbxEntry.times.lastModTime = new Date();
 
       return _db.save().then(function(saved) {
         console.log('[keepassService] save result type:', typeof saved, 'constructor:', saved && saved.constructor && saved.constructor.name);
@@ -809,45 +824,22 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
   };
 
   /*
-   * Applies a pending delete/restore to the in-memory database and saves it, so the
-   * caller's Save button is what commits either action. Restoring copies the
-   * version's fields (values cloned, not shared with the history item that stays in
-   * the file) and its expiry, then stamps a fresh modification time.
+   * Drops one snapshot from the in-memory database and saves it, so the caller's
+   * Save button is what makes the deletion permanent. Restoring needs no service
+   * call of its own: the version's values are loaded into the normal form and
+   * saved by saveEntry, which snapshots the replaced state first.
    */
-  my.applyHistoryChange = function (entryId, change) {
+  my.deleteHistoryVersion = function (entryId, index) {
     return my.ensureDbLoaded().then(function () {
       var entry = findKdbxEntryById(entryId);
       if (!entry) throw new Error(i18n.t('Entry not found in database'));
-      var version = entry.history && entry.history[change.index];
-      if (!version) throw new Error(i18n.t('History entry not found'));
-
-      if (change.type === 'delete') {
-        entry.history.splice(change.index, 1);
-      } else {
-        // Snapshot the state being replaced first, so a restore can itself be
-        // undone from the same list. KeePass keeps the newest N versions, which
-        // the database's own meta states.
-        entry.pushHistory();
-        var maxItems = _db.meta && _db.meta.historyMaxItems;
-        if (maxItems > 0 && entry.history.length > maxItems) {
-          entry.history.splice(0, entry.history.length - maxItems);
-        }
-        var fields = new Map();
-        (version.fields || new Map()).forEach(function (value, key) {
-          fields.set(
-            key,
-            isProtectedKdbxValue(value) ? kdbxweb.ProtectedValue.fromString(value.getText()) : value
-          );
-        });
-        entry.fields = fields;
-        if (version.times) {
-          entry.times.expires = !!version.times.expires;
-          if (version.times.expiryTime) entry.times.expiryTime = new Date(version.times.expiryTime);
-        }
-        // kdbxweb keeps the modified stamp on `times.lastModTime`, which is what
-        // KeePass reads to order and sync entries.
-        entry.times.lastModTime = new Date();
+      if (!entry.history || !entry.history[index]) {
+        throw new Error(i18n.t('History entry not found'));
       }
+      entry.history.splice(index, 1);
+      // The entry changed even though its fields did not, so other clients must
+      // see a newer stamp or they may keep the deleted version.
+      entry.times.lastModTime = new Date();
       return _db.save();
     });
   };
