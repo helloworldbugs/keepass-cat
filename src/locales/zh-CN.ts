@@ -324,6 +324,8 @@ const zhCN: Record<string, string> = {
   'OTP will be removed when you save.': '保存后将移除 OTP。',
   'Invalid otpauth URL': '无效的 otpauth URL',
   'Copy OTP code': '复制OTP验证码',
+  'Found more than one OTP QR code. Choose the one to add.': '页面有多个 OTP 二维码，请选择要添加的一个。',
+  'Unnamed OTP': '未命名 OTP',
 };
 
 export default zhCN;

@@ -1,7 +1,7 @@
 <script>
 import GoBack from '@/components/GoBack.vue';
 import { Otp } from '@/lib/otp.js';
-import { scanVisibleTabForOtpUrl } from '@/lib/qrScan.js';
+import { scanVisibleTabForOtpUrls } from '@/lib/qrScan.js';
 import { i18n } from '@/services/i18n';
 
 // An error toast clears itself after this long, leaving the user on the form so
@@ -77,6 +77,9 @@ export default {
       otpEditing: false,
       otpRemoved: false,
       qrScanning: false,
+      // otpauth:// URLs found when the page has more than one QR code. The
+      // user picks one; a single hit is filled in directly.
+      otpScanChoices: [],
       loadedOtp: '',
       hasSavedOtp: false,
       groups: [],
@@ -503,6 +506,7 @@ export default {
     startOtp() {
       this.otpEditing = true;
       this.otpRemoved = false;
+      this.otpScanChoices = [];
       this.$nextTick(() => {
         const el = this.$refs.otpInput;
         if (el && el.focus) el.focus();
@@ -512,6 +516,7 @@ export default {
     removeOtp() {
       this.otpEditing = false;
       this.otpRemoved = true;
+      this.otpScanChoices = [];
       this.editFields.otp = '';
     },
     // Turning expiry on needs a date to start from; a month out is far enough that
@@ -691,20 +696,25 @@ export default {
       this.restoreEditFieldsFromEntry();
       this.loadCustomFields(this.entry.id);
     },
-    // Capture the visible part of the page and pull the otpauth:// URL out of a
-    // QR code, so the user does not need a third-party scanner (which can hand
-    // over a truncated URL). Best-effort: every failure becomes a toast.
+    // Capture the visible part of the page and pull the otpauth:// URLs out of
+    // the QR codes on it, so the user does not need a third-party scanner
+    // (which can hand over a truncated URL). A page can show several codes, so
+    // one hit fills the field and more than one becomes a pick list.
     async scanOtpQr() {
       if (this.qrScanning) return;
       this.qrScanning = true;
+      this.otpScanChoices = [];
       try {
-        const result = await scanVisibleTabForOtpUrl();
-        if (result.url) {
-          this.editFields.otp = result.url;
-          this.$nextTick(() => {
-            const el = this.$refs.otpInput;
-            if (el && el.focus) el.focus();
-          });
+        const result = await scanVisibleTabForOtpUrls();
+        if (result.urls && result.urls.length) {
+          if (result.urls.length === 1) {
+            this.applyScannedOtp(result.urls[0]);
+          } else {
+            this.otpScanChoices = result.urls.map((url) => ({
+              url,
+              label: this.otpChoiceLabel(url),
+            }));
+          }
           return;
         }
         const messages = {
@@ -724,6 +734,27 @@ export default {
       } finally {
         this.qrScanning = false;
       }
+    },
+    applyScannedOtp(url) {
+      this.editFields.otp = url;
+      this.otpScanChoices = [];
+      this.$nextTick(() => {
+        const el = this.$refs.otpInput;
+        if (el && el.focus) el.focus();
+      });
+    },
+    chooseScannedOtp(choice) {
+      this.applyScannedOtp(choice.url);
+    },
+    // Label a scanned code the way authenticator apps list accounts. A code
+    // without an issuer or account has no useful text, so fall back to a name.
+    otpChoiceLabel(url) {
+      try {
+        const otp = Otp.parseUrl(url);
+        const parts = [otp.issuer, otp.account].filter(Boolean);
+        if (parts.length) return parts.join(' · ');
+      } catch (e) {}
+      return this.$t('Unnamed OTP');
     },
     async save() {
       // A preview with nothing chosen has nothing to commit.
@@ -1018,6 +1049,7 @@ export default {
             type="text"
             :readonly="readOnly"
             placeholder="otpauth://totp/...?secret=..."
+            @input="otpScanChoices = []"
           />
           <span
             class="otp-qr selectable"
@@ -1037,7 +1069,21 @@ export default {
             <i class="fa fa-trash" />
           </span>
         </div>
-        <template v-else>
+        <div v-if="otpScanChoices.length" class="otp-choices">
+          <div class="otp-choices-title">
+            {{ $t('Found more than one OTP QR code. Choose the one to add.') }}
+          </div>
+          <div
+            v-for="choice in otpScanChoices"
+            :key="choice.url"
+            class="otp-choice selectable"
+            @click="chooseScannedOtp(choice)"
+          >
+            <i class="fa fa-qrcode" />
+            <span class="otp-choice-label">{{ choice.label }}</span>
+          </div>
+        </div>
+        <template v-if="!otpEditing">
           <div class="otp-add-btn selectable" @click="startOtp">
             <i class="fa fa-plus" /> {{ $t('Add OTP') }}
           </div>
@@ -1698,6 +1744,47 @@ export default {
   font-size: 11px;
   line-height: 1.4;
   color: var(--keepass-cat-text-muted);
+}
+
+// Picker shown when the page has several OTP QR codes: one click fills the
+// input with that code's URL.
+.otp-choices {
+  margin-top: 8px;
+  border: 1px solid $light-gray;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.otp-choices-title {
+  padding: 6px 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--keepass-cat-text-muted);
+  background: var(--keepass-cat-bg-hover);
+}
+
+.otp-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  & + .otp-choice {
+    border-top: 1px solid $light-gray;
+  }
+  &:hover {
+    background: var(--keepass-cat-bg-hover);
+  }
+  .fa {
+    flex: 0 0 auto;
+    color: $blue;
+  }
+}
+
+.otp-choice-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .custom-fields-section {
