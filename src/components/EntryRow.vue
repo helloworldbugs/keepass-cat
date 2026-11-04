@@ -169,6 +169,11 @@ export default {
   background-color: $light-background-color;
   display: flex;
   overflow-x: hidden;
+  // A group can hold hundreds of rows; let the browser skip rendering the ones
+  // outside the scroller. The intrinsic size is the measured row height so the
+  // scrollbar does not jump.
+  content-visibility: auto;
+  contain-intrinsic-size: auto 52px;
 
   .text-info {
     flex: 1 1 auto;
@@ -227,11 +232,29 @@ export default {
     justify-content: space-between;
     box-sizing: border-box;
     min-width: calc(60em / 7 + 22px);
+    // Only the pointer's row shows its actions. `visibility` also keeps the icons
+    // out of the paint step while they are hidden; the reserved min-width above
+    // means the row never reflows when they appear.
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.12s ease, visibility 0s linear 0.12s;
     &.no-otp {
       min-width: calc(48em / 7);
     }
     > .fa-stack {
       min-width: calc(12em / 7);
+    }
+  }
+  &:hover .buttons {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.12s ease, visibility 0s;
+  }
+  // Devices without hover (touch) would never reveal the actions otherwise.
+  @media (hover: none) {
+    .buttons {
+      opacity: 1;
+      visibility: visible;
     }
   }
   .copy,
