@@ -108,6 +108,10 @@ export default {
       historyOpen: false,
       historyLoading: false,
       historyList: [],
+      // The live entry's creation time, shown beside "Current version" only when
+      // the entry has no history snapshots (otherwise the newest one already is
+      // the previous modification time).
+      currentTimeLabel: '',
       viewingHistory: null,
       historyRestore: false,
       pendingDelete: null,
@@ -579,7 +583,11 @@ export default {
       if (!this.historyOpen) return;
       this.historyLoading = true;
       try {
-        const list = await this.keepassService.getEntryHistory(this.entry.id);
+        const [list, created] = await Promise.all([
+          this.keepassService.getEntryHistory(this.entry.id),
+          this.keepassService.getEntryCreationTime(this.entry.id),
+        ]);
+        this.currentTimeLabel = formatDateTime(created) || '';
         // Newest first: the file stores snapshots oldest-first, and the version
         // a user wants is almost always the most recent one.
         this.historyList = list.slice().reverse().map((item) => ({
@@ -588,6 +596,7 @@ export default {
         }));
       } catch (err) {
         this.historyList = [];
+        this.currentTimeLabel = '';
         this.showMessage('error', this.$t('Error: ') + err.message);
       } finally {
         this.historyLoading = false;
@@ -914,8 +923,9 @@ export default {
         <div v-if="historyOpen" class="history-menu">
           <div v-if="historyLoading" class="history-empty">{{ $t('Loading...') }}</div>
           <template v-else>
-            <span class="history-option selectable" @click.stop="selectCurrentVersion">
+            <span class="history-option is-current selectable" @click.stop="selectCurrentVersion">
               <span class="history-option-time">{{ $t('Current version') }}</span>
+              <span v-if="!historyList.length && currentTimeLabel" class="history-option-info">{{ currentTimeLabel }}</span>
             </span>
             <div v-if="!historyList.length" class="history-empty">
               {{ $t('No earlier versions yet.') }}
@@ -1307,6 +1317,12 @@ export default {
   &.is-active .history-option-time {
     color: var(--keepass-cat-blue);
     font-weight: 600;
+  }
+  // "Current version" carries its label and time on one line, the time to the right.
+  &.is-current {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
   }
 }
 

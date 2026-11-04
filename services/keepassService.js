@@ -802,6 +802,21 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     });
   };
 
+  /*
+   * The live entry's creation time. The history menu shows it beside "Current
+   * version" only when the entry has no snapshots at all; with snapshots the
+   * newest one is already the previous modification time, so a second stamp
+   * would be redundant.
+   */
+  my.getEntryCreationTime = function (entryId) {
+    return my.ensureDbLoaded().then(function () {
+      var entry = findKdbxEntryById(entryId);
+      if (!entry) throw new Error(i18n.t('Entry not found in database'));
+      var time = entry.times && entry.times.creationTime;
+      return time ? new Date(time).toISOString() : null;
+    });
+  };
+
   my.getHistoryVersion = function (entryId, index) {
     return my.ensureDbLoaded().then(function () {
       var entry = findKdbxEntryById(entryId);
