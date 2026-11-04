@@ -246,6 +246,9 @@ export default {
     // Collapsed while hidden so the title can use the whole row; the actions only
     // take their width once the pointer is over the row.
     display: none;
+    // Centre the icons on the row: the match list adds a group line and is taller,
+    // so top-aligned icons used to sit visibly high there.
+    align-items: center;
     justify-content: space-between;
     box-sizing: border-box;
     min-width: calc(60em / 7 + 22px);
