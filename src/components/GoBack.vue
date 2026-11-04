@@ -39,6 +39,10 @@ export default {
   .fa {
     font-size: 14px;
     line-height: 1;
+    // The chevron's ink sits above the CJK glyphs' optical centre; nudge it down
+    // so the arrow and the label line up.
+    position: relative;
+    top: 2px;
   }
 }
 </style>
