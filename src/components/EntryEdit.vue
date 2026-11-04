@@ -186,6 +186,11 @@ export default {
     expiryCustomOpen() {
       return this.expires && this.expiryChoice === 'custom';
     },
+    // Tooltip for the custom-fields heading; kept here so the key's inner double
+    // quotes need no HTML escaping in the template.
+    protectHint() {
+      return this.$t('Protect stores the value as KeePass does with "Protect value in process memory".');
+    },
     // A version is previewed read-only until the user chooses to restore it; once
     // restored it is just the normal edit form holding that version's values.
     readOnly() {
@@ -981,7 +986,13 @@ export default {
         </div>
       </div>
       <div class="edit-field">
-        <label>{{ $t('URL') }}</label>
+        <label class="label-help">
+          {{ $t('URL') }}
+          <i
+            class="fa fa-exclamation-circle field-help"
+            :title="$t('Supports regular expression matching: write the expression after the regex: prefix, e.g. regex:^https://.*\\.example\\.com/.*')"
+          />
+        </label>
         <input v-model="editFields.url" type="text" :readonly="readOnly" :placeholder="$t('e.g. https://site.com or regex:.*\\.domain\\.com/.*')" />
       </div>
       <div class="edit-field">
@@ -1027,8 +1038,13 @@ export default {
       </div>
       <div v-if="!readOnly || customFields.length" class="custom-fields-section">
         <div class="custom-fields-header">
-          <label class="custom-section-label">{{ $t('Custom fields') }}</label>
-          <p class="custom-hint">{{ $t('Protect stores the value as KeePass does with "Protect value in process memory".') }}</p>
+          <label class="custom-section-label">
+            {{ $t('Custom fields') }}
+            <i
+              class="fa fa-exclamation-circle field-help"
+              :title="protectHint"
+            />
+          </label>
         </div>
         <div v-if="customFieldsLoading" class="custom-empty">
           {{ $t('Loading custom fields...') }}
@@ -1036,9 +1052,6 @@ export default {
         <template v-else>
           <div v-if="customFieldsLoadError" class="custom-load-error">
             {{ customFieldsLoadError }}
-          </div>
-          <div v-if="!customFields.length" class="custom-empty">
-            {{ $t('No custom fields yet.') }}
           </div>
           <div
             v-for="(field, i) in customFields"
@@ -1682,17 +1695,27 @@ export default {
 }
 
 .custom-section-label {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-size: 12px;
   font-weight: 700;
   color: var(--keepass-cat-text-subtle);
 }
 
-.custom-hint {
-  margin: 3px 0 0;
-  font-size: 11px;
-  line-height: 1.4;
+// Info icon used in field labels (custom fields, URL); the tooltip carries the
+// explanation, so the same icon is reused wherever a field needs one.
+.field-help {
+  font-size: 12px;
   color: var(--keepass-cat-text-muted);
+  cursor: help;
+}
+
+// A field label followed by an info icon.
+.edit-field label.label-help {
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .custom-empty {
