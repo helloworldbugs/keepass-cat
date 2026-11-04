@@ -1091,7 +1091,7 @@ export default {
               {{ customFieldErrors[field.key] }}
             </div>
           </div>
-          <div class="add-field-area">
+          <div class="add-field-area" :class="{ 'has-rows': customFields.length }">
             <div class="add-field-btn selectable" @click="addCustomField">
               <i class="fa fa-plus" /> {{ $t('Add field') }}
             </div>
@@ -1812,7 +1812,11 @@ export default {
 
 // Mirrors the "New Group" button in BrowseEntries.vue.
 .add-field-area {
-  border-top: 2px solid $light-gray;
+  // The rule belongs between the rows and the Add field action; with no rows it
+  // would sit right under the section heading, so only draw it when there are some.
+  &.has-rows {
+    border-top: 2px solid $light-gray;
+  }
 }
 
 .add-field-btn {
