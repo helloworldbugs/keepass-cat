@@ -189,11 +189,6 @@ export default {
   background-color: $light-background-color;
   display: flex;
   overflow-x: hidden;
-  // A group can hold hundreds of rows; let the browser skip rendering the ones
-  // outside the scroller. The intrinsic size is the measured row height so the
-  // scrollbar does not jump.
-  content-visibility: auto;
-  contain-intrinsic-size: auto 52px;
 
   .text-info {
     flex: 1 1 auto;
