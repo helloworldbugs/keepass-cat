@@ -33,15 +33,34 @@ export default {
       if (this.entry.title.length > 0) return this.entry.title;
       return this.entry.url;
     },
-    // Only a real http(s) address can be opened in a tab; the field may also hold a
-    // regex: pattern, a bare host name or nothing at all.
-    canOpenUrl: function () {
-      try {
-        const url = new URL(String(this.entry.url || '').trim());
-        return url.protocol === 'http:' || url.protocol === 'https:';
-      } catch (e) {
-        return false;
+    // Only a real web address can be opened in a tab. A full http(s) URL is used
+    // as written; a bare host or host/path (as some people store) is opened over
+    // http, the same tolerance the matcher has; regex: patterns and non-web
+    // schemes are not openable.
+    openUrlTarget: function () {
+      const raw = String(this.entry.url || '').trim();
+      if (!raw || /^regex:/i.test(raw)) return '';
+      // A scheme that comes with `//` is only openable when it is http(s).
+      if (/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) {
+        try {
+          const url = new URL(raw);
+          return url.protocol === 'http:' || url.protocol === 'https:' ? raw : '';
+        } catch (e) {
+          return '';
+        }
       }
+      // mailto:, javascript:, ... are not web addresses. A bare host may carry a
+      // port (`example.com:8080`), so only a colon not followed by a digit rejects.
+      if (/^[a-z][a-z0-9+.-]*:(?!\d)/i.test(raw)) return '';
+      try {
+        const url = new URL('http://' + raw);
+        return url.hostname ? 'http://' + raw : '';
+      } catch (e) {
+        return '';
+      }
+    },
+    canOpenUrl: function () {
+      return !!this.openUrlTarget;
     },
     hasTotp: function () {
       return entryHasTotp(this.entry);
@@ -74,8 +93,9 @@ export default {
     },
     openUrl(e) {
       e.stopPropagation();
-      if (!this.canOpenUrl) return;
-      chrome.tabs.create({ url: String(this.entry.url).trim() });
+      const url = this.openUrlTarget;
+      if (!url) return;
+      chrome.tabs.create({ url });
     },
     edit(e) {
       e.stopPropagation();
