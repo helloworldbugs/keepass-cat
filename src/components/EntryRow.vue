@@ -163,7 +163,7 @@ export default {
       </span>
       <span class="fa-stack copy" @click="copy" :title="$t('Copy password')">
         <i class="fa fa-circle fa-stack-2x" />
-        <i class="fa fa-clipboard fa-stack-1x fa-inverse" />
+        <i class="fa fa-key fa-stack-1x fa-inverse" />
       </span>
       <span class="fa-stack edit" @click="edit" :title="$t('Edit entry')">
         <i class="fa fa-circle fa-stack-2x" />
@@ -271,6 +271,16 @@ export default {
   .edit,
   .url {
     opacity: 0.35;
+  }
+  // The key glyph is drawn diagonally; turn it upright so it matches the other
+  // row icons and its bit points to the right.
+  .copy .fa-key {
+    transform: rotate(45deg);
+  }
+  // The external-link glyph's ink sits high in its em box; nudge it down so the
+  // arrow looks centred in the circle (measured 0.074em at 96px).
+  .url .fa-external-link {
+    transform: translateY(0.074em);
   }
   .copy:hover,
   .copy-user:hover,
