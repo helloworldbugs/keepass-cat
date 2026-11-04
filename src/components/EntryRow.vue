@@ -228,16 +228,12 @@ export default {
     flex: 0 0 auto;
     flex-wrap: nowrap;
     font-size: 18px;
-    display: flex;
+    // Collapsed while hidden so the title can use the whole row; the actions only
+    // take their width once the pointer is over the row.
+    display: none;
     justify-content: space-between;
     box-sizing: border-box;
     min-width: calc(60em / 7 + 22px);
-    // Only the pointer's row shows its actions. `visibility` also keeps the icons
-    // out of the paint step while they are hidden; the reserved min-width above
-    // means the row never reflows when they appear.
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.12s ease, visibility 0s linear 0.12s;
     &.no-otp {
       min-width: calc(48em / 7);
     }
@@ -246,15 +242,12 @@ export default {
     }
   }
   &:hover .buttons {
-    opacity: 1;
-    visibility: visible;
-    transition: opacity 0.12s ease, visibility 0s;
+    display: flex;
   }
   // Devices without hover (touch) would never reveal the actions otherwise.
   @media (hover: none) {
     .buttons {
-      opacity: 1;
-      visibility: visible;
+      display: flex;
     }
   }
   .copy,
