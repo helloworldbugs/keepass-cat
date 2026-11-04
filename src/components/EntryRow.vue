@@ -33,6 +33,16 @@ export default {
       if (this.entry.title.length > 0) return this.entry.title;
       return this.entry.url;
     },
+    // Only a real http(s) address can be opened in a tab; the field may also hold a
+    // regex: pattern, a bare host name or nothing at all.
+    canOpenUrl: function () {
+      try {
+        const url = new URL(String(this.entry.url || '').trim());
+        return url.protocol === 'http:' || url.protocol === 'https:';
+      } catch (e) {
+        return false;
+      }
+    },
     hasTotp: function () {
       return entryHasTotp(this.entry);
     },
@@ -64,7 +74,8 @@ export default {
     },
     openUrl(e) {
       e.stopPropagation();
-      if (this.entry.url) chrome.tabs.create({ url: this.entry.url });
+      if (!this.canOpenUrl) return;
+      chrome.tabs.create({ url: String(this.entry.url).trim() });
     },
     edit(e) {
       e.stopPropagation();
@@ -117,7 +128,12 @@ export default {
         <i class="fa fa-circle fa-stack-2x" />
         <i class="fa fa-clock-o fa-stack-1x fa-inverse" />
       </span>
-      <span class="fa-stack url" @click="openUrl" :title="$t('Open URL')">
+      <span
+        class="fa-stack url"
+        :class="{ 'is-disabled': !canOpenUrl }"
+        @click="openUrl"
+        :title="canOpenUrl ? $t('Open URL') : $t('No URL to open')"
+      >
         <i class="fa fa-circle fa-stack-2x" />
         <i class="fa fa-external-link fa-stack-1x fa-inverse" />
       </span>
@@ -255,6 +271,14 @@ export default {
     .url:hover {
       opacity: 0.4;
     }
+  }
+  // A URL that cannot be opened (a regex: pattern, a bare host, or empty) stays
+  // visible but reads as disabled: muted colour, lower contrast, no hover lift.
+  .url.is-disabled,
+  .url.is-disabled:hover {
+    color: var(--keepass-cat-text-muted);
+    opacity: 0.45;
+    cursor: default;
   }
 }
 

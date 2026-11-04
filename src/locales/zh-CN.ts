@@ -142,6 +142,7 @@ const zhCN: Record<string, string> = {
 
   // ===== Entry button tooltips =====
   'Open URL': '打开网址',
+  'No URL to open': '没有可打开的网址',
   'Copy username': '复制用户名',
   'Copy password': '复制密码',
   'Edit entry': '编辑条目',
