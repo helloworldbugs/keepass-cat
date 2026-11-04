@@ -791,13 +791,9 @@ export default {
         
         await this.persist(
           newBuffer,
-          this.pendingDelete !== null
-            ? this.$t('Version deleted.')
-            : this.historyRestore
-              ? this.$t('Version restored.')
-              : customPayload.invalidCount > 0
-                ? this.$t('Saved. {0} custom field(s) were skipped due to errors.', customPayload.invalidCount)
-                : this.$t('Saved!'),
+          customPayload.invalidCount > 0
+            ? this.$t('Saved. {0} custom field(s) were skipped due to errors.', customPayload.invalidCount)
+            : this.$t('Saved!'),
           // Success needs enough dwell time to be read; the skipped-fields
           // message carries more information, so it stays a little longer.
           customPayload.invalidCount > 0 ? 1900 : 1400

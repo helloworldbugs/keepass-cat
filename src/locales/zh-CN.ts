@@ -104,8 +104,6 @@ const zhCN: Record<string, string> = {
   'No earlier versions yet.': '暂无更早的版本',
   'Restore': '恢复',
   'History entry not found': '找不到该历史版本',
-  'Version restored.': '版本已恢复。',
-  'Version deleted.': '版本已删除。',
   'Changed: {0}': '修改：{0}',
   'Loading...': '加载中...',
 
