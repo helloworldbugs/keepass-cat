@@ -1,6 +1,11 @@
 <script>
 import EntryRow from '@/components/EntryRow.vue';
 
+// The popup router swaps whole screens, so opening an entry unmounts this list
+// and its scroll offset would reset on the way back. Same approach as
+// BrowseEntries: keep it outside the component for the popup session.
+let listViewState = null;
+
 export default {
   components: {
     EntryRow,
@@ -16,6 +21,9 @@ export default {
       priorityEntries: this.unlockedState.cacheGet('priorityEntries'),
       allEntries: this.unlockedState.cacheGet('allEntries'),
       allMessages: this.messages,
+      // Where the entry list should scroll back to after returning from an entry.
+      restoreScrollTop: 0,
+      scrollRestored: false,
     };
   },
   watch: {
@@ -61,8 +69,26 @@ export default {
     if (st !== undefined) this.searchTerm = st;
     let um = this.unlockedState.cacheGet('unlockedMessages');
     if (um !== undefined) this.allMessages = um;
+    // The search term above re-renders the list on the next tick; put the scroll
+    // back after that, so the restored offset lands on the same rows.
+    if (listViewState) this.restoreScrollTop = listViewState.scrollTop || 0;
+    this.$nextTick(this.restoreListScroll);
+  },
+  beforeUnmount() {
+    // Runs while the DOM is still laid out, so this is the real offset.
+    const list = this.$refs.listArea;
+    listViewState = { scrollTop: list ? list.scrollTop : 0 };
   },
   methods: {
+    // Same retry shape as the browse view: the list only has its final height
+    // once the rows render, so this is safe to call more than once.
+    restoreListScroll() {
+      if (this.scrollRestored || !this.restoreScrollTop) return;
+      const list = this.$refs.listArea;
+      if (!list) return;
+      list.scrollTop = this.restoreScrollTop;
+      if (list.scrollTop > 0) this.scrollRestored = true;
+    },
     newEntry() {
       var title = this.unlockedState.title || '';
       var url = this.unlockedState.fullUrl || this.unlockedState.url || '';
@@ -88,7 +114,7 @@ export default {
       />
       <i class="fa fa-plus add-entry" @click="newEntry" :title="$t('New entry')" />
     </div>
-    <div class="entries">
+    <div class="entries" ref="listArea">
       <div v-if="allMessages.warn || allMessages.error || allMessages.success" class="no-match-msg">
         {{ allMessages.warn || allMessages.error || allMessages.success }}
       </div>

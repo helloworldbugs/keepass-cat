@@ -2,6 +2,13 @@
 import { Otp, entryHasTotp } from '@/lib/otp.js';
 import EntryRow from '@/components/EntryRow.vue';
 
+// Going into the entry editor swaps the whole screen (the popup router unmounts
+// this view), so the expanded groups and the list's scroll offset would reset on
+// every "back". Keeping them outside the component makes the return trip restore
+// exactly what the user was looking at; the popup is a single page, so this lives
+// for one popup session and is naturally forgotten when it closes.
+let browseViewState = null;
+
 export default {
   components: {
     EntryRow,
@@ -27,12 +34,28 @@ export default {
       entriesVersion: 0,
       // entry.id -> seconds left on its OTP code, refreshed by the shared ticker.
       otpCountdowns: {},
+      // Where the group list should scroll back to after returning from an entry,
+      // and whether that has already been applied (it is retried once the groups
+      // have rendered, or when the entry cache arrives late).
+      restoreScrollTop: 0,
+      scrollRestored: false,
     };
   },
   created() {
     // entry.id -> OTP period (seconds). Deliberately plain/non-reactive: it is
     // resolved lazily on the first sight of each entry and never changes after.
     this.otpPeriods = {};
+    if (browseViewState) {
+      this.expandedGroups = { ...browseViewState.expandedGroups };
+      // The expansion map from before the search matters too: clearing the
+      // restored search afterwards should go back to the user's own layout, not
+      // to whatever the search auto-expanded.
+      this.savedExpandedGroups = browseViewState.savedExpandedGroups
+        ? { ...browseViewState.savedExpandedGroups }
+        : null;
+      this.searchTerm = browseViewState.searchTerm || '';
+      this.restoreScrollTop = browseViewState.scrollTop || 0;
+    }
   },
   watch: {
     // The group list is a computed over the cached entries plus the service, so it can
@@ -40,6 +63,7 @@ export default {
     // mounted() alone then ran against an empty list and never fired again.
     groups(list) {
       this.expandSingleGroup(list);
+      this.$nextTick(this.restoreGroupScroll);
     },
     searchTerm(val) {
       if (val.length > 0) {
@@ -60,6 +84,7 @@ export default {
   mounted() {
     this.$nextTick(() => {
       this.expandSingleGroup(this.groups);
+      this.restoreGroupScroll();
     });
     // One ticker for the whole list, not one per row: the browse view can hold
     // hundreds of entries, so per-row intervals (as in the match list) would be
@@ -69,6 +94,15 @@ export default {
   },
   beforeUnmount() {
     clearInterval(this.otpTicker);
+    // Runs while the DOM is still in place, so this is the last honest scroll
+    // offset before the router removes the browse screen.
+    const list = this.$refs.scrollArea;
+    browseViewState = {
+      expandedGroups: { ...this.expandedGroups },
+      savedExpandedGroups: this.savedExpandedGroups ? { ...this.savedExpandedGroups } : null,
+      searchTerm: this.searchTerm,
+      scrollTop: list ? list.scrollTop : 0,
+    };
   },
   computed: {
     allEntries() {
@@ -141,6 +175,16 @@ export default {
       if (!Array.isArray(list) || list.length !== 1) return;
       const key = this.groupKey(list[0]);
       if (!this.expandedGroups[key]) this.$set(this.expandedGroups, key, true);
+    },
+    // Put the group list back where it was before the entry editor opened. The
+    // container only has its full height after the groups render, so this runs
+    // after nextTick and is retried if the entry cache lands later.
+    restoreGroupScroll() {
+      if (this.scrollRestored || !this.restoreScrollTop) return;
+      const list = this.$refs.scrollArea;
+      if (!list) return;
+      list.scrollTop = this.restoreScrollTop;
+      if (list.scrollTop > 0) this.scrollRestored = true;
     },
     autoExpandGroups() {
       this.groups.forEach(g => {
@@ -341,7 +385,7 @@ export default {
       <input v-model="searchTerm" type="search" :placeholder="$t('search entire database...')" />
       <i class="fa fa-plus add-entry" @click="newEntry" :title="$t('New entry')" />
     </div>
-    <div class="browse-groups">
+    <div class="browse-groups" ref="scrollArea">
       <div v-for="group in groups" :key="groupKey(group)" class="group-section">
         <div class="group-header" @click="toggleGroup(group)">
           <i :class="['fa', expandedGroups[groupKey(group)] ? 'fa-folder-open' : 'fa-folder', 'fa-fw']" />
