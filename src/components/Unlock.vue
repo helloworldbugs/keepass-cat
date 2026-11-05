@@ -1,5 +1,4 @@
 <script>
-import { parseUrl } from '@/lib/utils.js';
 import { setIgnoreExpired } from '@/lib/matchLevel.js';
 import { setBadgeText, setBadgeBackgroundColor } from '@/lib/browser.js';
 
@@ -442,6 +441,17 @@ export default defineComponent({
         setBadgeText({ text: '' });
       });
     },
+    // Every URL whose login form this tab can show: the top document plus any
+    // frames. A page may embed its login form from another origin
+    // (email.163.com -> dl.reg.163.com), and entries are saved for that origin.
+    siteUrls() {
+      const top = this.unlockedState.fullUrl || this.unlockedState.url;
+      const urls = top ? [top] : [];
+      (this.unlockedState.frameUrls || []).forEach((url) => {
+        if (url && urls.indexOf(url) < 0) urls.push(url);
+      });
+      return urls;
+    },
     showResults(entries, fromCache) {
       // Results are on screen: the initial veil (which keeps the unlock form from
       // flashing for users whose password is remembered) can go.
@@ -454,8 +464,7 @@ export default defineComponent({
       console.log('[showResults] entries:', entries ? entries.length : 0, 'fromCache:', fromCache);
       this.unlockedMessages.warn = '';
       this.unlockedMessages.error = '';
-      let siteUrl = parseUrl(this.unlockedState.fullUrl || this.unlockedState.url);
-      this.keepassService.rankEntries(entries, siteUrl); // in-place
+      this.keepassService.rankEntries(entries, this.siteUrls()); // in-place
 
       let allEntries = entries;
       // Cascade: show highest matching level first
@@ -515,8 +524,7 @@ export default defineComponent({
                 'ms'
             );
             if (fresh === null) return chrome.storage.local.set({ lastSync: Date.now() }); // file unchanged
-            var siteUrl = parseUrl(self.unlockedState.fullUrl || self.unlockedState.url);
-            self.keepassService.rankEntries(fresh, siteUrl);
+            self.keepassService.rankEntries(fresh, self.siteUrls());
             if (!self.entriesEqual(fresh, cachedEntries)) {
               // Update cache in place WITHOUT re-running showResults, which would
               // steal a pending fill from a fresh shortcut popup.
@@ -682,8 +690,7 @@ export default defineComponent({
           this.showSyncToast(this.$t('No changes'));
           return;
         }
-        const siteUrl = parseUrl(this.unlockedState.fullUrl || this.unlockedState.url);
-        this.keepassService.rankEntries(fresh, siteUrl);
+        this.keepassService.rankEntries(fresh, this.siteUrls());
         const changed = this.countEntryChanges(before, fresh);
         this.unlockedState.cacheSet('allEntries', fresh);
         let priority = fresh.filter((e) => e.matchRank === 100);

@@ -394,10 +394,19 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
       });
   };
 
-  my.rankEntries = (entries, siteUrl) => {
+  my.rankEntries = (entries, siteUrls) => {
+    // A page's login form can live in an iframe from another origin, so ranking
+    // accepts the top URL plus any frame URLs and keeps the best level.
+    var urls = Array.isArray(siteUrls) ? siteUrls : [siteUrls];
     entries.forEach(function (entry) {
-      var level = matchLevel(siteUrl.href, entry);
-      entry.matchRank = level * 25; // 100, 75, 50, 25 for levels 4,3,2,1
+      var best = 0;
+      urls.forEach(function (url) {
+        var href = url && (typeof url === 'string' ? url : url.href);
+        if (!href) return;
+        var level = matchLevel(href, entry) * 25; // 100, 75, 50, 25 for levels 4, 3, 2, 1
+        if (level > best) best = level;
+      });
+      entry.matchRank = best;
     });
   };
 

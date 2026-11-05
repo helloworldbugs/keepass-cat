@@ -53,7 +53,28 @@ function UnlockedState(keepassReference, settings, notifications) {
             var parsedUrl = parseUrl(tabs[0].url);
             my.origin = parsedUrl.protocol + '//' + parsedUrl.hostname + '/';
 
-            chromePromise.permissions
+            // Login forms are often embedded from another origin (email.163.com
+            // -> dl.reg.163.com). Collect the frame URLs so the popup can match
+            // entries for the form's own site, not just the tab's URL.
+            my.frameUrls = [];
+            var framesReady = new Promise(function (resolveFrames) {
+              try {
+                chrome.webNavigation.getAllFrames({ tabId: my.tabId }, function (frames) {
+                  if (!chrome.runtime.lastError && frames) {
+                    frames.forEach(function (frame) {
+                      var url = frame && frame.url;
+                      if (!url || !/^https?:/i.test(url)) return;
+                      if (my.frameUrls.indexOf(url) < 0) my.frameUrls.push(url);
+                    });
+                  }
+                  resolveFrames();
+                });
+              } catch (e) {
+                resolveFrames();
+              }
+            });
+
+            var permissionCheck = chromePromise.permissions
               .contains({
                 origins: [my.origin],
               })
@@ -62,10 +83,11 @@ function UnlockedState(keepassReference, settings, notifications) {
               })
               .catch(function (err) {
                 my.sitePermission = false;
-              })
-              .then(function () {
-                resolve();
               });
+
+            Promise.all([permissionCheck, framesReady]).then(function () {
+              resolve();
+            });
           } else {
             reject(new Error(i18n.t('Unable to determine tab details')));
           }
