@@ -1,6 +1,6 @@
 # Chrome Web Store Listing — Keepass Cat
 
-> Last Updated: 2026-11-05
+> Last Updated: 2026-11-06
 > Single source of truth for the Chrome Web Store (and, where noted, Firefox AMO) listing.
 >
 > **Maintenance:** update this file whenever `scripts/manifest.ts` gains or loses a
@@ -172,6 +172,7 @@ https://github.com/helloworldbugs/keepass-cat
 
 | Version | Date | Changes | Status |
 |---------|------|---------|--------|
+| 1.4.6 | 2026-11-06 | Editing an entry and pressing Back returns to the same place: the match list keeps its scroll position, and the database view keeps its scroll, its expanded groups and an active search with the same filtered results. Login forms hosted in an iframe, such as email.163.com's dl.reg.163.com form, now fill both fields: the icon and page-load autofill match the frame's own URL, a hidden decoy password input no longer makes the real login field look like a sign-up form, and the popup list and badge include entries that match an embedded frame | Submitted |
 | 1.4.5 | 2026-11-05 | OTP scanning reads every QR code on the page, not just one: each otpauth code is decoded from its own element crop, and a page with several of them offers a picker (issuer and account) instead of silently using one; the history menu's Current version row shows the entry's creation time when it has no earlier versions; the copy-password icon is an upright key; entry action buttons are vertically centred in the taller match rows | Submitted |
 | 1.4.4 | 2026-11-04 | Row polish: the five action buttons only appear while hovering an entry, and a long title otherwise gets the full row width; the Open URL button is muted and inert for regex:/empty values and opens a scheme-less host over http; some row separators no longer disappear; the back chevron is aligned with its label; the custom-fields and URL hints are now small tooltip icons | Submitted |
 | 1.4.3 | 2026-11-03 | Edit-screen hover feedback: Save fades to 0.7 like the other primary buttons, the back label nudges 3px left and now reacts across the whole bar's back-click area, and the history/expiry dropdown triggers get a quiet hover pill (their duplicated styles now share one rule) | Submitted |
