@@ -31,6 +31,10 @@ export function hasGenuineCurrentPasswordField(doc) {
   for (var i = 0; i < inputs.length; i++) {
     var field = inputs[i];
     if ((field.getAttribute('type') || '').toLowerCase() !== 'password') continue;
+    // Hidden password inputs are decoys. Mail sites (163 among them) drop one in
+    // the form so password managers see a "current password" field; counting it
+    // would let the real login input's new-password marking exclude itself.
+    if (!isVisible(field)) continue;
     if (autocompleteTokens(field).indexOf('new-password') >= 0) continue;
     return true;
   }

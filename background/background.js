@@ -227,7 +227,10 @@ function Background(protectedMemory, localMemory, settings, notifications) {
   // them to be filled by id; the password itself never leaves the background.
   if (message.m == 'inlineMatches' || message.m == 'inlineFill') {
     var pageTab = sender && sender.tab;
-    var pageUrl = pageTab && pageTab.url;
+    // Match against the frame that actually holds the form. Login pages often
+    // embed it from another origin (email.163.com -> dl.reg.163.com), and the
+    // tab's URL would never match the entry's URL then.
+    var pageUrl = (sender && sender.url) || (pageTab && pageTab.url);
     if (!pageTab || !pageUrl || !/^https?:/i.test(pageUrl)) {
       sendResponse(message.m == 'inlineFill' ? { ok: false } : { matches: [] });
       return;

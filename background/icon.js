@@ -438,11 +438,14 @@ export function initInlineIcon() {
     });
   }
 
-  // The optional "fill on page load" behaviour: one entry, empty fields, top frame,
-  // once per page. Anything else is left to the user.
+  // The optional "fill on page load" behaviour: one entry, empty fields, once
+  // per form. Anything else is left to the user.
   function maybeAutoFill(list, anchors) {
     if (!autoFillOn) return;
-    if (window.top !== window) return;
+    // Subframes take part: a login form is often hosted in an iframe from another
+    // origin (email.163.com embeds dl.reg.163.com). Tiny frames are ignored - they
+    // cannot hold a real form and are the shape tracking pixels use.
+    if (window.innerWidth < 240 || window.innerHeight < 100) return;
     // The form is gone: the next time a login form shows up, it is a new one.
     if (!anchors || !anchors.length) {
       autoFilledForm = null;
