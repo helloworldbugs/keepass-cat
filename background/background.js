@@ -134,7 +134,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
             chrome.storage.local.get('lastOtpCopy', function (items) {
               var last = items.lastOtpCopy;
               var now = Date.now();
-              if (last && last.code === code && now - last.at < 8000) return;
+              if (last && last.code === code && now - last.at < 30000) return;
               chrome.storage.local.set({ lastOtpCopy: { code: code, at: now } });
 
               chrome.tabs.sendMessage(tabId, { m: 'copyToClipboard', code: code, label: 'OTP' });

@@ -180,7 +180,7 @@ function UnlockedState(keepassReference, settings, notifications) {
   // same OTP again: two clipboard writes and two notifications. Remember the last
   // copied code in storage (the popup closes between passes, so in-memory state is
   // useless) and skip a repeat of the same code inside this window.
-  const OTP_COPY_DEDUPE_MS = 8000;
+  const OTP_COPY_DEDUPE_MS = 30000;
   const OTP_COPY_KEY = 'lastOtpCopy';
 
   function fillTotpAtCursor(code) {
