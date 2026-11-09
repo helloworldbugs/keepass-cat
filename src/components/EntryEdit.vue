@@ -826,8 +826,12 @@ export default {
             this.entry.id, this.editFields,
             customPayload.customFields, customPayload.removedFieldNames, expiry,
             {
-              // A restore keeps the state it replaced, so it can be undone.
-              pushHistory: this.historyRestore,
+              // Every changing save keeps the state it replaced, so a plain edit
+              // can be undone from the history list too (as in KeePass). The
+              // service skips the snapshot when nothing actually changed, and a
+              // save whose only job is dropping a history version must not create
+              // another one.
+              pushHistory: this.historyRestore || this.pendingDelete === null,
               // A pending history deletion rides along with this same save.
               deleteHistoryIndex: this.pendingDelete,
             }

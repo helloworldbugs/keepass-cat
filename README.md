@@ -118,7 +118,7 @@ KDBX entries can carry a history list of full snapshots, usually written by KeeP
 - **Restore** turns the preview into the normal edit form; Save writes it and first pushes the state being replaced into history, so a restore can itself be undone
 - **Delete** hides that version from the list; Save drops it from the file
 - Nothing is written until Save; leaving the page discards a pending restore or delete
-- Ordinary edits made here do not create a snapshot (KeePass clients do); restoring is the exception. The limits come from the database's own `HistoryMaxItems` / `HistoryMaxSize`
+- Every save that changes something snapshots the state it replaced, the same way KeePass does, so a plain edit can be undone too; saving an unchanged form adds nothing. The limits come from the database's own `HistoryMaxItems` / `HistoryMaxSize`
 
 ### 🕐 Expiry and Expired Entries
 

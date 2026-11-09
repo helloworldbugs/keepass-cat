@@ -673,6 +673,53 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     }
   }
 
+  /*
+   * Whether a save would actually change the entry, compared against the live
+   * kdbxweb entry before anything is written. A history snapshot is only taken
+   * for a real change: pressing Save on an untouched form (or saving the same
+   * values twice) must not fill the history list with identical copies.
+   */
+  function entryWouldChange(kdbxEntry, updatedFields, customFields, removedFieldNames, expiry) {
+    for (var key in updatedFields) {
+      var mappedKey = KDBX_FIELD_NAMES[key] || key;
+      var incoming = updatedFields[key];
+      // setKdbxEntryField stores '' as "no field" for the protected fields.
+      if (incoming === '' && KDBX_PROTECTED_FIELDS.indexOf(mappedKey) >= 0) incoming = null;
+      var stored = kdbxEntry.fields.get(mappedKey);
+      if (incoming === null || incoming === undefined) {
+        if (stored !== undefined) return true;
+      } else if (readKdbxFieldValue(stored) !== String(incoming)) {
+        return true;
+      }
+    }
+
+    for (var i = 0; i < customFields.length; i++) {
+      var field = customFields[i];
+      if (!field || isBlockedCustomFieldName(field.name)) continue;
+      var current = kdbxEntry.fields.get(field.name);
+      if (field.value === null || field.value === undefined) {
+        if (current !== undefined) return true;
+      } else if (readKdbxFieldValue(current) !== String(field.value)) {
+        return true;
+      }
+    }
+
+    for (var j = 0; j < removedFieldNames.length; j++) {
+      var removedName = removedFieldNames[j];
+      if (!isBlockedCustomFieldName(removedName) && kdbxEntry.fields.has(removedName)) return true;
+    }
+
+    if (expiry) {
+      if (!!kdbxEntry.times.expires !== !!expiry.expires) return true;
+      if (expiry.expires && expiry.time) {
+        var expiresAt = kdbxEntry.times.expiryTime ? new Date(kdbxEntry.times.expiryTime).getTime() : 0;
+        if (expiresAt !== new Date(expiry.time).getTime()) return true;
+      }
+    }
+
+    return false;
+  }
+
   my.saveEntry = function (entryId, updatedFields, customFields, removedFieldNames, expiry, options) {
     console.log('[keepassService] saveEntry called, _db:', !!_db, '_masterKey:', !!_masterKey);
     customFields = customFields || [];
@@ -682,13 +729,20 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
       if (!kdbxEntry) throw new Error(i18n.t('Entry not found in database'));
 
       /*
-       * A restore starts from a form filled with an old version, so the state it
-       * replaces has to be kept: snapshot the entry as it is now, before any field
-       * is overwritten, and honour the same limit KeePass uses.
+       * Every save that changes something snapshots the state it replaces, the way
+       * KeePass does, so an ordinary edit can be undone from the history list
+       * (not just a restore). An unchanged form is skipped, so pressing Save
+       * twice does not pile up identical snapshots.
        */
-      if (options && options.pushHistory) {
+      if (
+        options &&
+        options.pushHistory &&
+        entryWouldChange(kdbxEntry, updatedFields, customFields, removedFieldNames, expiry)
+      ) {
         kdbxEntry.pushHistory();
+        // An absent limit means KeePass's default; 0 means unlimited.
         var maxItems = _db.meta && _db.meta.historyMaxItems;
+        if (maxItems === undefined || maxItems === null) maxItems = kdbxweb.Defaults.HistoryMaxItems;
         if (maxItems > 0 && kdbxEntry.history.length > maxItems) {
           kdbxEntry.history.splice(0, kdbxEntry.history.length - maxItems);
         }
