@@ -248,10 +248,12 @@ export default {
       const key = this.groupKey(group);
       this.$set(this.expandedGroups, key, !this.expandedGroups[key]);
     },
-    // Expand every level that holds only one group: a lone child is never ambiguous,
-    // so the user should not have to open a chain of single-item levels by hand.
-    // Idempotent and only ever turns expansion on, so it is safe to call whenever
-    // the list changes.
+    // Expand a level that holds nothing but one group: a lone child is never
+    // ambiguous, so the user should not have to open a chain of single-item levels
+    // by hand. A level that also holds the parent's own entries is left alone - it
+    // already shows something, and opening it would dump that group's rows on top
+    // of them. Idempotent and only ever turns expansion on, so it is safe to call
+    // whenever the list changes.
     expandLoneGroups() {
       const keyOf = (group) => this.groupKey(group);
       const byUuid = {};
@@ -267,11 +269,14 @@ export default {
       const expandKey = (key) => {
         if (key && !this.expandedGroups[key]) this.$set(this.expandedGroups, key, true);
       };
-      // The root level counts as a level too.
+      // The root level counts as a level too (entries always belong to a group, so
+      // a lone root group is the whole of that level).
       if ((children[''] || []).length === 1) expandKey(keyOf(children[''][0]));
       this.groups.forEach((group) => {
         const kids = children[keyOf(group)] || [];
-        if (kids.length === 1) expandKey(keyOf(kids[0]));
+        if (kids.length !== 1) return;
+        if (this.getGroupEntries(group).length > 0) return;
+        expandKey(keyOf(kids[0]));
       });
     },
     // Put the group list back where it was before the entry editor opened. The
