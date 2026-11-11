@@ -203,13 +203,8 @@ export default {
             expanded: expanded,
             hasChildren: subGroups.length > 0,
             count: entries.length,
-            // Indentation stops at four steps. Deeper rows stop moving right and
-            // show their full path instead, so the hierarchy stays readable
-            // without squeezing the name into the popup's right edge.
-            label:
-              depth > 4
-                ? group.path || group.name || ''
-                : group.name || group.path || '',
+            // Always the name: nesting is shown by indentation all the way down.
+            label: group.name || group.path || '',
           });
           if (!expanded) return;
           // The sub-group form sits inside the group it will create in.
@@ -227,18 +222,31 @@ export default {
       walk('', 0);
       return rows;
     },
+    // How wide the row area has to be. Up to five levels a name still fits in the
+    // popup, so the list stays at its own width; deeper than that the rows are laid
+    // out wider than the viewport and the list scrolls sideways, which is what gives
+    // the deepest names room instead of squeezing them.
+    treeWidth() {
+      let maxDepth = 0;
+      this.groupRows.forEach((row) => {
+        if (row.depth > maxDepth) maxDepth = row.depth;
+      });
+      if (maxDepth <= 5) return '100%';
+      // The deepest name column plus room for the name itself.
+      return 58 + maxDepth * 14 + 260 + 'px';
+    },
   },
   methods: {
-    // Left edge of a row that carries its own caret. Capped at four steps so deep
-    // nesting cannot squeeze the name out of a 400px popup.
+    // Left edge of a row that carries its own caret. Indentation is unlimited: a
+    // deep tree widens the list instead of stopping, and the list scrolls sideways.
     indentFor(depth) {
-      return 16 + Math.min(depth, 4) * 14 + 'px';
+      return 16 + depth * 14 + 'px';
     },
     // An entry row keeps its full-width background and only its text moves in, so
     // this replaces EntryRow's own left padding outright: the caret, folder and
     // gaps (42px) plus the viewport padding put the text under the group's name.
     indentEntryFor(depth) {
-      return 58 + Math.min(depth, 4) * 14 + 'px';
+      return 58 + depth * 14 + 'px';
     },
     // Stable expansion/rename key. UUID when available, name for legacy rows.
     groupKey(group) {
@@ -507,91 +515,93 @@ export default {
       <i class="fa fa-plus add-entry" @click="newEntry" :title="$t('New entry')" />
     </div>
     <div class="browse-groups" ref="scrollArea">
-      <template v-for="row in groupRows">
-        <div
-          v-if="row.type === 'group'"
-          :key="'g:' + row.key"
-          class="group-header"
-          :style="{ paddingLeft: indentFor(row.depth) }"
-          @click="toggleGroup(row.group)"
-        >
-          <!-- Every group gets its caret: a group with no sub-groups still has
-               entries, and the caret is what folds those away. -->
-          <i :class="['fa', 'caret', row.expanded ? 'fa-caret-down' : 'fa-caret-right']" />
-          <i :class="['fa', row.expanded ? 'fa-folder-open' : 'fa-folder', 'fa-fw']" />
-          <span
-            v-if="renamingGroup !== row.key"
-            class="group-name"
-            :title="row.group.path || row.group.name"
-            :class="{ 'is-path': row.depth > 4 }"
-          >{{ row.label }}</span>
-          <span v-else class="rename-field">
+      <div class="tree-rows" :style="{ minWidth: treeWidth }">
+        <template v-for="row in groupRows">
+          <div
+            v-if="row.type === 'group'"
+            :key="'g:' + row.key"
+            class="group-header"
+            :style="{ paddingLeft: indentFor(row.depth) }"
+            @click="toggleGroup(row.group)"
+          >
+            <!-- Every group gets its caret: a group with no sub-groups still has
+                 entries, and the caret is what folds those away. -->
+            <i :class="['fa', 'caret', row.expanded ? 'fa-caret-down' : 'fa-caret-right']" />
+            <i :class="['fa', row.expanded ? 'fa-folder-open' : 'fa-folder', 'fa-fw']" />
+            <span
+              v-if="renamingGroup !== row.key"
+              class="group-name"
+              :title="row.group.path || row.group.name"
+            >{{ row.label }}</span>
+            <span v-else class="rename-field">
+              <input
+                ref="renameInput"
+                v-model="renameInput"
+                class="group-name-input"
+                @click.stop
+                @keyup.enter="confirmRename(row.group)"
+                @keyup.escape="cancelRename"
+              />
+              <i class="fa fa-check confirm-icon" @click.stop="confirmRename(row.group)" :title="$t('Confirm')" />
+              <i class="fa fa-times cancel-icon" @click.stop="cancelRename" :title="$t('Cancel')" />
+            </span>
+            <span class="action-icons" @click.stop>
+              <i
+                class="fa fa-plus group-add-icon"
+                @click="startNewGroup(row.group)"
+                :title="$t('New sub-group')"
+              />
+              <i class="fa fa-pencil group-edit-icon" @click="startRename(row.group)" :title="$t('Rename group')" />
+              <i class="fa fa-trash group-delete-icon" @click="confirmDeleteGroup(row.group)" :title="$t('Delete group')" />
+            </span>
+            <span class="group-count">{{ row.count }}</span>
+          </div>
+          <div
+            v-else-if="row.type === 'new-group'"
+            :key="'n:' + row.depth"
+            class="new-group-inline"
+            :style="{ paddingLeft: indentFor(row.depth) }"
+          >
             <input
-              ref="renameInput"
-              v-model="renameInput"
+              ref="newGroupInput"
+              v-model="newGroupName"
               class="group-name-input"
-              @click.stop
-              @keyup.enter="confirmRename(row.group)"
-              @keyup.escape="cancelRename"
+              :placeholder="$t('Group name...')"
+              @keyup.enter="confirmNewGroup"
+              @keyup.escape="cancelNewGroup"
             />
-            <i class="fa fa-check confirm-icon" @click.stop="confirmRename(row.group)" :title="$t('Confirm')" />
-            <i class="fa fa-times cancel-icon" @click.stop="cancelRename" :title="$t('Cancel')" />
-          </span>
-          <span class="action-icons" @click.stop>
-            <i
-              class="fa fa-plus group-add-icon"
-              @click="startNewGroup(row.group)"
-              :title="$t('New sub-group')"
-            />
-            <i class="fa fa-pencil group-edit-icon" @click="startRename(row.group)" :title="$t('Rename group')" />
-            <i class="fa fa-trash group-delete-icon" @click="confirmDeleteGroup(row.group)" :title="$t('Delete group')" />
-          </span>
-          <span class="group-count">{{ row.count }}</span>
-        </div>
-        <div
-          v-else-if="row.type === 'new-group'"
-          :key="'n:' + row.depth"
-          class="new-group-inline"
-          :style="{ paddingLeft: indentFor(row.depth) }"
-        >
-          <input
-            ref="newGroupInput"
-            v-model="newGroupName"
-            class="group-name-input"
-            :placeholder="$t('Group name...')"
-            @keyup.enter="confirmNewGroup"
-            @keyup.escape="cancelNewGroup"
+            <i class="fa fa-check confirm-icon" @click="confirmNewGroup" :title="$t('Confirm')" />
+            <i class="fa fa-times cancel-icon" @click="cancelNewGroup" :title="$t('Cancel')" />
+          </div>
+          <entry-row
+            v-else
+            :key="'e:' + row.entry.id"
+            :style="{ paddingLeft: indentEntryFor(row.depth) }"
+            :entry="row.entry"
+            :unlocked-state="unlockedState"
+            :otp-seconds="otpCountdowns[row.entry.id] || null"
+            edit-query="?from=browse"
           />
-          <i class="fa fa-check confirm-icon" @click="confirmNewGroup" :title="$t('Confirm')" />
-          <i class="fa fa-times cancel-icon" @click="cancelNewGroup" :title="$t('Cancel')" />
-        </div>
-        <entry-row
-          v-else
-          :key="'e:' + row.entry.id"
-          :style="{ paddingLeft: indentEntryFor(row.depth) }"
-          :entry="row.entry"
-          :unlocked-state="unlockedState"
-          :otp-seconds="otpCountdowns[row.entry.id] || null"
-          edit-query="?from=browse"
+        </template>
+      </div>
+    </div>
+    <!-- New Group (root level). Outside the scrolling rows: it stays put while a
+         deep tree scrolls sideways. -->
+    <div class="new-group-area">
+      <div v-if="showNewGroup && !newGroupParentKey" class="new-group-form">
+        <input
+          ref="newGroupInput"
+          v-model="newGroupName"
+          :placeholder="$t('Group name...')"
+          class="new-group-input"
+          @keyup.enter="confirmNewGroup"
+          @keyup.escape="cancelNewGroup"
         />
-      </template>
-      <!-- New Group (root level) -->
-      <div class="new-group-area">
-        <div v-if="showNewGroup && !newGroupParentKey" class="new-group-form">
-          <input
-            ref="newGroupInput"
-            v-model="newGroupName"
-            :placeholder="$t('Group name...')"
-            class="new-group-input"
-            @keyup.enter="confirmNewGroup"
-            @keyup.escape="cancelNewGroup"
-          />
-          <i class="fa fa-check confirm-icon" @click="confirmNewGroup" :title="$t('Confirm')" />
-          <i class="fa fa-times cancel-icon" @click="cancelNewGroup" :title="$t('Cancel')" />
-        </div>
-        <div v-else class="new-group-btn selectable" @click="startNewGroup()">
-          <i class="fa fa-plus" /> {{ $t('New Group') }}
-        </div>
+        <i class="fa fa-check confirm-icon" @click="confirmNewGroup" :title="$t('Confirm')" />
+        <i class="fa fa-times cancel-icon" @click="cancelNewGroup" :title="$t('Cancel')" />
+      </div>
+      <div v-else class="new-group-btn selectable" @click="startNewGroup()">
+        <i class="fa fa-plus" /> {{ $t('New Group') }}
       </div>
     </div>
     <transition name="toast">
@@ -636,9 +646,16 @@ export default {
 
 .browse-groups {
   height: 350px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  // Both directions: the tree scrolls vertically as before, and a deep tree is laid
+  // out wider than the popup (see treeWidth), which is what adds the sideways
+  // scrollbar at the bottom of this list.
+  overflow: auto;
+  scrollbar-width: thin;
   border-bottom: 2px solid $light-gray;
+}
+
+.tree-rows {
+  width: 100%;
 }
 
 .group-header {
@@ -670,9 +687,6 @@ export default {
     -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
     mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
   }
-  // Deeper than four steps: the label is a full path, so it reads as a location
-  // rather than as a bare name.
-  .group-name.is-path { font-weight: 500; color: var(--keepass-cat-text-subtle); }
   .group-count {
     flex: 0 0 auto;
     font-size: 12px;
@@ -727,8 +741,9 @@ export default {
 }
 
 
+// The list above already closes itself with a border, so this bar needs none.
 .new-group-area {
-  border-top: 2px solid $light-gray;
+  border-top: 0;
 }
 
 // The sub-group form: an extra row inside the group it creates in, so the nesting
