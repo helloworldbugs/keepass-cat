@@ -26,11 +26,9 @@ export default {
       renameInput: '',
       showNewGroup: false,
       newGroupName: '',
-      // Parent of the new-group form. `null` is the bottom, root-level form; a
-      // group key means the form is open inside that group as a sub-group row.
+      // Key of the group whose sub-group form is open; null when the form is closed.
       newGroupParentKey: null,
-      // Parent UUID for the new-group form. Null keeps the historical default
-      // (the database's default group); threaded through for nested creation.
+      // That group's UUID, which the service creates the sub-group in.
       newGroupParentUuid: null,
       busy: false,
       message: '',
@@ -205,6 +203,9 @@ export default {
             count: entries.length,
             // Always the name: nesting is shown by indentation all the way down.
             label: group.name || group.path || '',
+            // The top level must keep at least one group; deeper rows are always
+            // deletable because their parent survives.
+            canDelete: !(depth === 0 && this.rootGroups.length <= 1),
           });
           if (!expanded) return;
           // The sub-group form sits inside the group it will create in.
@@ -235,6 +236,16 @@ export default {
       // The deepest name column plus room for the name itself.
       return 58 + maxDepth * 14 + 260 + 'px';
     },
+    // Top-level groups: the database's own Root is skipped by the service, so these
+    // are Root's children. At least one of them has to survive: with none left the
+    // tree is empty and there is no row carrying the new-group button.
+    rootGroups() {
+      const byUuid = {};
+      this.groups.forEach((group) => {
+        if (group.uuid) byUuid[group.uuid] = true;
+      });
+      return this.groups.filter((group) => !(group.parentUuid && byUuid[group.parentUuid]));
+    },
   },
   methods: {
     // Left edge of a row that carries its own caret. Indentation is unlimited: a
@@ -251,6 +262,20 @@ export default {
     // Stable expansion/rename key. UUID when available, name for legacy rows.
     groupKey(group) {
       return (group && (group.uuid || group.name)) || '';
+    },
+    // True when removing this group would leave the database with no top-level group.
+    isLastRootGroup(group) {
+      if (!group || this.rootGroups.length !== 1) return false;
+      return this.groupKey(this.rootGroups[0]) === this.groupKey(group);
+    },
+    // The trash icon on a protected row explains itself instead of deleting.
+    deleteGroupRow(row) {
+      if (!row.canDelete) {
+        this.message = this.$t('The last top-level group cannot be deleted.');
+        setTimeout(() => this.message = '', 1800);
+        return;
+      }
+      this.confirmDeleteGroup(row.group);
     },
     toggleGroup(group) {
       const key = this.groupKey(group);
@@ -428,6 +453,13 @@ export default {
       this.renamingGroup = null;
     },
     async confirmDeleteGroup(group) {
+      // The database needs at least one top-level group: with none left the tree is
+      // empty and there is no row to hang the new-group button on.
+      if (this.isLastRootGroup(group)) {
+        this.message = this.$t('The last top-level group cannot be deleted.');
+        setTimeout(() => this.message = '', 1800);
+        return;
+      }
       let count = this.getGroupEntries(group).length;
       let label = group.path || group.name;
       let msg = count > 0
@@ -454,16 +486,17 @@ export default {
       }
       this.busy = false;
     },
-    // Opens the new-group form. With a parentGroup it appears as a sub-group row
-    // inside that group (and the group opens, so the row is on screen); without
-    // one it is the root-level form at the bottom.
+    // Opens the new-group form as a sub-group row inside the given group, which also
+    // opens that group so the row is on screen. Groups are always created inside
+    // another group, the way KeePass does it; there is no root-level form.
     startNewGroup(parentGroup) {
-      const key = parentGroup ? this.groupKey(parentGroup) : null;
+      if (!parentGroup) return;
+      const key = this.groupKey(parentGroup);
       this.showNewGroup = true;
       this.newGroupName = '';
       this.newGroupParentKey = key;
-      this.newGroupParentUuid = (parentGroup && parentGroup.uuid) || null;
-      if (key) this.$set(this.expandedGroups, key, true);
+      this.newGroupParentUuid = parentGroup.uuid || null;
+      this.$set(this.expandedGroups, key, true);
       this.$nextTick(() => {
         // The sub-group input is inside a v-for, so the ref is an array there.
         const el = this.$refs.newGroupInput;
@@ -552,7 +585,12 @@ export default {
                 :title="$t('New sub-group')"
               />
               <i class="fa fa-pencil group-edit-icon" @click="startRename(row.group)" :title="$t('Rename group')" />
-              <i class="fa fa-trash group-delete-icon" @click="confirmDeleteGroup(row.group)" :title="$t('Delete group')" />
+              <i
+                class="fa fa-trash group-delete-icon"
+                :class="{ 'is-disabled': !row.canDelete }"
+                @click="deleteGroupRow(row)"
+                :title="row.canDelete ? $t('Delete group') : $t('The last top-level group cannot be deleted.')"
+              />
             </span>
             <span class="group-count">{{ row.count }}</span>
           </div>
@@ -583,25 +621,6 @@ export default {
             edit-query="?from=browse"
           />
         </template>
-      </div>
-    </div>
-    <!-- New Group (root level). Outside the scrolling rows: it stays put while a
-         deep tree scrolls sideways. -->
-    <div class="new-group-area">
-      <div v-if="showNewGroup && !newGroupParentKey" class="new-group-form">
-        <input
-          ref="newGroupInput"
-          v-model="newGroupName"
-          :placeholder="$t('Group name...')"
-          class="new-group-input"
-          @keyup.enter="confirmNewGroup"
-          @keyup.escape="cancelNewGroup"
-        />
-        <i class="fa fa-check confirm-icon" @click="confirmNewGroup" :title="$t('Confirm')" />
-        <i class="fa fa-times cancel-icon" @click="cancelNewGroup" :title="$t('Cancel')" />
-      </div>
-      <div v-else class="new-group-btn selectable" @click="startNewGroup()">
-        <i class="fa fa-plus" /> {{ $t('New Group') }}
       </div>
     </div>
     <transition name="toast">
@@ -710,6 +729,12 @@ export default {
   .group-add-icon:hover,
   .group-edit-icon:hover { color: var(--keepass-cat-text); background: $light-gray; }
   .group-delete-icon:hover { color: var(--keepass-cat-delete-hover); background: $light-gray; }
+  // The last top-level group cannot go; the icon stays visible but inert.
+  .group-delete-icon.is-disabled {
+    opacity: 0.35;
+    cursor: default;
+    &:hover { color: var(--keepass-cat-icon-muted); background: transparent; }
+  }
   .rename-field {
     display: flex; align-items: center; gap: 4px; flex: 1;
   }
@@ -741,11 +766,6 @@ export default {
 }
 
 
-// The list above already closes itself with a border, so this bar needs none.
-.new-group-area {
-  border-top: 0;
-}
-
 // The sub-group form: an extra row inside the group it creates in, so the nesting
 // is shown by position instead of by a separate dialog.
 .new-group-inline {
@@ -766,28 +786,6 @@ export default {
     padding: 3px 6px;
     &:focus { outline: none; }
   }
-}
-.new-group-btn {
-  padding: 10px $wall-padding;
-  text-align: center;
-  font-size: 13px;
-  color: $blue;
-  cursor: pointer;
-  &:hover { background: var(--keepass-cat-bg-hover); }
-  .fa { margin-right: 4px; }
-}
-.new-group-form {
-  padding: 8px $wall-padding;
-  display: flex; align-items: center; gap: 6px;
-}
-.new-group-input {
-  flex: 1;
-  box-sizing: border-box;
-  padding: 8px;
-  border: 1px solid $blue;
-  border-radius: 3px;
-  font-size: 14px;
-  &:focus { outline: none; }
 }
 
 .status-toast {

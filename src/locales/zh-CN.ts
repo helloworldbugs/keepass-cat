@@ -137,6 +137,7 @@ const zhCN: Record<string, string> = {
   'Created.': '已创建',
   'Delete group "{0}" and all {1} entries?': '删除分组 "{0}" 及其所有 {1} 个条目？',
   'Delete empty group "{0}"?': '删除空分组 "{0}"？',
+  'The last top-level group cannot be deleted.': '顶层只剩一个分组，不能删除。',
 
   // ===== Footer / Shared =====
   'Confirm': '确认',
