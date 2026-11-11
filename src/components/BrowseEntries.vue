@@ -65,7 +65,7 @@ export default {
     // arrive *after* mount when the popup opens with an empty cache. Expanding in
     // mounted() alone then ran against an empty list and never fired again.
     groups(list) {
-      this.expandSingleGroup(list);
+      this.expandLoneGroups();
       this.$nextTick(this.restoreGroupScroll);
     },
     searchTerm(val) {
@@ -86,7 +86,7 @@ export default {
   },
   mounted() {
     this.$nextTick(() => {
-      this.expandSingleGroup(this.groups);
+      this.expandLoneGroups();
       this.restoreGroupScroll();
     });
     // One ticker for the whole list, not one per row: the browse view can hold
@@ -234,11 +234,11 @@ export default {
     indentFor(depth) {
       return 16 + Math.min(depth, 4) * 14 + 'px';
     },
-    // An entry row is an EntryRow, which already pads its own left edge with the
-    // viewport's wall padding; take that off so its text lines up under the name
-    // of the group that owns it (42px of caret, folder and gaps).
+    // An entry row keeps its full-width background and only its text moves in, so
+    // this replaces EntryRow's own left padding outright: the caret, folder and
+    // gaps (42px) plus the viewport padding put the text under the group's name.
     indentEntryFor(depth) {
-      return 42 + Math.min(depth, 4) * 14 + 'px';
+      return 58 + Math.min(depth, 4) * 14 + 'px';
     },
     // Stable expansion/rename key. UUID when available, name for legacy rows.
     groupKey(group) {
@@ -248,12 +248,31 @@ export default {
       const key = this.groupKey(group);
       this.$set(this.expandedGroups, key, !this.expandedGroups[key]);
     },
-    // Expand a lone group so its entries are visible without a click. Idempotent and
-    // only ever turns expansion on, so it is safe to call whenever the list changes.
-    expandSingleGroup(list) {
-      if (!Array.isArray(list) || list.length !== 1) return;
-      const key = this.groupKey(list[0]);
-      if (!this.expandedGroups[key]) this.$set(this.expandedGroups, key, true);
+    // Expand every level that holds only one group: a lone child is never ambiguous,
+    // so the user should not have to open a chain of single-item levels by hand.
+    // Idempotent and only ever turns expansion on, so it is safe to call whenever
+    // the list changes.
+    expandLoneGroups() {
+      const keyOf = (group) => this.groupKey(group);
+      const byUuid = {};
+      this.groups.forEach((group) => {
+        if (group.uuid) byUuid[group.uuid] = keyOf(group);
+      });
+      const children = {};
+      this.groups.forEach((group) => {
+        const parentKey = (group.parentUuid && byUuid[group.parentUuid]) || '';
+        if (!children[parentKey]) children[parentKey] = [];
+        children[parentKey].push(group);
+      });
+      const expandKey = (key) => {
+        if (key && !this.expandedGroups[key]) this.$set(this.expandedGroups, key, true);
+      };
+      // The root level counts as a level too.
+      if ((children[''] || []).length === 1) expandKey(keyOf(children[''][0]));
+      this.groups.forEach((group) => {
+        const kids = children[keyOf(group)] || [];
+        if (kids.length === 1) expandKey(keyOf(kids[0]));
+      });
     },
     // Put the group list back where it was before the entry editor opened. The
     // container only has its full height after the groups render, so this runs
@@ -491,13 +510,9 @@ export default {
           :style="{ paddingLeft: indentFor(row.depth) }"
           @click="toggleGroup(row.group)"
         >
-          <i
-            :class="['fa', 'caret', {
-              'fa-caret-down': row.expanded,
-              'fa-caret-right': !row.expanded,
-              'is-empty': !row.hasChildren,
-            }]"
-          />
+          <!-- Every group gets its caret: a group with no sub-groups still has
+               entries, and the caret is what folds those away. -->
+          <i :class="['fa', 'caret', row.expanded ? 'fa-caret-down' : 'fa-caret-right']" />
           <i :class="['fa', row.expanded ? 'fa-folder-open' : 'fa-folder', 'fa-fw']" />
           <span
             v-if="renamingGroup !== row.key"
@@ -545,19 +560,15 @@ export default {
           <i class="fa fa-check confirm-icon" @click="confirmNewGroup" :title="$t('Confirm')" />
           <i class="fa fa-times cancel-icon" @click="cancelNewGroup" :title="$t('Cancel')" />
         </div>
-        <div
+        <entry-row
           v-else
           :key="'e:' + row.entry.id"
-          class="tree-entry"
           :style="{ paddingLeft: indentEntryFor(row.depth) }"
-        >
-          <entry-row
-            :entry="row.entry"
-            :unlocked-state="unlockedState"
-            :otp-seconds="otpCountdowns[row.entry.id] || null"
-            edit-query="?from=browse"
-          />
-        </div>
+          :entry="row.entry"
+          :unlocked-state="unlockedState"
+          :otp-seconds="otpCountdowns[row.entry.id] || null"
+          edit-query="?from=browse"
+        />
       </template>
       <!-- New Group (root level) -->
       <div class="new-group-area">
@@ -635,13 +646,12 @@ export default {
   // and fading the icons along with the label made them hard to hit.
   &:hover { background: var(--keepass-cat-bg-hover); }
   > .fa { flex: 0 0 auto; }
-  // Fixed-width slot so rows without sub-groups still line their names up.
+  // Fixed-width slot: it is on every row now, so the names always line up.
   .caret {
     width: 12px;
     text-align: center;
     font-size: 12px;
     color: var(--keepass-cat-icon-muted);
-    &.is-empty { visibility: hidden; }
   }
   .group-name {
     font-weight: 600;
