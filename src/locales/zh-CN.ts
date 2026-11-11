@@ -128,6 +128,7 @@ const zhCN: Record<string, string> = {
   'Rename group': '重命名分组',
   'Delete group': '删除分组',
   'New Group': '新建分组',
+  'New sub-group': '新建子分组',
   'Group name...': '分组名称...',
   'Renaming...': '重命名中...',
   'Renamed.': '已重命名',

@@ -26,6 +26,9 @@ export default {
       renameInput: '',
       showNewGroup: false,
       newGroupName: '',
+      // Parent of the new-group form. `null` is the bottom, root-level form; a
+      // group key means the form is open inside that group as a sub-group row.
+      newGroupParentKey: null,
       // Parent UUID for the new-group form. Null keeps the historical default
       // (the database's default group); threaded through for nested creation.
       newGroupParentUuid: null,
@@ -159,8 +162,84 @@ export default {
       });
       return result;
     },
+    // The tree, flattened into the rows the template renders. Flattening (rather
+    // than a recursive component) keeps the list a single v-for and means only the
+    // visible rows are built, which matters for a database with many groups.
+    //
+    // Sub-groups come first and the group's own entries after them, the order
+    // KeePass shows. Depth is capped for indentation only, so a very deep tree
+    // stops walking off the right edge.
+    groupRows() {
+      this.entriesVersion;
+      const keyOf = (group) => this.groupKey(group);
+      const byUuid = {};
+      this.groups.forEach((group) => {
+        if (group.uuid) byUuid[group.uuid] = keyOf(group);
+      });
+      // Children keyed by their parent's key; '' holds the roots (a group whose
+      // parent is not in the list - the skipped Root group - is a root too).
+      const children = {};
+      this.groups.forEach((group) => {
+        const parentKey = (group.parentUuid && byUuid[group.parentUuid]) || '';
+        if (!children[parentKey]) children[parentKey] = [];
+        children[parentKey].push(group);
+      });
+
+      const rows = [];
+      const walk = (parentKey, depth) => {
+        const list = (children[parentKey] || []).slice().sort((a, b) => {
+          return String(a.name || a.path || '').localeCompare(String(b.name || b.path || ''));
+        });
+        list.forEach((group) => {
+          const key = keyOf(group);
+          const subGroups = children[key] || [];
+          const expanded = !!this.expandedGroups[key];
+          const entries = this.getGroupEntries(group);
+          rows.push({
+            type: 'group',
+            key: key,
+            group: group,
+            depth: depth,
+            expanded: expanded,
+            hasChildren: subGroups.length > 0,
+            count: entries.length,
+            // Indentation stops at four steps. Deeper rows stop moving right and
+            // show their full path instead, so the hierarchy stays readable
+            // without squeezing the name into the popup's right edge.
+            label:
+              depth > 4
+                ? group.path || group.name || ''
+                : group.name || group.path || '',
+          });
+          if (!expanded) return;
+          // The sub-group form sits inside the group it will create in.
+          if (this.showNewGroup && this.newGroupParentKey === key) {
+            rows.push({ type: 'new-group', depth: depth + 1 });
+          }
+          walk(key, depth + 1);
+          entries.forEach((entry) => {
+            // Same depth as the group: an entry sits at its group's name column,
+            // one step in from the sub-groups below it.
+            rows.push({ type: 'entry', entry: entry, depth: depth });
+          });
+        });
+      };
+      walk('', 0);
+      return rows;
+    },
   },
   methods: {
+    // Left edge of a row that carries its own caret. Capped at four steps so deep
+    // nesting cannot squeeze the name out of a 400px popup.
+    indentFor(depth) {
+      return 16 + Math.min(depth, 4) * 14 + 'px';
+    },
+    // An entry row is an EntryRow, which already pads its own left edge with the
+    // viewport's wall padding; take that off so its text lines up under the name
+    // of the group that owns it (42px of caret, folder and gaps).
+    indentEntryFor(depth) {
+      return 42 + Math.min(depth, 4) * 14 + 'px';
+    },
     // Stable expansion/rename key. UUID when available, name for legacy rows.
     groupKey(group) {
       return (group && (group.uuid || group.name)) || '';
@@ -282,7 +361,12 @@ export default {
     startRename(group) {
       this.renamingGroup = this.groupKey(group);
       this.renameInput = group.name;
-      this.$nextTick(() => this.$refs.renameInput?.focus());
+      this.$nextTick(() => {
+        // The name input lives inside the row list, so the ref is an array.
+        const el = this.$refs.renameInput;
+        const input = Array.isArray(el) ? el[0] : el;
+        if (input && input.focus) input.focus();
+      });
     },
     async confirmRename(group) {
       let newName = this.renameInput.trim();
@@ -338,13 +422,22 @@ export default {
       }
       this.busy = false;
     },
-    // Optional parentGroup lets a caller nest the new group; without one the
-    // service keeps its historical default (the database's default group).
+    // Opens the new-group form. With a parentGroup it appears as a sub-group row
+    // inside that group (and the group opens, so the row is on screen); without
+    // one it is the root-level form at the bottom.
     startNewGroup(parentGroup) {
+      const key = parentGroup ? this.groupKey(parentGroup) : null;
       this.showNewGroup = true;
       this.newGroupName = '';
+      this.newGroupParentKey = key;
       this.newGroupParentUuid = (parentGroup && parentGroup.uuid) || null;
-      this.$nextTick(() => this.$refs.newGroupInput?.focus());
+      if (key) this.$set(this.expandedGroups, key, true);
+      this.$nextTick(() => {
+        // The sub-group input is inside a v-for, so the ref is an array there.
+        const el = this.$refs.newGroupInput;
+        const input = Array.isArray(el) ? el[0] : el;
+        if (input && input.focus) input.focus();
+      });
     },
     async confirmNewGroup() {
       let name = this.newGroupName.trim();
@@ -363,6 +456,8 @@ export default {
         }
         this.entriesVersion++;
         this.showNewGroup = false;
+        this.newGroupParentKey = null;
+        this.newGroupParentUuid = null;
         this.$forceUpdate();
         this.message = this.$t('Created.');
         setTimeout(() => this.message = '', 1500);
@@ -373,6 +468,8 @@ export default {
     },
     cancelNewGroup() {
       this.showNewGroup = false;
+      this.newGroupParentKey = null;
+      this.newGroupParentUuid = null;
     },
   },
 };
@@ -386,46 +483,85 @@ export default {
       <i class="fa fa-plus add-entry" @click="newEntry" :title="$t('New entry')" />
     </div>
     <div class="browse-groups" ref="scrollArea">
-      <div v-for="group in groups" :key="groupKey(group)" class="group-section">
-        <div class="group-header" @click="toggleGroup(group)">
-          <i :class="['fa', expandedGroups[groupKey(group)] ? 'fa-folder-open' : 'fa-folder', 'fa-fw']" />
+      <template v-for="row in groupRows">
+        <div
+          v-if="row.type === 'group'"
+          :key="'g:' + row.key"
+          class="group-header"
+          :style="{ paddingLeft: indentFor(row.depth) }"
+          @click="toggleGroup(row.group)"
+        >
+          <i
+            :class="['fa', 'caret', {
+              'fa-caret-down': row.expanded,
+              'fa-caret-right': !row.expanded,
+              'is-empty': !row.hasChildren,
+            }]"
+          />
+          <i :class="['fa', row.expanded ? 'fa-folder-open' : 'fa-folder', 'fa-fw']" />
           <span
-            v-if="renamingGroup !== groupKey(group)"
+            v-if="renamingGroup !== row.key"
             class="group-name"
-            :title="group.path || group.name"
-          >{{ group.path || group.name }}</span>
+            :title="row.group.path || row.group.name"
+            :class="{ 'is-path': row.depth > 4 }"
+          >{{ row.label }}</span>
           <span v-else class="rename-field">
             <input
               ref="renameInput"
               v-model="renameInput"
               class="group-name-input"
               @click.stop
-              @keyup.enter="confirmRename(group)"
+              @keyup.enter="confirmRename(row.group)"
               @keyup.escape="cancelRename"
             />
-            <i class="fa fa-check confirm-icon" @click.stop="confirmRename(group)" :title="$t('Confirm')" />
+            <i class="fa fa-check confirm-icon" @click.stop="confirmRename(row.group)" :title="$t('Confirm')" />
             <i class="fa fa-times cancel-icon" @click.stop="cancelRename" :title="$t('Cancel')" />
           </span>
           <span class="action-icons" @click.stop>
-            <i class="fa fa-pencil group-edit-icon" @click="startRename(group)" :title="$t('Rename group')" />
-            <i class="fa fa-trash group-delete-icon" @click="confirmDeleteGroup(group)" :title="$t('Delete group')" />
+            <i
+              class="fa fa-plus group-add-icon"
+              @click="startNewGroup(row.group)"
+              :title="$t('New sub-group')"
+            />
+            <i class="fa fa-pencil group-edit-icon" @click="startRename(row.group)" :title="$t('Rename group')" />
+            <i class="fa fa-trash group-delete-icon" @click="confirmDeleteGroup(row.group)" :title="$t('Delete group')" />
           </span>
-          <span class="group-count">{{ getGroupEntries(group).length }}</span>
+          <span class="group-count">{{ row.count }}</span>
         </div>
-        <div v-if="expandedGroups[groupKey(group)]" class="group-entries">
+        <div
+          v-else-if="row.type === 'new-group'"
+          :key="'n:' + row.depth"
+          class="new-group-inline"
+          :style="{ paddingLeft: indentFor(row.depth) }"
+        >
+          <input
+            ref="newGroupInput"
+            v-model="newGroupName"
+            class="group-name-input"
+            :placeholder="$t('Group name...')"
+            @keyup.enter="confirmNewGroup"
+            @keyup.escape="cancelNewGroup"
+          />
+          <i class="fa fa-check confirm-icon" @click="confirmNewGroup" :title="$t('Confirm')" />
+          <i class="fa fa-times cancel-icon" @click="cancelNewGroup" :title="$t('Cancel')" />
+        </div>
+        <div
+          v-else
+          :key="'e:' + row.entry.id"
+          class="tree-entry"
+          :style="{ paddingLeft: indentEntryFor(row.depth) }"
+        >
           <entry-row
-            v-for="entry in getGroupEntries(group)"
-            :key="entry.id"
-            :entry="entry"
+            :entry="row.entry"
             :unlocked-state="unlockedState"
-            :otp-seconds="otpCountdowns[entry.id] || null"
+            :otp-seconds="otpCountdowns[row.entry.id] || null"
             edit-query="?from=browse"
           />
         </div>
-      </div>
-      <!-- New Group -->
+      </template>
+      <!-- New Group (root level) -->
       <div class="new-group-area">
-        <div v-if="showNewGroup" class="new-group-form">
+        <div v-if="showNewGroup && !newGroupParentKey" class="new-group-form">
           <input
             ref="newGroupInput"
             v-model="newGroupName"
@@ -437,7 +573,7 @@ export default {
           <i class="fa fa-check confirm-icon" @click="confirmNewGroup" :title="$t('Confirm')" />
           <i class="fa fa-times cancel-icon" @click="cancelNewGroup" :title="$t('Cancel')" />
         </div>
-        <div v-else class="new-group-btn selectable" @click="startNewGroup">
+        <div v-else class="new-group-btn selectable" @click="startNewGroup()">
           <i class="fa fa-plus" /> {{ $t('New Group') }}
         </div>
       </div>
@@ -495,8 +631,18 @@ export default {
   background: $light-background-color;
   display: flex; align-items: center; gap: 6px;
   cursor: pointer;
-  &:hover { opacity: 0.7; }
+  // A tint rather than the old whole-row fade: the row now carries hover actions,
+  // and fading the icons along with the label made them hard to hit.
+  &:hover { background: var(--keepass-cat-bg-hover); }
   > .fa { flex: 0 0 auto; }
+  // Fixed-width slot so rows without sub-groups still line their names up.
+  .caret {
+    width: 12px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--keepass-cat-icon-muted);
+    &.is-empty { visibility: hidden; }
+  }
   .group-name {
     font-weight: 600;
     font-size: 14px;
@@ -509,6 +655,9 @@ export default {
     -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
     mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
   }
+  // Deeper than four steps: the label is a full path, so it reads as a location
+  // rather than as a bare name.
+  .group-name.is-path { font-weight: 500; color: var(--keepass-cat-text-subtle); }
   .group-count {
     flex: 0 0 auto;
     font-size: 12px;
@@ -522,14 +671,16 @@ export default {
     transition: opacity 0.15s;
   }
   &:hover .action-icons { opacity: 1; }
-  .group-edit-icon, .group-delete-icon {
+  .group-add-icon, .group-edit-icon, .group-delete-icon {
     font-size: 12px;
     padding: 3px 4px;
     border-radius: 2px;
     color: var(--keepass-cat-icon-muted);
-    &:hover { color: var(--keepass-cat-text); background: $light-gray; }
   }
-  .group-delete-icon:hover { color: var(--keepass-cat-delete-hover); }
+  .group-add-icon { color: $blue; }
+  .group-add-icon:hover,
+  .group-edit-icon:hover { color: var(--keepass-cat-text); background: $light-gray; }
+  .group-delete-icon:hover { color: var(--keepass-cat-delete-hover); background: $light-gray; }
   .rename-field {
     display: flex; align-items: center; gap: 4px; flex: 1;
   }
@@ -563,6 +714,28 @@ export default {
 
 .new-group-area {
   border-top: 2px solid $light-gray;
+}
+
+// The sub-group form: an extra row inside the group it creates in, so the nesting
+// is shown by position instead of by a separate dialog.
+.new-group-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px $wall-padding;
+  background: $light-background-color;
+  border-bottom: 1px solid $light-gray;
+  .group-name-input {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    font-weight: 600;
+    font-size: 13px;
+    border: 1px solid $blue;
+    border-radius: 3px;
+    padding: 3px 6px;
+    &:focus { outline: none; }
+  }
 }
 .new-group-btn {
   padding: 10px $wall-padding;
