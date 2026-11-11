@@ -221,12 +221,6 @@ export default {
         });
       };
       walk('', 0);
-      // With every top-level group collapsed the list is just names, so a row under
-      // the last one offers to start another top-level group. It stays while the
-      // form is open, even if something gets expanded meanwhile.
-      if (this.allRootsCollapsed || (this.showNewGroup && this.newGroupParentKey === null)) {
-        rows.push({ type: 'new-root-group', depth: 0 });
-      }
       return rows;
     },
     // How wide the row area has to be. Up to five levels a name still fits in the
@@ -251,12 +245,6 @@ export default {
         if (group.uuid) byUuid[group.uuid] = true;
       });
       return this.groups.filter((group) => !(group.parentUuid && byUuid[group.parentUuid]));
-    },
-    // With every top-level group collapsed the list shows nothing but the group
-    // names, so the bottom offers a way to start a new one from there.
-    allRootsCollapsed() {
-      if (!this.rootGroups.length) return false;
-      return this.rootGroups.every((group) => !this.expandedGroups[this.groupKey(group)]);
     },
   },
   methods: {
@@ -499,26 +487,18 @@ export default {
       this.busy = false;
     },
     // Opens the new-group form as a sub-group row inside the given group, which also
-    // opens that group so the row is on screen.
+    // opens that group so the row is on screen. Groups are always created inside
+    // another group, the way KeePass does it; there is no root-level form.
     startNewGroup(parentGroup) {
       if (!parentGroup) return;
       const key = this.groupKey(parentGroup);
-      this.openNewGroupForm(key, parentGroup.uuid || null, true);
-    },
-    // The row under the last top-level group: a group at the same level as the
-    // existing top-level ones. The service puts a group created with no parent in
-    // the database's root group, which is exactly that level.
-    startRootGroup() {
-      this.openNewGroupForm(null, null, false);
-    },
-    openNewGroupForm(parentKey, parentUuid, expandParent) {
       this.showNewGroup = true;
       this.newGroupName = '';
-      this.newGroupParentKey = parentKey;
-      this.newGroupParentUuid = parentUuid;
-      if (expandParent && parentKey) this.$set(this.expandedGroups, parentKey, true);
+      this.newGroupParentKey = key;
+      this.newGroupParentUuid = parentGroup.uuid || null;
+      this.$set(this.expandedGroups, key, true);
       this.$nextTick(() => {
-        // The input lives inside a v-for, so the ref is an array there.
+        // The sub-group input is inside a v-for, so the ref is an array there.
         const el = this.$refs.newGroupInput;
         const input = Array.isArray(el) ? el[0] : el;
         if (input && input.focus) input.focus();
@@ -630,28 +610,6 @@ export default {
             />
             <i class="fa fa-check confirm-icon" @click="confirmNewGroup" :title="$t('Confirm')" />
             <i class="fa fa-times cancel-icon" @click="cancelNewGroup" :title="$t('Cancel')" />
-          </div>
-          <div
-            v-else-if="row.type === 'new-root-group'"
-            :key="'nr'"
-            class="new-group-inline"
-            :style="{ paddingLeft: indentFor(row.depth) }"
-          >
-            <template v-if="showNewGroup && !newGroupParentKey">
-              <input
-                ref="newGroupInput"
-                v-model="newGroupName"
-                class="group-name-input"
-                :placeholder="$t('Group name...')"
-                @keyup.enter="confirmNewGroup"
-                @keyup.escape="cancelNewGroup"
-              />
-              <i class="fa fa-check confirm-icon" @click="confirmNewGroup" :title="$t('Confirm')" />
-              <i class="fa fa-times cancel-icon" @click="cancelNewGroup" :title="$t('Cancel')" />
-            </template>
-            <span v-else class="new-group-entry selectable" @click="startRootGroup">
-              <i class="fa fa-plus" /> {{ $t('New Group') }}
-            </span>
           </div>
           <entry-row
             v-else
@@ -828,21 +786,6 @@ export default {
     padding: 3px 6px;
     &:focus { outline: none; }
   }
-}
-
-// The "new top-level group" row under the last root group: quiet until hovered,
-// like the other small actions in the list rather than a full-width button.
-.new-group-entry {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 4px;
-  border-radius: 3px;
-  font-size: 13px;
-  color: $blue;
-  cursor: pointer;
-  &:hover { background: var(--keepass-cat-bg-hover); }
-  .fa { font-size: 11px; }
 }
 
 .status-toast {
