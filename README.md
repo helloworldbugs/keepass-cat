@@ -144,6 +144,8 @@ KDBX entries can carry a history list of full snapshots, usually written by KeeP
 ```
 
 - Create / rename / delete groups
+- Sub-groups live inside the group they belong to: the `+` on a group row opens an indented name field, and every group keeps its own expand/collapse caret
+- Collapse every top-level group and a "New Group" row appears under the last one, for adding another group at the top level; the last remaining top-level group cannot be deleted
 - Move entries freely between groups
 - Tree-style browsing with expand/collapse
 

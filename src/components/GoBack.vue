@@ -7,12 +7,15 @@ export default {
 </script>
 
 <template>
-  <div class="box-bar selectable" @click="$router.goBack">
-    <span class="back-label">
+  <div class="box-bar selectable">
+    <!-- Only the label goes back. The bar used to carry the click, so the empty
+         space between the label and Save returned too, which read as a stray
+         click losing the form. -->
+    <span class="back-label" @click="$router.goBack">
       <i class="fa fa-chevron-left" aria-hidden="true" />
       {{ message }}
     </span>
-    <span class="extra" @click.stop>
+    <span class="extra">
       <slot name="extra"></slot>
     </span>
   </div>
@@ -27,10 +30,11 @@ export default {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  // The whole top bar (except the Save slot) goes back, so the label grows to
-  // cover that area: hovering anywhere left of Save nudges it, matching the click.
-  flex: 1 1 auto;
-  align-self: stretch;
+  // A hit area around the label, not the whole bar. The negative margin lets the
+  // padding grow the target without moving the text off the bar's left edge.
+  padding: 4px 6px;
+  margin: -4px -6px -4px 0;
+  cursor: pointer;
   // A small nudge left on hover, matching the 0.12s easing used across the UI.
   transition: transform 0.12s ease;
   &:hover {
