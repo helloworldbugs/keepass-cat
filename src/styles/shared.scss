@@ -73,6 +73,18 @@ textarea {
   text-align: center;
   color: var(--keepass-cat-svg-fill);
   background: rgba(0, 0, 0, 0.7);
+
+  // Floats over the bottom edge of its container instead of taking a row of its
+  // own: the list must not grow when the hint appears, and the bar has to cover the
+  // list's bottom border rather than sit under it. The container is positioned by
+  // the component that uses it.
+  &.is-floating {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    pointer-events: none;
+  }
 }
 
 .error {

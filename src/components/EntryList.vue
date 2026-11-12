@@ -125,35 +125,47 @@ export default {
       />
       <i class="fa fa-plus add-entry" @click="newEntry" :title="$t('New entry')" />
     </div>
-    <div class="entries" ref="listArea">
-      <div v-if="allMessages.warn || allMessages.error || allMessages.success" class="no-match-msg">
-        {{ allMessages.warn || allMessages.error || allMessages.success }}
+    <div class="list-body">
+      <div class="entries" ref="listArea">
+        <div v-if="allMessages.warn || allMessages.error || allMessages.success" class="no-match-msg">
+          {{ allMessages.warn || allMessages.error || allMessages.success }}
+        </div>
+        <div v-if="priorityEntries && searchTerm.length == 0">
+          <entry-row
+            v-for="entry in priorityEntries"
+            :key="entry.id"
+            :entry="entry"
+            :unlocked-state="unlockedState"
+            show-group
+          />
+        </div>
+        <div v-if="filteredEntries && searchTerm.length > 0">
+          <entry-row
+            v-for="entry in filteredEntries"
+            :key="entry.id"
+            :entry="entry"
+            :unlocked-state="unlockedState"
+            show-group
+          />
+        </div>
       </div>
-      <div v-if="priorityEntries && searchTerm.length == 0">
-        <entry-row
-          v-for="entry in priorityEntries"
-          :key="entry.id"
-          :entry="entry"
-          :unlocked-state="unlockedState"
-          show-group
-        />
-      </div>
-      <div v-if="filteredEntries && searchTerm.length > 0">
-        <entry-row
-          v-for="entry in filteredEntries"
-          :key="entry.id"
-          :entry="entry"
-          :unlocked-state="unlockedState"
-          show-group
-        />
+      <div v-if="searchEmpty" class="bar-hint is-floating list-hint">
+        {{ $t('No matching entries.') }}
       </div>
     </div>
-    <div v-if="searchEmpty" class="bar-hint">{{ $t('No matching entries.') }}</div>
   </div>
 </template>
 
 <style lang="scss">
 @import '../styles/settings.scss';
+// The hint floats over the list's bottom edge, so the list needs a positioned box
+// to float in and must not grow when the hint appears.
+.list-body {
+  position: relative;
+}
+.list-hint {
+  z-index: 9;
+}
 .entries {
   border-bottom: 2px solid $light-gray;
   height: 350px;

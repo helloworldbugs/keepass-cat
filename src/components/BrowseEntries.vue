@@ -947,9 +947,11 @@ export default {
         </template>
       </div>
     </div>
-    <div v-if="searchEmpty" class="bar-hint">{{ $t('No matching entries.') }}</div>
+    <div v-if="searchEmpty" class="bar-hint is-floating list-hint">
+      {{ $t('No matching entries.') }}
+    </div>
     <transition name="toast">
-      <div v-if="message" class="status-toast bar-hint">{{ message }}</div>
+      <div v-if="message" class="status-toast bar-hint is-floating">{{ message }}</div>
     </transition>
   </div>
 </template>
@@ -1136,13 +1138,14 @@ export default {
 .bin-delete-icon:hover { color: var(--keepass-cat-delete-hover); background: var(--keepass-cat-bg-hover); }
 
 .status-toast {
-  // The strip's look is shared (`.bar-hint`); this only pins the toast down and
-  // keeps it from eating clicks.
-  position: absolute;
-  bottom: 0;
-  left: 0; right: 0;
+  // Look and placement come from `.bar-hint`; the toast only sits above the
+  // search-empty hint when both would be on screen at once.
   z-index: 10;
-  pointer-events: none;
+}
+
+// Under the toast, but above the list's bottom border, which it covers.
+.list-hint {
+  z-index: 9;
 }
 .toast-enter-active, .toast-leave-active {
   transition: opacity 0.2s;
