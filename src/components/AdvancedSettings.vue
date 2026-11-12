@@ -13,6 +13,7 @@ export default {
       inlineIconEnabled: true,
       autoFillOnLoad: false,
       ignoreExpired: true,
+      recycleBinEnabled: true,
       fillTotpEnabled: true,
       copyTotpOnAutofill: true,
       notificationsEnabled: ['expiration', 'clipboard'],
@@ -37,6 +38,9 @@ export default {
     copyTotpOnAutofill(newval) {
       this.settings.getSetCopyTotpOnAutofill(newval)
     },
+    recycleBinEnabled(newval) {
+      this.settings.getSetRecycleBinEnabled(newval)
+    },
     notificationsEnabled(newval) {
       this.settings.getSetNotificationsEnabled(newval)
     }
@@ -57,6 +61,9 @@ export default {
     },
     saveIgnoreExpired() {
       this.settings.getSetIgnoreExpired(this.ignoreExpired);
+    },
+    saveRecycleBinEnabled() {
+      this.settings.getSetRecycleBinEnabled(this.recycleBinEnabled);
     },
     openShortcuts() {
       chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
@@ -79,6 +86,9 @@ export default {
       })
       this.settings.getSetIgnoreExpired().then(val => {
         this.ignoreExpired = val
+      })
+      this.settings.getSetRecycleBinEnabled().then(val => {
+        this.recycleBinEnabled = val
       })
       this.settings.getSetFillTotpEnabled().then(val => {
         this.fillTotpEnabled = val
@@ -203,6 +213,26 @@ export default {
       </div>
       <p class="totp-note">
         {{ $t('Expired entries are never matched to a page and are never autofilled. They stay in the database, struck through and marked as expired, and remain editable.') }}
+      </p>
+    </div>
+
+    <div class="box-bar roomy">
+      <h4>{{ $t('Recycle Bin') }}</h4>
+    </div>
+    <div class="box-bar roomy lighter">
+      <div class="switch">
+        <label>
+          <input
+            v-model="recycleBinEnabled"
+            type="checkbox"
+            @change="saveRecycleBinEnabled"
+          >
+          <span class="lever" />
+          {{ $t('Move deleted items to the recycle bin') }}
+        </label>
+      </div>
+      <p class="totp-note">
+        {{ $t('Deleted entries and groups go into the recycle bin inside the database file, where they can be restored. Switch this off to delete permanently. The bin row appears under a collapsed group.') }}
       </p>
     </div>
 

@@ -353,6 +353,13 @@ function Settings(secureCache) {
     return keyGetSetter('ignoreExpired', enabled, true, 'boolean');
   };
 
+  // Deletions move into the file's own recycle bin instead of disappearing. On by
+  // default, which is what KeePass itself does; the flag is mirrored into the file
+  // before each delete, so KeePass and this extension always agree.
+  exports.getSetRecycleBinEnabled = function (enabled) {
+    return keyGetSetter('recycleBinEnabled', enabled, true, 'boolean');
+  };
+
   exports.getSetFillTotpEnabled = function (enabled) {
     return keyGetSetter('fillTotpEnabled', enabled, true, 'boolean');
   };

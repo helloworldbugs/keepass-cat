@@ -40,6 +40,12 @@ export default {
       // have rendered, or when the entry cache arrives late).
       restoreScrollTop: 0,
       scrollRestored: false,
+      // The file's recycle bin. Its row shows under a *collapsed* parent, the
+      // opposite of ordinary sub-groups, so it stays out of the way while browsing.
+      recycleBin: null,
+      recycleBinOpen: false,
+      recycleBinLoading: false,
+      recycleBinContents: { groups: [], entries: [] },
     };
   },
   created() {
@@ -87,6 +93,7 @@ export default {
       this.expandLoneGroups();
       this.restoreGroupScroll();
     });
+    this.loadRecycleBin();
     // One ticker for the whole list, not one per row: the browse view can hold
     // hundreds of entries, so per-row intervals (as in the match list) would be
     // far too costly here.
@@ -207,6 +214,21 @@ export default {
             // deletable because their parent survives.
             canDelete: !(depth === 0 && this.rootGroups.length <= 1),
           });
+          // The recycle bin hangs under its parent group, but the opposite way round
+          // from real sub-groups: it appears while that group is collapsed, so it
+          // never crowds the tree while you are browsing the live groups.
+          if (!expanded && this.binParentKey === key) {
+            rows.push({ type: 'recycle-bin', depth: depth + 1 });
+            if (this.recycleBinOpen) {
+              const binDepth = depth + 2;
+              this.recycleBinContents.groups.forEach((binGroup) => {
+                rows.push({ type: 'bin-group', group: binGroup, depth: binDepth });
+              });
+              this.recycleBinContents.entries.forEach((binEntry) => {
+                rows.push({ type: 'bin-entry', entry: binEntry, depth: binDepth });
+              });
+            }
+          }
           if (!expanded) return;
           // The sub-group form sits inside the group it will create in.
           if (this.showNewGroup && this.newGroupParentKey === key) {
@@ -245,6 +267,18 @@ export default {
         if (group.uuid) byUuid[group.uuid] = true;
       });
       return this.groups.filter((group) => !(group.parentUuid && byUuid[group.parentUuid]));
+    },
+    // Key of the group the recycle bin row hangs under. Null hides the row: the
+    // switch is off, the file has no bin, or it has no resolvable parent.
+    binParentKey() {
+      const bin = this.recycleBin;
+      if (!bin || !bin.enabled || !bin.exists || !bin.parentUuid) return null;
+      return bin.parentUuid;
+    },
+    // Items inside the bin, for the row's count.
+    binItemCount() {
+      const bin = this.recycleBin;
+      return bin ? bin.entryCount + bin.groupCount : 0;
     },
   },
   methods: {
@@ -460,11 +494,19 @@ export default {
         setTimeout(() => this.message = '', 1800);
         return;
       }
+      const toBin = !!(this.recycleBin && this.recycleBin.enabled);
       let count = this.getGroupEntries(group).length;
       let label = group.path || group.name;
-      let msg = count > 0
-        ? this.$t('Delete group "{0}" and all {1} entries?', label, count)
-        : this.$t('Delete empty group "{0}"?', label);
+      let msg;
+      if (count > 0) {
+        msg = toBin
+          ? this.$t('Move group "{0}" and its {1} entries to the recycle bin?', label, count)
+          : this.$t('Delete group "{0}" and all {1} entries permanently?', label, count);
+      } else {
+        msg = toBin
+          ? this.$t('Move the empty group "{0}" to the recycle bin?', label)
+          : this.$t('Delete the empty group "{0}" permanently?', label);
+      }
       if (!confirm(msg)) return;
       this.busy = true;
       this.message = this.$t('Deleting...');
@@ -536,6 +578,100 @@ export default {
       this.newGroupParentKey = null;
       this.newGroupParentUuid = null;
     },
+    /* ------------------------------------------------------------ recycle bin */
+    // Reads the switch and the bin's size. Creating the bin here covers the case
+    // where it was switched on but the file has none yet, so the row is visible
+    // before the first delete. It writes only in that one case.
+    async loadRecycleBin() {
+      if (!this.keepassService.getRecycleBinInfo) return;
+      try {
+        // Creating the bin is a real change, so it is uploaded right away instead of
+        // waiting for some later save that may never happen.
+        const created = await this.keepassService.ensureRecycleBin();
+        if (created) await this.keepassService.uploadDatabase(created);
+        this.recycleBin = await this.keepassService.getRecycleBinInfo();
+      } catch (e) {
+        console.warn('[recycle-bin] could not read the bin:', e && e.message);
+        this.recycleBin = null;
+      }
+    },
+    async loadRecycleBinContents() {
+      try {
+        this.recycleBinContents = await this.keepassService.getRecycleBinContents();
+      } catch (e) {
+        console.warn('[recycle-bin] could not read its contents:', e && e.message);
+        this.recycleBinContents = { groups: [], entries: [] };
+      }
+    },
+    toggleRecycleBin() {
+      this.recycleBinOpen = !this.recycleBinOpen;
+      if (this.recycleBinOpen) this.loadRecycleBinContents();
+    },
+    // Uploads, rebuilds the cache and re-reads the bin: one tail for every bin
+    // action (restore, permanent delete, empty).
+    async persistBinChange(buffer, message) {
+      try {
+        await this.keepassService.uploadDatabase(buffer);
+        let fresh = await this.keepassService.reparseLocal();
+        this.unlockedState.cacheSet('allEntries', fresh);
+        if (this.$parent?.secureCache) {
+          this.$parent.secureCache.save('secureCache.entries', fresh);
+          this.$parent.secureCache.save('secureCache.entries', fresh, 'local');
+        }
+        this.entriesVersion++;
+        await this.loadRecycleBin();
+        await this.loadRecycleBinContents();
+        this.message = message;
+      } catch (err) {
+        this.message = this.$t('Error: ') + err.message;
+      }
+      setTimeout(() => this.message = '', 1800);
+    },
+    async restoreBinItem(kind, id) {
+      if (this.busy) return;
+      this.busy = true;
+      try {
+        const buffer = await this.keepassService.restoreRecycleBinItem(kind, id);
+        await this.persistBinChange(buffer, this.$t('Restored.'));
+      } catch (err) {
+        this.message = this.$t('Error: ') + err.message;
+        setTimeout(() => this.message = '', 1800);
+      }
+      this.busy = false;
+    },
+    // Deleting from inside the bin is permanent: the service drops it instead of
+    // moving it to the bin it is already in.
+    async deleteBinItem(kind, id) {
+      if (this.busy) return;
+      const text = this.$t('Delete this item permanently? It cannot be recovered.');
+      if (!confirm(text)) return;
+      this.busy = true;
+      try {
+        const buffer =
+          kind === 'group'
+            ? await this.keepassService.deleteGroup(id)
+            : await this.keepassService.deleteEntry(id);
+        await this.persistBinChange(buffer, this.$t('Deleted permanently.'));
+      } catch (err) {
+        this.message = this.$t('Error: ') + err.message;
+        setTimeout(() => this.message = '', 1800);
+      }
+      this.busy = false;
+    },
+    async emptyBin() {
+      if (this.busy) return;
+      const text = this.$t('Empty the recycle bin? Everything in it is deleted permanently.');
+      if (!confirm(text)) return;
+      this.busy = true;
+      try {
+        const buffer = await this.keepassService.emptyRecycleBin();
+        await this.persistBinChange(buffer, this.$t('Recycle bin emptied.'));
+      } catch (err) {
+        this.message = this.$t('Error: ') + err.message;
+        setTimeout(() => this.message = '', 1800);
+      }
+      this.busy = false;
+    },
   },
 };
 </script>
@@ -593,6 +729,77 @@ export default {
               />
             </span>
             <span class="group-count">{{ row.count }}</span>
+          </div>
+          <!-- The recycle bin row: appears under its parent only while that parent is
+               collapsed, the reverse of how real sub-groups behave. -->
+          <div
+            v-else-if="row.type === 'recycle-bin'"
+            :key="'bin'"
+            class="group-header bin-row"
+            :style="{ paddingLeft: indentFor(row.depth) }"
+            @click="toggleRecycleBin"
+          >
+            <i :class="['fa', 'caret', recycleBinOpen ? 'fa-caret-down' : 'fa-caret-right']" />
+            <i class="fa fa-trash-o bin-icon" />
+            <span class="group-name">{{ $t('Recycle Bin') }}</span>
+            <span v-if="binItemCount > 0" class="group-count">{{ binItemCount }}</span>
+            <span class="action-icons" @click.stop>
+              <i
+                v-if="binItemCount > 0"
+                class="fa fa-eraser bin-empty-icon"
+                @click="emptyBin"
+                :title="$t('Empty the recycle bin')"
+              />
+            </span>
+          </div>
+          <!-- A group that was deleted, with the subtree it dragged along. Only the
+               top-level item gets a restore button; restoring brings all of it back. -->
+          <div
+            v-else-if="row.type === 'bin-group'"
+            :key="'bg:' + row.group.uuid"
+            class="group-header bin-item"
+            :style="{ paddingLeft: indentFor(row.depth) }"
+          >
+            <i class="fa fa-caret-right caret" />
+            <i class="fa fa-folder-o" />
+            <span class="group-name">{{ row.group.name }}</span>
+            <span class="group-count">{{ row.group.entryCount }}</span>
+            <span class="action-icons" @click.stop>
+              <i
+                class="fa fa-undo restore-icon"
+                @click="restoreBinItem('group', row.group.uuid)"
+                :title="$t('Restore')"
+              />
+              <i
+                class="fa fa-trash bin-delete-icon"
+                @click="deleteBinItem('group', row.group.uuid)"
+                :title="$t('Delete permanently')"
+              />
+            </span>
+          </div>
+          <!-- A deleted entry: restore or drop it for good. -->
+          <div
+            v-else-if="row.type === 'bin-entry'"
+            :key="'be:' + row.entry.id"
+            class="bin-entry"
+            :style="{ paddingLeft: indentEntryFor(row.depth) }"
+          >
+            <span class="bin-entry-text">
+              <span class="title">{{ row.entry.title }}</span>
+              <span class="user">{{ row.entry.userName }}</span>
+            </span>
+            <span class="action-icons" @click.stop>
+              <i
+                class="fa fa-undo restore-icon"
+                @click="restoreBinItem('entry', row.entry.id)"
+                :title="$t('Restore')"
+              />
+              <i
+                class="fa fa-trash bin-delete-icon"
+                @click="deleteBinItem('entry', row.entry.id)"
+                :title="$t('Delete permanently')"
+              />
+            </span>
           </div>
           <div
             v-else-if="row.type === 'new-group'"
@@ -785,6 +992,54 @@ export default {
     border-radius: 3px;
     padding: 3px 6px;
     &:focus { outline: none; }
+  }
+}
+
+// The recycle bin is a quiet corner of the view: a muted trash icon, and items that
+// offer only the two actions that make sense (restore, drop for good).
+.bin-row {
+  .bin-icon { color: var(--keepass-cat-icon-muted); }
+}
+
+.bin-item { font-weight: 500; }
+
+.bin-empty-icon,
+.restore-icon,
+.bin-delete-icon {
+  font-size: 12px;
+  padding: 3px 4px;
+  border-radius: 2px;
+  color: var(--keepass-cat-icon-muted);
+}
+.restore-icon:hover { color: var(--keepass-cat-text); background: var(--keepass-cat-bg-hover); }
+.bin-empty-icon:hover,
+.bin-delete-icon:hover { color: var(--keepass-cat-delete-hover); background: var(--keepass-cat-bg-hover); }
+
+.bin-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px $wall-padding;
+  background: $light-background-color;
+  border-bottom: 1px solid $light-gray;
+  .bin-entry-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .title {
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
+  }
+  .user { font-size: 11px; color: var(--keepass-cat-text-subtle); }
+  .action-icons {
+    display: flex;
+    gap: 4px;
+    flex: 0 0 auto;
   }
 }
 

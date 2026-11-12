@@ -91,6 +91,9 @@ export default {
       messageTimer: null,   // pending auto-hide for the status toast
       navTimer: null,       // pending "return to list" after a successful save
       deleteClick: 0,   // 0=not clicked, 1=clicked once (show confirm), 2=delete now
+      // Whether Delete moves the entry into the file's recycle bin (the tooltip and
+      // the success message both say which of the two happened).
+      recycleBinEnabled: true,
       fromBrowse: false,
       deleting: false,
       // Custom string fields shown at the bottom of the form. `originalName`
@@ -221,6 +224,13 @@ export default {
     // The form is remounted per entry, but reset explicitly as well so a
     // revealed password can never carry over to the next entry.
     this.isPasswordVisible = false;
+    // Deleting means "move to the recycle bin" while that setting is on; the
+    // wording on the delete button has to say so.
+    if (this.settings && this.settings.getSetRecycleBinEnabled) {
+      this.settings.getSetRecycleBinEnabled().then((enabled) => {
+        this.recycleBinEnabled = !!enabled;
+      });
+    }
     // Close the expiry preset list on any click outside it; the toggle and the
     // options stop propagation, so their own clicks never reach this.
     document.addEventListener('click', this.closeExpiryMenu);
@@ -1200,7 +1210,7 @@ export default {
       <span
         v-if="!isNew"
         class="delete-btn selectable"
-        :title="$t('Delete')"
+        :title="recycleBinEnabled ? $t('Move to the recycle bin') : $t('Delete permanently')"
         @click="deleteEntry"
       >
         <i class="fa fa-trash" />

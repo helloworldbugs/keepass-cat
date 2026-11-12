@@ -316,6 +316,85 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     return null;
   }
 
+  /* ---------------------------------------------------------------- recycle bin */
+
+  /*
+   * The recycle bin is an ordinary group under the database's root, marked in the
+   * file by meta.recycleBinUuid; KeePass and KeePassXC use the same flag. Null means
+   * there is none, either because it was never created or because the uuid points at
+   * a group that no longer exists.
+   */
+  function recycleBinGroup() {
+    if (!_db || !_db.meta || !_db.meta.recycleBinEnabled || !_db.meta.recycleBinUuid) return null;
+    return findGroupByUuid(String(_db.meta.recycleBinUuid));
+  }
+
+  /* Whether a group sits in the recycle bin subtree (the bin itself counts). */
+  function groupInBin(group, binUuid) {
+    var current = group;
+    while (current) {
+      if (groupUuidString(current) === binUuid) return true;
+      current = current.parentGroup;
+    }
+    return false;
+  }
+
+  /* Whether an entry or group is already inside the recycle bin. */
+  function isInRecycleBin(object) {
+    var bin = recycleBinGroup();
+    if (!bin || !object || !object.parentGroup) return false;
+    return groupInBin(object.parentGroup, groupUuidString(bin));
+  }
+
+  /*
+   * Points the file's own flag at the setting before a delete, creating the bin when
+   * it is on (KeePass does the same). It rides along with the save that follows, so
+   * the file and our behaviour never disagree.
+   */
+  function applyRecycleBinFlag(enabled) {
+    if (!_db) return;
+    if (enabled) _db.createRecycleBin();
+    else _db.meta.recycleBinEnabled = false;
+  }
+
+  function countEntriesDeep(group) {
+    var total = group.entries.length;
+    for (var i = 0; i < group.groups.length; i++) total += countEntriesDeep(group.groups[i]);
+    return total;
+  }
+
+  function countGroupsDeep(group) {
+    var total = group.groups.length;
+    for (var i = 0; i < group.groups.length; i++) total += countGroupsDeep(group.groups[i]);
+    return total;
+  }
+
+  /* Removes an object from its parent without going through the recycle bin. */
+  function removePermanently(object) {
+    if (!object || !object.parentGroup) return false;
+    var container =
+      object instanceof kdbxweb.KdbxGroup ? object.parentGroup.groups : object.parentGroup.entries;
+    var index = container.indexOf(object);
+    if (index < 0) return false;
+    container.splice(index, 1);
+    return true;
+  }
+
+  /* Finds a raw entry by its extension id inside one group subtree. */
+  function findEntryInGroupTree(group, id) {
+    for (var i = 0; i < group.entries.length; i++) {
+      var entry = group.entries[i];
+      if (entry.uuid && !entry.uuid.empty) {
+        if (convertArrayToUUID(Base64.decode(entry.uuid.id)) === id) return entry;
+      }
+    }
+    for (var j = 0; j < group.groups.length; j++) {
+      var found = findEntryInGroupTree(group.groups[j], id);
+      if (found) return found;
+    }
+    return null;
+  }
+
   /**
    * return Promise(arrayBufer)
    */
@@ -464,7 +543,7 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
   /*
    * Takes a kdbxweb group object and transforms it into a list of entries.
    **/
-  function parseKdbxDb(groups, repairCounter, parentPath, rootGroup) {
+  function parseKdbxDb(groups, repairCounter, parentPath, rootGroup, binUuid) {
     var isTopLevel = repairCounter === undefined;
     if (isTopLevel) {
       repairCounter = { count: 0 };
@@ -472,10 +551,17 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
       // The default group is the tree root. It is itself skipped from the group
       // pickers, so its name is not part of its children's paths.
       rootGroup = _db ? _db.getDefaultGroup() : groups[0] || null;
+      // Deleted items live under the recycle bin; they must never reach the cache,
+      // or they would keep matching pages and showing up in search. The uuid is used
+      // whether or not the feature is on, because the group (and its contents) may
+      // still be there from KeePass.
+      binUuid = _db && _db.meta && _db.meta.recycleBinUuid ? String(_db.meta.recycleBinUuid) : null;
     }
     var results = [];
     for (var i = 0; i < groups.length; i++) {
       var group = groups[i];
+      // Skip the bin and its whole subtree.
+      if (binUuid && groupUuidString(group) === binUuid) continue;
       var groupName = group.name || 'Root';
       var isRoot = group === rootGroup;
       // Entries directly in the root group still need a visible label; use the
@@ -489,7 +575,7 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
       if (group.groups.length > 0) {
         // recursive case for subgroups.
         results = results.concat(
-          parseKdbxDb(group.groups, repairCounter, childPath, rootGroup)
+          parseKdbxDb(group.groups, repairCounter, childPath, rootGroup, binUuid)
         );
       }
       for (var j = 0; j < group.entries.length; j++) {
@@ -1128,8 +1214,10 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
       var name = group.name || 'Root';
       var isRoot = group === defaultGroup;
       var path = parentPath ? parentPath + '/' + name : name;
-      // Skip Root and recycle bin groups, but still traverse Root's children.
-      if (!isRoot && !isRecycleBin(group)) {
+      // Skip Root and the recycle bin (with everything inside it: deleted items are
+      // not groups the pickers or the tree may offer), but still traverse Root.
+      if (isRecycleBin(group)) return;
+      if (!isRoot) {
         result.push({
           uuid: groupUuidString(group),
           name: name,
@@ -1153,6 +1241,100 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     return result;
   };
 
+  /* ---------------------------------------------------- recycle bin public API */
+
+  /* What the database view needs to draw the recycle bin: the switch and its size. */
+  my.getRecycleBinInfo = function () {
+    return my.ensureDbLoaded().then(function () {
+      return settings.getSetRecycleBinEnabled().then(function (enabled) {
+        var bin = recycleBinGroup();
+        return {
+          enabled: !!enabled,
+          exists: !!bin,
+          name: bin ? bin.name || '' : '',
+          // Where the bin lives, so the view can place its row under that group.
+          parentUuid: bin ? groupUuidString(bin.parentGroup) : null,
+          entryCount: bin ? countEntriesDeep(bin) : 0,
+          groupCount: bin ? countGroupsDeep(bin) : 0,
+        };
+      });
+    });
+  };
+
+  /*
+   * Creates the bin when the setting is on and the file has none yet, so the row is
+   * there before the first delete. Writes only in that case.
+   */
+  my.ensureRecycleBin = function () {
+    return my.ensureDbLoaded().then(function () {
+      return settings.getSetRecycleBinEnabled().then(function (enabled) {
+        if (!enabled || recycleBinGroup()) return null;
+        _db.createRecycleBin();
+        return _db.save();
+      });
+    });
+  };
+
+  /* The bin's own items: deleted groups (with the subtree they dragged along) and
+     deleted entries. */
+  my.getRecycleBinContents = function () {
+    return my.ensureDbLoaded().then(function () {
+      var bin = recycleBinGroup();
+      if (!bin) return { groups: [], entries: [] };
+      var groups = bin.groups.map(function (group) {
+        return {
+          uuid: groupUuidString(group),
+          name: group.name || '',
+          entryCount: countEntriesDeep(group),
+          groupCount: countGroupsDeep(group),
+        };
+      });
+      var entries = bin.entries.map(function (entry) {
+        return {
+          id:
+            entry.uuid && !entry.uuid.empty
+              ? convertArrayToUUID(Base64.decode(entry.uuid.id))
+              : null,
+          title: readKdbxFieldValue(entry.fields.get('Title')),
+          userName: readKdbxFieldValue(entry.fields.get('UserName')),
+        };
+      });
+      return { groups: groups, entries: entries };
+    });
+  };
+
+  /*
+   * Moves one item out of the bin. KDBX records where it came from (the
+   * previousParentGroup field), so it goes back there when that group still exists
+   * and is not itself in the bin; otherwise to the database's default group.
+   */
+  my.restoreRecycleBinItem = function (kind, id) {
+    return my.ensureDbLoaded().then(function () {
+      var bin = recycleBinGroup();
+      if (!bin) throw new Error(i18n.t('Recycle bin not found'));
+      var item =
+        kind === 'group' ? findGroupByUuidIn(bin.groups, id) : findEntryInGroupTree(bin, id);
+      if (!item) throw new Error(i18n.t('Item not found in the recycle bin'));
+      var previous = item.previousParentGroup
+        ? findGroupByUuid(String(item.previousParentGroup))
+        : null;
+      var target = previous && !isInRecycleBin(previous) ? previous : _db.getDefaultGroup();
+      _db.move(item, target);
+      return _db.save();
+    });
+  };
+
+  /* Empties the bin for good. */
+  my.emptyRecycleBin = function () {
+    return my.ensureDbLoaded().then(function () {
+      var bin = recycleBinGroup();
+      if (!bin) throw new Error(i18n.t('Recycle bin not found'));
+      bin.entries.splice(0, bin.entries.length);
+      bin.groups.splice(0, bin.groups.length);
+      return _db.save();
+    });
+  };
+
   my.createGroup = function (groupName, parentUuid) {
     return my.ensureDbLoaded().then(function () {
       var parent = parentUuid ? findGroupByUuid(String(parentUuid)) : null;
@@ -1171,17 +1353,21 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     });
   };
 
+  /*
+   * Same rule as deleteEntry: a group (with everything inside it) moves into the
+   * recycle bin while the feature is on, and a group that is already in the bin is
+   * removed for good.
+   */
   my.deleteGroup = function (uuidOrName) {
     return my.ensureDbLoaded().then(function () {
-      var group = resolveGroup(uuidOrName);
-      if (!group) return Promise.reject(new Error(i18n.t('Group not found')));
-      // Splice directly from parent to bypass recycle bin (same pattern as deleteEntry)
-      var parent = group.parentGroup;
-      if (parent) {
-        var idx = parent.groups.indexOf(group);
-        if (idx >= 0) parent.groups.splice(idx, 1);
-      }
-      return _db.save();
+      return settings.getSetRecycleBinEnabled().then(function (enabled) {
+        applyRecycleBinFlag(enabled);
+        var group = resolveGroup(uuidOrName);
+        if (!group) throw new Error(i18n.t('Group not found'));
+        if (isInRecycleBin(group)) removePermanently(group);
+        else _db.remove(group);
+        return _db.save();
+      });
     });
   };
 
@@ -1215,25 +1401,22 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
     });
   };
 
+  /*
+   * Deleting goes through the file's own recycle bin when the feature is on, and
+   * removes the entry for good when it is off - the same rule KeePass applies. An
+   * entry that is already in the bin has nowhere further to go, so a second delete
+   * is permanent.
+   */
   my.deleteEntry = function (entryId) {
     return my.ensureDbLoaded().then(function () {
-      function findAndRemove(groups, id) {
-        for (var i = 0; i < groups.length; i++) {
-          for (var j = 0; j < groups[i].entries.length; j++) {
-            var e = groups[i].entries[j];
-            if (e.uuid && !e.uuid.empty) {
-              if (convertArrayToUUID(Base64.decode(e.uuid.id)) === id)
-                return groups[i].entries.splice(j, 1)[0];
-            }
-          }
-          var found = findAndRemove(groups[i].groups, id);
-          if (found) return found;
-        }
-        return null;
-      }
-      var removed = findAndRemove(_db.groups, entryId);
-      if (!removed) return Promise.reject(new Error('Entry not found'));
-      return _db.save();
+      return settings.getSetRecycleBinEnabled().then(function (enabled) {
+        applyRecycleBinFlag(enabled);
+        var entry = findKdbxEntryById(entryId);
+        if (!entry) throw new Error(i18n.t('Entry not found in database'));
+        if (isInRecycleBin(entry)) removePermanently(entry);
+        else _db.remove(entry);
+        return _db.save();
+      });
     });
   };
 
