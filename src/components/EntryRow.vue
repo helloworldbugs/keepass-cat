@@ -20,6 +20,10 @@ export default {
     // hold hundreds of entries). Null means this row keeps its own interval, which
     // is fine for the handful of rows a match list shows.
     otpSeconds: { type: Number, default: null },
+    // A row in the recycle bin: same look as any other entry, but nothing on it
+    // fills or edits - only the two bin actions, and only on the top-level rows.
+    recycle: Boolean,
+    recycleActions: Boolean,
   },
   data() {
     return {
@@ -80,6 +84,9 @@ export default {
   },
   methods: {
     autofill(e) {
+      // A deleted entry is not something to fill from; its row only carries the two
+      // bin actions.
+      if (this.recycle) return;
       e.stopPropagation();
       this.unlockedState.autofill(this.entry);
     },
@@ -127,8 +134,8 @@ export default {
 
 <template>
   <div
-    class="entry-row selectable between flair"
-    :class="{ 'is-expired': isExpired }"
+    class="entry-row selectable"
+    :class="{ 'between flair': !recycle, 'is-expired': isExpired, 'is-recycle': recycle }"
     @click="autofill"
   >
     <div class="text-info" :class="{ strike: isExpired }">
@@ -142,7 +149,7 @@ export default {
         entry.groupName
       }}</span>
     </div>
-    <div class="buttons" :class="{ 'no-otp': !hasTotp }">
+    <div v-if="!recycle" class="buttons" :class="{ 'no-otp': !hasTotp }">
       <span v-if="hasTotp" class="otp-countdown">{{ displayedSeconds }}s</span>
       <span v-if="hasTotp" class="fa-stack copy-otp" @click="copyOtp" :title="$t('Copy OTP code')">
         <i class="fa fa-circle fa-stack-2x" />
@@ -168,6 +175,17 @@ export default {
       <span class="fa-stack edit" @click="edit" :title="$t('Edit entry')">
         <i class="fa fa-circle fa-stack-2x" />
         <i class="fa fa-pencil fa-stack-1x fa-inverse" />
+      </span>
+    </div>
+    <!-- A deleted entry, same row as ever with the bin's two actions instead. -->
+    <div v-else-if="recycleActions" class="buttons recycle-buttons">
+      <span class="fa-stack restore" @click.stop="$emit('restore')" :title="$t('Restore')">
+        <i class="fa fa-circle fa-stack-2x" />
+        <i class="fa fa-undo fa-stack-1x fa-inverse" />
+      </span>
+      <span class="fa-stack remove" @click.stop="$emit('remove')" :title="$t('Delete permanently')">
+        <i class="fa fa-circle fa-stack-2x" />
+        <i class="fa fa-trash fa-stack-1x fa-inverse" />
       </span>
     </div>
   </div>
@@ -274,6 +292,24 @@ export default {
   .edit,
   .url {
     opacity: 0.35;
+  }
+  // The bin's two actions use the same grey circles as the normal ones; only the
+  // set is different.
+  .recycle-buttons {
+    min-width: calc(24em / 7 + 14px);
+  }
+  .restore,
+  .remove {
+    opacity: 0.35;
+  }
+  .restore:hover,
+  .remove:hover {
+    opacity: 0.8;
+  }
+  // A deleted row is not clickable itself; the pointer stays an arrow.
+  &.is-recycle,
+  &.is-recycle:hover {
+    cursor: default;
   }
   // The key glyph is drawn diagonally; turn it upright so it matches the other
   // row icons and its bit points to the right.

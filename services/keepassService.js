@@ -1297,6 +1297,8 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
               : null,
           title: readKdbxFieldValue(entry.fields.get('Title')),
           userName: readKdbxFieldValue(entry.fields.get('UserName')),
+          // The row falls back to the URL when a deleted entry has no title.
+          url: readKdbxFieldValue(entry.fields.get('URL')),
         };
       });
       return { groups: groups, entries: entries };
@@ -1336,6 +1338,7 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
                 : null,
             title: readKdbxFieldValue(entry.fields.get('Title')),
             userName: readKdbxFieldValue(entry.fields.get('UserName')),
+            url: readKdbxFieldValue(entry.fields.get('URL')),
             depth: depth,
           });
         });

@@ -866,30 +866,19 @@ export default {
               />
             </span>
           </div>
-          <!-- A deleted entry: restore or drop it for good. -->
-          <div
+          <!-- A deleted entry: the normal row, with the bin's two actions instead of
+               the autofill / copy / edit set. -->
+          <entry-row
             v-else-if="row.type === 'bin-entry'"
             :key="'be:' + row.entry.id"
-            class="bin-entry"
             :style="{ paddingLeft: indentEntryFor(row.depth) }"
-          >
-            <span class="bin-entry-text">
-              <span class="title">{{ row.entry.title }}</span>
-              <span class="user">{{ row.entry.userName }}</span>
-            </span>
-            <span v-if="row.canRestore" class="action-icons" @click.stop>
-              <i
-                class="fa fa-undo restore-icon"
-                @click="restoreBinItem('entry', row.entry.id)"
-                :title="$t('Restore')"
-              />
-              <i
-                class="fa fa-trash bin-delete-icon"
-                @click="deleteBinItem('entry', row.entry.id)"
-                :title="$t('Delete permanently')"
-              />
-            </span>
-          </div>
+            :entry="row.entry"
+            :unlocked-state="unlockedState"
+            recycle
+            :recycle-actions="row.canRestore"
+            @restore="restoreBinItem('entry', row.entry.id)"
+            @remove="deleteBinItem('entry', row.entry.id)"
+          />
           <div
             v-else-if="row.type === 'new-group'"
             :key="'n:' + row.depth"
@@ -1105,34 +1094,6 @@ export default {
 .restore-icon:hover { color: var(--keepass-cat-text); background: var(--keepass-cat-bg-hover); }
 .bin-empty-icon:hover,
 .bin-delete-icon:hover { color: var(--keepass-cat-delete-hover); background: var(--keepass-cat-bg-hover); }
-
-.bin-entry {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px $wall-padding;
-  background: $light-background-color;
-  border-bottom: 1px solid $light-gray;
-  .bin-entry-text {
-    flex: 1 1 auto;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-  }
-  .title {
-    font-size: 13px;
-    white-space: nowrap;
-    overflow: hidden;
-    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
-    mask-image: linear-gradient(to right, #000 calc(100% - 1.5em), transparent);
-  }
-  .user { font-size: 11px; color: var(--keepass-cat-text-subtle); }
-  .action-icons {
-    display: flex;
-    gap: 4px;
-    flex: 0 0 auto;
-  }
-}
 
 .status-toast {
   position: absolute;
