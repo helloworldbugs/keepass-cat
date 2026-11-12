@@ -580,6 +580,9 @@ export default {
           this.$parent.secureCache.save('secureCache.entries', fresh, 'local');
         }
         this.entriesVersion++;
+        // The group just moved into the bin: its row lives in this same screen, so
+        // its count has to be re-read here instead of waiting for a re-entry.
+        await this.refreshRecycleBin();
         this.message = this.$t('Deleted.');
         this.$forceUpdate();
         setTimeout(() => this.message = '', 1500);
@@ -663,6 +666,11 @@ export default {
         this.recycleBinContents = { groups: [], entries: [] };
       }
     },
+    // One refresh for both the row's count and, when it is open, its contents.
+    async refreshRecycleBin() {
+      await this.loadRecycleBin();
+      if (this.recycleBinOpen) await this.loadRecycleBinContents();
+    },
     toggleRecycleBin() {
       this.recycleBinOpen = !this.recycleBinOpen;
       if (this.recycleBinOpen) this.loadRecycleBinContents();
@@ -697,8 +705,7 @@ export default {
         // stale: drop it and let the list come back collapsed.
         this.binGroupOpen = {};
         this.binGroupRows = {};
-        await this.loadRecycleBin();
-        await this.loadRecycleBinContents();
+        await this.refreshRecycleBin();
         this.message = message;
       } catch (err) {
         this.message = this.$t('Error: ') + err.message;
