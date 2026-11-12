@@ -1351,7 +1351,12 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
   /*
    * Moves one item out of the bin. KDBX records where it came from (the
    * previousParentGroup field), so it goes back there when that group still exists
-   * and is not itself in the bin; otherwise to the database's default group.
+   * and is not itself in the bin.
+   *
+   * An entry that went into the bin together with its group has no record of its
+   * own - only the deleted group does - so the nearest ancestor inside the bin is
+   * asked where it came from. Without that, restoring a single entry would drop it
+   * in the default group instead of beside the group it used to live in.
    */
   my.restoreRecycleBinItem = function (kind, id) {
     return my.ensureDbLoaded().then(function () {
@@ -1360,10 +1365,25 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
       var item =
         kind === 'group' ? findGroupByUuidIn(bin.groups, id) : findEntryInGroupTree(bin, id);
       if (!item) throw new Error(i18n.t('Item not found in the recycle bin'));
-      var previous = item.previousParentGroup
-        ? findGroupByUuid(String(item.previousParentGroup))
-        : null;
-      var target = previous && !isInRecycleBin(previous) ? previous : _db.getDefaultGroup();
+
+      function outsideBin(group) {
+        return group && !isInRecycleBin(group) ? group : null;
+      }
+      function originOf(object) {
+        return object && object.previousParentGroup
+          ? findGroupByUuid(String(object.previousParentGroup))
+          : null;
+      }
+
+      var target = outsideBin(originOf(item));
+      if (!target) {
+        for (var ancestor = item.parentGroup; ancestor && ancestor !== bin; ancestor = ancestor.parentGroup) {
+          target = outsideBin(originOf(ancestor));
+          if (target) break;
+        }
+      }
+      if (!target) target = _db.getDefaultGroup();
+
       _db.move(item, target);
       return _db.save();
     });

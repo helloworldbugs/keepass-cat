@@ -134,8 +134,8 @@ export default {
 
 <template>
   <div
-    class="entry-row selectable"
-    :class="{ 'between flair': !recycle, 'is-expired': isExpired, 'is-recycle': recycle }"
+    class="entry-row selectable between flair"
+    :class="{ 'is-expired': isExpired, 'is-recycle': recycle }"
     @click="autofill"
   >
     <div class="text-info" :class="{ strike: isExpired }">

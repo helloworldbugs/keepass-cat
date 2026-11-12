@@ -153,7 +153,7 @@ KDBX entries can carry a history list of full snapshots, usually written by KeeP
 
 - Deleting an entry or a group moves it into the database file's own recycle bin, the one KeePass uses; **Settings → Recycle Bin** switches that off to delete permanently
 - The bin row sits under its parent group but appears only while that group is collapsed, the reverse of how real sub-groups show, so it stays out of the way while browsing
-- A deleted group can be opened to look inside; restoring it brings its whole subtree back, and an item returns to the group it was deleted from (the default group when that group is gone)
+- A deleted group can be opened to look inside; a single entry can be restored or dropped from there, and restoring the group itself brings its whole subtree back, into the group it was deleted from (the default group when that one is gone)
 - Deleted entries never match pages, never autofill and stay out of the group pickers and search results
 - Deleting inside the bin is permanent, and the bin itself can be emptied from its row
 

@@ -243,12 +243,18 @@ export default {
                 });
                 if (!open) return;
                 (this.binGroupRows[binGroup.uuid] || []).forEach((item) => {
+                  const isGroup = item.type === 'group';
                   rows.push({
-                    type: item.type === 'group' ? 'bin-group' : 'bin-entry',
-                    group: item.type === 'group' ? item : null,
-                    entry: item.type === 'entry' ? item : null,
-                    depth: binDepth + 1 + item.depth,
-                    canRestore: false,
+                    type: isGroup ? 'bin-group' : 'bin-entry',
+                    group: isGroup ? item : null,
+                    entry: isGroup ? null : item,
+                    // A group sits one step in from the deleted group above it; an
+                    // entry lines up with that group's name, exactly as in the live
+                    // tree.
+                    depth: binDepth + (isGroup ? 1 : 0) + item.depth,
+                    // Entries keep their own restore / delete; a nested group is
+                    // restored through the group that was deleted.
+                    canRestore: !isGroup,
                     expandable: false,
                     open: false,
                   });
@@ -675,13 +681,15 @@ export default {
       this.recycleBinOpen = !this.recycleBinOpen;
       if (this.recycleBinOpen) this.loadRecycleBinContents();
     },
-    // Opens a deleted group so its contents can be inspected. Those rows are
-    // read-only: restoring the group brings the whole subtree back.
+    // Opens a deleted group so its contents can be inspected, and re-reads the rows
+    // of one that is already open.
     async toggleBinGroup(uuid) {
       if (!uuid) return;
       const open = !this.binGroupOpen[uuid];
       this.$set(this.binGroupOpen, uuid, open);
-      if (!open || this.binGroupRows[uuid]) return;
+      if (open && !this.binGroupRows[uuid]) await this.loadBinGroupRows(uuid);
+    },
+    async loadBinGroupRows(uuid) {
       try {
         const rows = await this.keepassService.getRecycleBinGroupContents(uuid);
         this.$set(this.binGroupRows, uuid, rows);
@@ -701,11 +709,18 @@ export default {
           this.$parent.secureCache.save('secureCache.entries', fresh, 'local');
         }
         this.entriesVersion++;
-        // The items just changed, so any remembered expansion inside the bin is
-        // stale: drop it and let the list come back collapsed.
-        this.binGroupOpen = {};
+        // The bin changed, so its rows are stale. A deleted group the user opened
+        // stays open: only its rows are re-read, and only if it is still there.
+        const openGroups = Object.keys(this.binGroupOpen).filter((id) => this.binGroupOpen[id]);
         this.binGroupRows = {};
         await this.refreshRecycleBin();
+        if (this.recycleBinOpen) {
+          const present = new Set((this.recycleBinContents.groups || []).map((g) => g.uuid));
+          openGroups.forEach((id) => {
+            if (present.has(id)) this.loadBinGroupRows(id);
+            else this.$delete(this.binGroupOpen, id);
+          });
+        }
         this.message = message;
       } catch (err) {
         this.message = this.$t('Error: ') + err.message;
