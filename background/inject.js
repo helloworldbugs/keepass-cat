@@ -40,6 +40,20 @@ window.__keepassCatMessageListener = function (message, sender, sendResponse) {
     return;
   }
 
+  if (message.m == 'hasCredentialFields') {
+    // Matching asks each frame whether it holds a login form, so that a third-party
+    // widget frame (captcha, Turnstile, payment) does not offer its own saved login
+    // on a page that merely embeds it.
+    var fields = collectFields(document, window);
+    sendResponse({
+      has:
+        fields.userPasswordPairs.length > 0 ||
+        fields.lonelyPasswords.length > 0 ||
+        fields.usernameCandidates.length > 0,
+    });
+    return;
+  }
+
   if (message.m == 'fillPassword') {
     //user has selected to fill the password
 

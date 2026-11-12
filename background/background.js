@@ -20,6 +20,7 @@ import {
 import { matchLevel } from '@/lib/matchLevel.js';
 import { setIgnoreExpired } from '@/lib/matchLevel.js';
 import { Otp } from '@/lib/otp.js';
+import { credentialFrameUrls } from '@/lib/pageUrls.js';
 
 function Background(protectedMemory, localMemory, settings, notifications) {
   console.log('Background worker registered.');
@@ -227,11 +228,14 @@ function Background(protectedMemory, localMemory, settings, notifications) {
   // them to be filled by id; the password itself never leaves the background.
   if (message.m == 'inlineMatches' || message.m == 'inlineFill') {
     var pageTab = sender && sender.tab;
-    // Match against the frame that actually holds the form. Login pages often
-    // embed it from another origin (email.163.com -> dl.reg.163.com), and the
-    // tab's URL would never match the entry's URL then.
-    var pageUrl = (sender && sender.url) || (pageTab && pageTab.url);
-    if (!pageTab || !pageUrl || !/^https?:/i.test(pageUrl)) {
+    // The frame that holds the form and the page it belongs to both count: a login
+    // form embedded from another origin (email.163.com -> dl.reg.163.com) may have
+    // its entry saved under either URL.
+    var pageUrls = [];
+    [sender && sender.url, pageTab && pageTab.url].forEach(function (url) {
+      if (url && /^https?:/i.test(url) && pageUrls.indexOf(url) < 0) pageUrls.push(url);
+    });
+    if (!pageTab || !pageUrls.length) {
       sendResponse(message.m == 'inlineFill' ? { ok: false } : { matches: [] });
       return;
     }
@@ -245,7 +249,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
           sendResponse({ matches: [] });
           return;
         }
-        return respondToInline(message, pageTab, pageUrl, sendResponse);
+        return respondToInline(message, pageTab, pageUrls, sendResponse);
       })
       .catch(function () {
         sendResponse(message.m == 'inlineFill' ? { ok: false } : { matches: [] });
@@ -254,10 +258,10 @@ function Background(protectedMemory, localMemory, settings, notifications) {
   }
 
   // Body of the two inline messages, once the tab and the switch have been checked.
-  function respondToInline(message, tab, pageUrl, sendResponse) {
+  function respondToInline(message, tab, pageUrls, sendResponse) {
     return unlockedEntries().then(function (entries) {
       if (message.m == 'inlineMatches') {
-        var matched = entries ? entriesForPage(entries, pageUrl) : [];
+        var matched = entries ? entriesForPage(entries, pageUrls) : [];
         return settings.getSetAutoFillOnLoad().then(function (autoFill) {
           sendResponse({
             matches: matched
@@ -390,14 +394,42 @@ function Background(protectedMemory, localMemory, settings, notifications) {
 
   // Same cascade as the badge and the shortcut: the highest matching level wins,
   // and nothing below the first level that has entries is offered.
-  function entriesForPage(entries, pageUrl) {
+  //
+  // `pageUrls` is the tab's URL plus the frames that actually hold a login form
+  // (see lib/pageUrls.js); an entry takes its best level across all of them, which
+  // is how a form embedded from another origin still finds its entry without every
+  // widget frame offering its own.
+  function entriesForPage(entries, pageUrls) {
+    var urls = Array.isArray(pageUrls) ? pageUrls : [pageUrls];
+    function levelFor(entry) {
+      var best = 0;
+      for (var i = 0; i < urls.length; i++) {
+        if (!urls[i]) continue;
+        var level = matchLevel(urls[i], entry);
+        if (level > best) best = level;
+      }
+      return best;
+    }
     for (var level = 4; level >= 1; level--) {
       var matched = entries.filter(function (e) {
-        return matchLevel(pageUrl, e) === level;
+        return levelFor(e) === level;
       });
       if (matched.length) return matched;
     }
     return [];
+  }
+
+  // The URLs a tab's credentials may match: its own plus the credential-bearing
+  // frames. Resolves to just the tab URL when frames cannot be inspected.
+  function pageUrlsForTab(tab) {
+    if (!tab || !tab.url) return Promise.resolve([]);
+    return credentialFrameUrls(tab.id)
+      .then(function (frames) {
+        return [tab.url].concat(frames || []);
+      })
+      .catch(function () {
+        return [tab.url];
+      });
   }
 
   // Shortcut autofill (Firefox has no default key; user assigns one manually)
@@ -406,15 +438,24 @@ function Background(protectedMemory, localMemory, settings, notifications) {
     console.log('[shortcut] triggered:', cmd, 'tab:', tab?.url);
     chrome.storage.local.get('autofillShortcut', function(items) {
       if (items.autofillShortcut === false) { console.log('[shortcut] disabled'); return; }
-      protectedMemory.getData('secureCache.entries').then(function(entries) {
+      Promise.all([
+        protectedMemory.getData('secureCache.entries'),
+        pageUrlsForTab(tab),
+      ]).then(function (results) {
+        var entries = results[0];
+        var pageUrls = results[1] || [];
         if (typeof entries === 'string') entries = protectedMemory.deserialize(entries);
         if (!entries || !Array.isArray(entries) || !entries.length) { fallbackToPopup(); return; }
-        var url = (tab && tab.url) || '';
         var bestMatch = null, bestRank = 0, bestCount = 0;
         for (var i = 0; i < entries.length; i++) {
           var e = entries[i];
           if (!e.url) continue;
-          var rank = matchLevel(url, e) * 25; // level 4..1 -> 100/75/50/25
+          var level = 0;
+          for (var u = 0; u < pageUrls.length; u++) {
+            var candidate = matchLevel(pageUrls[u], e);
+            if (candidate > level) level = candidate;
+          }
+          var rank = level * 25; // level 4..1 -> 100/75/50/25
           if (rank > bestRank) { bestRank = rank; bestMatch = e; bestCount = 1; }
           else if (rank === bestRank && rank > 0) { bestCount++; }
         }
@@ -545,12 +586,17 @@ function Background(protectedMemory, localMemory, settings, notifications) {
         }
         return;
       }
-      unlockedEntries().then(function(entries) {
+      // The popup ranks against the tab plus its credential-bearing frames, so the
+      // badge has to use the same list or the two disagree (a login form inside an
+      // iframe used to show a match in the popup with a blank badge).
+      Promise.all([unlockedEntries(), pageUrlsForTab(tab)]).then(function(results) {
+        var entries = results[0];
+        var pageUrls = results[1] || [tab.url];
         if (!entries) {
           lockBadgeOnTab(tab.id);
           return;
         }
-        var count = entriesForPage(entries, tab.url).length;
+        var count = entriesForPage(entries, pageUrls).length;
         if (count > 0) {
           applyNormalIcon(tab.id);
           setBadgeText({ text: String(count), tabId: tab.id });

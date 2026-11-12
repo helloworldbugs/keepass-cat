@@ -3,6 +3,7 @@
 import { ChromePromiseApi } from '@/lib/chrome-api-promise.js';
 import { parseUrl } from '@/lib/utils.js';
 import { buildEntryFilters } from '@/lib/entryFilters.js';
+import { credentialFrameUrls } from '@/lib/pageUrls.js';
 import { Otp } from '@/lib/otp.js';
 import { ref } from 'vue';
 import { i18n } from '@/services/i18n';
@@ -54,24 +55,13 @@ function UnlockedState(keepassReference, settings, notifications) {
             my.origin = parsedUrl.protocol + '//' + parsedUrl.hostname + '/';
 
             // Login forms are often embedded from another origin (email.163.com
-            // -> dl.reg.163.com). Collect the frame URLs so the popup can match
-            // entries for the form's own site, not just the tab's URL.
+            // -> dl.reg.163.com), but third-party widget frames are embedded just as
+            // often. credentialFrameUrls only returns the frames that actually hold
+            // a login form, so the popup matches the form's site without offering
+            // the widget's owner's login on every page that uses it.
             my.frameUrls = [];
-            var framesReady = new Promise(function (resolveFrames) {
-              try {
-                chrome.webNavigation.getAllFrames({ tabId: my.tabId }, function (frames) {
-                  if (!chrome.runtime.lastError && frames) {
-                    frames.forEach(function (frame) {
-                      var url = frame && frame.url;
-                      if (!url || !/^https?:/i.test(url)) return;
-                      if (my.frameUrls.indexOf(url) < 0) my.frameUrls.push(url);
-                    });
-                  }
-                  resolveFrames();
-                });
-              } catch (e) {
-                resolveFrames();
-              }
+            var framesReady = credentialFrameUrls(my.tabId).then(function (urls) {
+              my.frameUrls = urls;
             });
 
             var permissionCheck = chromePromise.permissions
