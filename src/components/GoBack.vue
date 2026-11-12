@@ -7,7 +7,7 @@ export default {
 </script>
 
 <template>
-  <div class="box-bar selectable">
+  <div class="box-bar">
     <!-- Only the label goes back. The bar used to carry the click, so the empty
          space between the label and Save returned too, which read as a stray
          click losing the form. -->

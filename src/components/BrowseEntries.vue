@@ -788,7 +788,7 @@ export default {
             <i :class="['fa', 'caret', recycleBinOpen ? 'fa-caret-down' : 'fa-caret-right']" />
             <i class="fa fa-trash-o bin-icon" />
             <span class="group-name">{{ $t('Recycle Bin') }}</span>
-            <span v-if="binItemCount > 0" class="group-count">{{ binItemCount }}</span>
+            <span class="group-count">{{ binItemCount }}</span>
             <span class="action-icons" @click.stop>
               <i
                 v-if="binItemCount > 0"
