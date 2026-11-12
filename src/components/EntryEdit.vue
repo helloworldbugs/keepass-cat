@@ -853,9 +853,8 @@ export default {
           customPayload.invalidCount > 0
             ? this.$t('Saved. {0} custom field(s) were skipped due to errors.', customPayload.invalidCount)
             : this.$t('Saved!'),
-          // Success needs enough dwell time to be read; the skipped-fields
-          // message carries more information, so it stays a little longer.
-          customPayload.invalidCount > 0 ? 1900 : 1400
+          // One second on screen, then back to the list.
+          1000
         );
       } catch (err) {
         this.showMessage('error', this.$t('Error: ') + err.message);
@@ -887,7 +886,7 @@ export default {
       }
 
       this.showMessage('success', message);
-      this.navTimer = setTimeout(() => this.$router.goBack(), dwellMs || 1400);
+      this.navTimer = setTimeout(() => this.$router.goBack(), dwellMs || 1000);
     },
     async deleteEntry() {
       if (this.deleteClick === 0) {
