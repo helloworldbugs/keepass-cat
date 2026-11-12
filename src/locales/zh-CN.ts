@@ -122,7 +122,8 @@ const zhCN: Record<string, string> = {
   '"{0}" is a built-in field.': '"{0}" 是内置字段',
   '"{0}" is used by Keepass Cat internally.': '"{0}" 由 Keepass Cat 内部使用',
   '"{0}" is listed more than once.': '"{0}" 重复出现',
-  'Saved. {0} custom field(s) were skipped due to errors.': '已保存，但有 {0} 个自定义字段因错误被跳过。',
+  'Cannot save: {0}': '无法保存：{0}',
+  'Cannot save: {0} ({1} more problem(s)).': '无法保存：{0}（还有 {1} 处问题）',
 
   // ===== Browse Entries =====
   'Rename group': '重命名分组',

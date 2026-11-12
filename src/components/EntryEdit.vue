@@ -810,9 +810,30 @@ export default {
         }
       }
 
-      // Validate custom fields up front so a bad row is reported rather than
-      // silently breaking the save. Invalid rows are skipped, not saved.
+      // Validate custom fields up front and refuse the save: dropping the bad rows
+      // and reporting them afterwards let a half-saved entry slip through, which is
+      // worse than asking the user to fix the highlighted row first. The toast names
+      // the first problem, since "something is wrong" would not tell them what to fix.
       const customPayload = this.buildCustomFieldPayload();
+      if (customPayload.invalidCount > 0) {
+        this.saving = false;
+        const errors = this.customFieldErrors;
+        const firstInvalid = this.customFields.filter((row) => errors[row.key])[0];
+        const detail = firstInvalid ? errors[firstInvalid.key] : '';
+        const extra = customPayload.invalidCount - 1;
+        this.showMessage(
+          'error',
+          extra > 0
+            ? this.$t('Cannot save: {0} ({1} more problem(s)).', detail, extra)
+            : this.$t('Cannot save: {0}', detail),
+          2000
+        );
+        this.$nextTick(() => {
+          const first = document.querySelector('.custom-row.invalid');
+          if (first && first.scrollIntoView) first.scrollIntoView({ block: 'center' });
+        });
+        return;
+      }
 
       try {
         let newBuffer;
@@ -850,9 +871,7 @@ export default {
         
         await this.persist(
           newBuffer,
-          customPayload.invalidCount > 0
-            ? this.$t('Saved. {0} custom field(s) were skipped due to errors.', customPayload.invalidCount)
-            : this.$t('Saved!'),
+          this.$t('Saved!'),
           // One second on screen, then back to the list.
           1000
         );
