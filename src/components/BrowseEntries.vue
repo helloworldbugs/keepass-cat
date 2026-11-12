@@ -46,6 +46,9 @@ export default {
       recycleBinOpen: false,
       recycleBinLoading: false,
       recycleBinContents: { groups: [], entries: [] },
+      // Deleted groups can be opened to look inside; the rows are read-only there.
+      binGroupOpen: {},
+      binGroupRows: {},
     };
   },
   created() {
@@ -222,10 +225,35 @@ export default {
             if (this.recycleBinOpen) {
               const binDepth = depth + 2;
               this.recycleBinContents.groups.forEach((binGroup) => {
-                rows.push({ type: 'bin-group', group: binGroup, depth: binDepth });
+                const open = !!this.binGroupOpen[binGroup.uuid];
+                rows.push({
+                  type: 'bin-group',
+                  group: binGroup,
+                  depth: binDepth,
+                  canRestore: true,
+                  expandable: true,
+                  open: open,
+                });
+                if (!open) return;
+                (this.binGroupRows[binGroup.uuid] || []).forEach((item) => {
+                  rows.push({
+                    type: item.type === 'group' ? 'bin-group' : 'bin-entry',
+                    group: item.type === 'group' ? item : null,
+                    entry: item.type === 'entry' ? item : null,
+                    depth: binDepth + 1 + item.depth,
+                    canRestore: false,
+                    expandable: false,
+                    open: false,
+                  });
+                });
               });
               this.recycleBinContents.entries.forEach((binEntry) => {
-                rows.push({ type: 'bin-entry', entry: binEntry, depth: binDepth });
+                rows.push({
+                  type: 'bin-entry',
+                  entry: binEntry,
+                  depth: binDepth,
+                  canRestore: true,
+                });
               });
             }
           }
@@ -607,6 +635,20 @@ export default {
       this.recycleBinOpen = !this.recycleBinOpen;
       if (this.recycleBinOpen) this.loadRecycleBinContents();
     },
+    // Opens a deleted group so its contents can be inspected. Those rows are
+    // read-only: restoring the group brings the whole subtree back.
+    async toggleBinGroup(uuid) {
+      if (!uuid) return;
+      const open = !this.binGroupOpen[uuid];
+      this.$set(this.binGroupOpen, uuid, open);
+      if (!open || this.binGroupRows[uuid]) return;
+      try {
+        const rows = await this.keepassService.getRecycleBinGroupContents(uuid);
+        this.$set(this.binGroupRows, uuid, rows);
+      } catch (e) {
+        console.warn('[recycle-bin] could not read a deleted group:', e && e.message);
+      }
+    },
     // Uploads, rebuilds the cache and re-reads the bin: one tail for every bin
     // action (restore, permanent delete, empty).
     async persistBinChange(buffer, message) {
@@ -619,6 +661,10 @@ export default {
           this.$parent.secureCache.save('secureCache.entries', fresh, 'local');
         }
         this.entriesVersion++;
+        // The items just changed, so any remembered expansion inside the bin is
+        // stale: drop it and let the list come back collapsed.
+        this.binGroupOpen = {};
+        this.binGroupRows = {};
         await this.loadRecycleBin();
         await this.loadRecycleBinContents();
         this.message = message;
@@ -746,25 +792,29 @@ export default {
             <span class="action-icons" @click.stop>
               <i
                 v-if="binItemCount > 0"
-                class="fa fa-eraser bin-empty-icon"
+                class="fa fa-trash bin-empty-icon"
                 @click="emptyBin"
                 :title="$t('Empty the recycle bin')"
               />
             </span>
           </div>
           <!-- A group that was deleted, with the subtree it dragged along. Only the
-               top-level item gets a restore button; restoring brings all of it back. -->
+               top-level item gets actions; its contents can be opened to look, but
+               restoring the group brings all of it back. -->
           <div
             v-else-if="row.type === 'bin-group'"
             :key="'bg:' + row.group.uuid"
             class="group-header bin-item"
             :style="{ paddingLeft: indentFor(row.depth) }"
+            @click="row.expandable && toggleBinGroup(row.group.uuid)"
           >
-            <i class="fa fa-caret-right caret" />
+            <i
+              :class="['fa', 'caret', row.expandable ? (row.open ? 'fa-caret-down' : 'fa-caret-right') : 'is-empty']"
+            />
             <i class="fa fa-folder-o" />
             <span class="group-name">{{ row.group.name }}</span>
             <span class="group-count">{{ row.group.entryCount }}</span>
-            <span class="action-icons" @click.stop>
+            <span v-if="row.canRestore" class="action-icons" @click.stop>
               <i
                 class="fa fa-undo restore-icon"
                 @click="restoreBinItem('group', row.group.uuid)"
@@ -788,7 +838,7 @@ export default {
               <span class="title">{{ row.entry.title }}</span>
               <span class="user">{{ row.entry.userName }}</span>
             </span>
-            <span class="action-icons" @click.stop>
+            <span v-if="row.canRestore" class="action-icons" @click.stop>
               <i
                 class="fa fa-undo restore-icon"
                 @click="restoreBinItem('entry', row.entry.id)"
@@ -900,6 +950,8 @@ export default {
     text-align: center;
     font-size: 12px;
     color: var(--keepass-cat-icon-muted);
+    // Read-only rows inside the bin keep the slot empty so their names still line up.
+    &.is-empty { visibility: hidden; }
   }
   .group-name {
     font-weight: 600;

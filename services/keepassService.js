@@ -1304,6 +1304,48 @@ function KeepassService(keepassHeader, settings, passwordFileStoreRegistry, keep
   };
 
   /*
+   * What a deleted group still holds, flattened for the bin view: its sub-groups and
+   * entries, with a depth so the rows can be indented. Reading them is all the bin
+   * offers - restoring the deleted group brings the whole subtree back at once.
+   */
+  my.getRecycleBinGroupContents = function (uuid) {
+    return my.ensureDbLoaded().then(function () {
+      var bin = recycleBinGroup();
+      if (!bin) throw new Error(i18n.t('Recycle bin not found'));
+      var group = findGroupByUuidIn(bin.groups, uuid);
+      if (!group) throw new Error(i18n.t('Item not found in the recycle bin'));
+      var rows = [];
+      function walk(current, depth) {
+        current.groups.forEach(function (child) {
+          rows.push({
+            type: 'group',
+            uuid: groupUuidString(child),
+            name: child.name || '',
+            depth: depth,
+            entryCount: countEntriesDeep(child),
+            groupCount: countGroupsDeep(child),
+          });
+          walk(child, depth + 1);
+        });
+        current.entries.forEach(function (entry) {
+          rows.push({
+            type: 'entry',
+            id:
+              entry.uuid && !entry.uuid.empty
+                ? convertArrayToUUID(Base64.decode(entry.uuid.id))
+                : null,
+            title: readKdbxFieldValue(entry.fields.get('Title')),
+            userName: readKdbxFieldValue(entry.fields.get('UserName')),
+            depth: depth,
+          });
+        });
+      }
+      walk(group, 0);
+      return rows;
+    });
+  };
+
+  /*
    * Moves one item out of the bin. KDBX records where it came from (the
    * previousParentGroup field), so it goes back there when that group still exists
    * and is not itself in the bin; otherwise to the database's default group.
