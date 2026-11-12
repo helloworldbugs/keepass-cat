@@ -227,7 +227,11 @@ export default {
           // The recycle bin hangs under its parent group, but the opposite way round
           // from real sub-groups: it appears while that group is collapsed, so it
           // never crowds the tree while you are browsing the live groups.
-          if (!expanded && this.binParentKey === key) {
+          //
+          // A search never looks inside the bin (deleted entries are not searchable),
+          // so the row is hidden outright while a term is in the box - otherwise it
+          // would sit there showing a count that has nothing to do with the search.
+          if (!expanded && this.binParentKey === key && !this.searchActive) {
             rows.push({ type: 'recycle-bin', depth: depth + 1 });
             if (this.recycleBinOpen) {
               const binDepth = depth + 2;
@@ -287,6 +291,20 @@ export default {
       };
       walk('', 0);
       return rows;
+    },
+    // A search hides the recycle bin row: the bin is not searchable, so showing it
+    // during a search says nothing about the term.
+    searchActive() {
+      return (this.searchTerm || '').trim().length > 0;
+    },
+    // No live entry matches the term, so the list is empty except for the groups
+    // themselves. The bin never counts here, by design.
+    searchEmpty() {
+      if (!this.searchActive) return false;
+      const term = this.searchTerm.trim().toLocaleLowerCase();
+      return !(this.allEntries || []).some((entry) => {
+        return (entry.filterKey || '').indexOf(term) > -1;
+      });
     },
     // How wide the row area has to be. Up to five levels a name still fits in the
     // popup, so the list stays at its own width; deeper than that the rows are laid
@@ -929,8 +947,9 @@ export default {
         </template>
       </div>
     </div>
+    <div v-if="searchEmpty" class="bar-hint">{{ $t('No matching entries.') }}</div>
     <transition name="toast">
-      <div v-if="message" class="status-toast">{{ message }}</div>
+      <div v-if="message" class="status-toast bar-hint">{{ message }}</div>
     </transition>
   </div>
 </template>
@@ -1117,14 +1136,11 @@ export default {
 .bin-delete-icon:hover { color: var(--keepass-cat-delete-hover); background: var(--keepass-cat-bg-hover); }
 
 .status-toast {
+  // The strip's look is shared (`.bar-hint`); this only pins the toast down and
+  // keeps it from eating clicks.
   position: absolute;
   bottom: 0;
   left: 0; right: 0;
-  padding: 6px $wall-padding;
-  font-size: 12px;
-  color: var(--keepass-cat-svg-fill);
-  background: rgba(0,0,0,0.7);
-  text-align: center;
   z-index: 10;
   pointer-events: none;
 }

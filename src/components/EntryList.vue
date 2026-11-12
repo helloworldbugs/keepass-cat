@@ -26,6 +26,17 @@ export default {
       scrollRestored: false,
     };
   },
+  computed: {
+    // Nothing in the list matches the term: the same bottom strip the database view
+    // shows, from the same shared style.
+    searchEmpty() {
+      const term = (this.searchTerm || '').trim().toLocaleLowerCase();
+      if (!term) return false;
+      return !(this.allEntries || []).some((entry) => {
+        return (entry.filterKey || '').indexOf(term) > -1;
+      });
+    },
+  },
   watch: {
     searchTerm(val) {
       this.unlockedState.cacheSet('searchFilter', val); // Causes cache refresh
@@ -137,6 +148,7 @@ export default {
         />
       </div>
     </div>
+    <div v-if="searchEmpty" class="bar-hint">{{ $t('No matching entries.') }}</div>
   </div>
 </template>
 

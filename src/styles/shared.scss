@@ -61,6 +61,20 @@ textarea {
   width: 100%;
 }
 
+/*
+ * The full-width strip used for the status toast and for a list's "nothing here"
+ * line, so the two cannot drift apart. Positioning is left to the caller: the
+ * toast pins itself to the bottom, the hint sits in the flow under its list.
+ */
+.bar-hint {
+  padding: 6px $wall-padding;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--keepass-cat-svg-fill);
+  background: rgba(0, 0, 0, 0.7);
+}
+
 .error {
   border-left: 4px solid $light-red;
 

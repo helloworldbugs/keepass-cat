@@ -59,6 +59,7 @@ const zhCN: Record<string, string> = {
   'Lock': '锁定',
   'Close Window': '关闭窗口',
   'No matches found for this site.': '未找到匹配此网站的条目',
+  'No matching entries.': '没有匹配的条目',
   'invalid keyfile or KDBX file': '密钥文件或数据库文件无效',
 
   // ===== kdbxweb errors =====
