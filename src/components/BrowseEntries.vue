@@ -21,6 +21,9 @@ export default {
     return {
       searchTerm: '',
       expandedGroups: {},
+      // Groups the user opened or closed by hand; the automatic expansion rules
+      // leave those alone.
+      userToggledGroups: {},
       savedExpandedGroups: null,
       renamingGroup: null,
       renameInput: '',
@@ -57,6 +60,9 @@ export default {
     this.otpPeriods = {};
     if (browseViewState) {
       this.expandedGroups = { ...browseViewState.expandedGroups };
+      this.userToggledGroups = browseViewState.userToggledGroups
+        ? { ...browseViewState.userToggledGroups }
+        : {};
       // The expansion map from before the search matters too: clearing the
       // restored search afterwards should go back to the user's own layout, not
       // to whatever the search auto-expanded.
@@ -110,6 +116,7 @@ export default {
     const list = this.$refs.scrollArea;
     browseViewState = {
       expandedGroups: { ...this.expandedGroups },
+      userToggledGroups: { ...this.userToggledGroups },
       savedExpandedGroups: this.savedExpandedGroups ? { ...this.savedExpandedGroups } : null,
       searchTerm: this.searchTerm,
       scrollTop: list ? list.scrollTop : 0,
@@ -341,6 +348,9 @@ export default {
     },
     toggleGroup(group) {
       const key = this.groupKey(group);
+      // Remembered so the automatic rules below (lone levels, arriving data) never
+      // reopen a group the user closed on purpose.
+      this.$set(this.userToggledGroups, key, true);
       this.$set(this.expandedGroups, key, !this.expandedGroups[key]);
     },
     // Expand a level that holds nothing but one group: a lone child is never
@@ -362,7 +372,11 @@ export default {
         children[parentKey].push(group);
       });
       const expandKey = (key) => {
-        if (key && !this.expandedGroups[key]) this.$set(this.expandedGroups, key, true);
+        // A group the user opened or closed by hand keeps that state: without this
+        // every list refresh (a delete, a restore) reopened the collapsed root and
+        // hid the recycle bin row again.
+        if (!key || this.userToggledGroups[key]) return;
+        if (!this.expandedGroups[key]) this.$set(this.expandedGroups, key, true);
       };
       // The root level counts as a level too (entries always belong to a group, so
       // a lone root group is the whole of that level).
@@ -384,10 +398,28 @@ export default {
       list.scrollTop = this.restoreScrollTop;
       if (list.scrollTop > 0) this.scrollRestored = true;
     },
+    // Searching shows only the groups that contain a match, and everything above
+    // them: a match inside a sub-group is still invisible while its parent (the
+    // top-level group in particular) is collapsed, which is what the user had to
+    // open by hand.
     autoExpandGroups() {
-      this.groups.forEach(g => {
-        const hasMatches = this.getGroupEntries(g).length > 0;
-        this.$set(this.expandedGroups, this.groupKey(g), hasMatches);
+      const keyOf = (group) => this.groupKey(group);
+      const byUuid = {};
+      this.groups.forEach((group) => {
+        if (group.uuid) byUuid[group.uuid] = group;
+      });
+      const matchedKeys = [];
+      this.groups.forEach((group) => {
+        const hasMatches = this.getGroupEntries(group).length > 0;
+        this.$set(this.expandedGroups, keyOf(group), hasMatches);
+        if (hasMatches) matchedKeys.push(keyOf(group));
+      });
+      matchedKeys.forEach((key) => {
+        let group = this.groups.filter((g) => keyOf(g) === key)[0];
+        while (group) {
+          this.$set(this.expandedGroups, keyOf(group), true);
+          group = group.parentUuid ? byUuid[group.parentUuid] : null;
+        }
       });
     },
     // Entries belonging to a UUID group, with a name path fallback for entries
