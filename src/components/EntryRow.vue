@@ -202,11 +202,19 @@ export default {
   // 6px: the popup's match list is height-constrained and this is the one density
   // both lists use - a shared row should not look tighter in one of them.
   padding: 6px $wall-padding;
+  // The tree's indentation arrives as a variable instead of inline padding-left:
+  // an inline value would beat the shared `.flair:hover` rule and kill the slide.
+  padding-left: var(--row-indent, #{$wall-padding});
   box-sizing: border-box;
   border-bottom: 1px solid $light-gray;
   background-color: $light-background-color;
   display: flex;
   overflow-x: hidden;
+
+  // Same 4px flourish as the other rows, added to the row's own indentation.
+  &.selectable.flair:hover {
+    padding-left: calc(var(--row-indent, #{$wall-padding}) + 4px);
+  }
 
   .text-info {
     flex: 1 1 auto;

@@ -264,7 +264,9 @@ export default {
                 rows.push({
                   type: 'bin-entry',
                   entry: binEntry,
-                  depth: binDepth,
+                  // An entry lines up with the bin row's own name, the way entries
+                  // line up with the group that holds them in the live tree.
+                  depth: binDepth - 1,
                   canRestore: true,
                 });
               });
@@ -332,7 +334,11 @@ export default {
     // this replaces EntryRow's own left padding outright: the caret, folder and
     // gaps (42px) plus the viewport padding put the text under the group's name.
     indentEntryFor(depth) {
-      return 58 + depth * 14 + 'px';
+      // 54, not 58: the caret slot, gap, icon (fa-fw = 1.2857em at the header's
+      // font size) and gap add up to 38px in the real layout, so a name starts at
+      // 16 + 38 + depth*14. Measured in the built popup; 58 left every entry 4px
+      // to the right of the name above it.
+      return 54 + depth * 14 + 'px';
     },
     // Stable expansion/rename key. UUID when available, name for legacy rows.
     groupKey(group) {
@@ -840,7 +846,7 @@ export default {
             @click="toggleRecycleBin"
           >
             <i :class="['fa', 'caret', recycleBinOpen ? 'fa-caret-down' : 'fa-caret-right']" />
-            <i class="fa fa-trash-o bin-icon" />
+            <i class="fa fa-trash-o fa-fw bin-icon" />
             <span class="group-name">{{ $t('Recycle Bin') }}</span>
             <span class="group-count">{{ binItemCount }}</span>
             <span class="action-icons" @click.stop>
@@ -865,7 +871,7 @@ export default {
             <i
               :class="['fa', 'caret', row.expandable ? (row.open ? 'fa-caret-down' : 'fa-caret-right') : 'is-empty']"
             />
-            <i class="fa fa-folder-o" />
+            <i :class="['fa', row.open ? 'fa-folder-open' : 'fa-folder', 'fa-fw']" />
             <span class="group-name">{{ row.group.name }}</span>
             <span class="group-count">{{ row.group.entryCount }}</span>
             <span v-if="row.canRestore" class="action-icons" @click.stop>
@@ -886,7 +892,7 @@ export default {
           <entry-row
             v-else-if="row.type === 'bin-entry'"
             :key="'be:' + row.entry.id"
-            :style="{ paddingLeft: indentEntryFor(row.depth) }"
+            :style="{ '--row-indent': indentEntryFor(row.depth) }"
             :entry="row.entry"
             :unlocked-state="unlockedState"
             recycle
@@ -914,7 +920,7 @@ export default {
           <entry-row
             v-else
             :key="'e:' + row.entry.id"
-            :style="{ paddingLeft: indentEntryFor(row.depth) }"
+            :style="{ '--row-indent': indentEntryFor(row.depth) }"
             :entry="row.entry"
             :unlocked-state="unlockedState"
             :otp-seconds="otpCountdowns[row.entry.id] || null"
