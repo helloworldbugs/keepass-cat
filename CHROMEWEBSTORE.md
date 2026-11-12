@@ -1,6 +1,6 @@
 # Chrome Web Store Listing — Keepass Cat
 
-> Last Updated: 2026-11-10
+> Last Updated: 2026-11-12
 > Single source of truth for the Chrome Web Store (and, where noted, Firefox AMO) listing.
 >
 > **Maintenance:** update this file whenever `scripts/manifest.ts` gains or loses a
@@ -172,6 +172,7 @@ https://github.com/helloworldbugs/keepass-cat
 
 | Version | Date | Changes | Status |
 |---------|------|---------|--------|
+| 1.4.8 | 2026-11-12 | The database view is a real group tree: sub-groups open in place, entries line up under the group that owns them, a group with a single child opens itself, deep nesting scrolls sideways, and groups are created from the "+" on the row they belong under. Deleting an entry or a group now moves it into the database's own recycle bin, where it can be restored to the group it came from, opened to look inside, or deleted for good; the bin row sits under a collapsed group, deleted items never match pages, and a setting in Advanced Settings turns the whole thing off. The entry screen's top bar only returns when the Back label itself is clicked | Submitted |
 | 1.4.7 | 2026-11-10 | Saving an edited entry now keeps the previous version in its history, the way KeePass does, so a plain edit can be undone too; an unchanged form adds no snapshot. A two-step sign-in no longer copies the OTP (and shows its notice) twice: the guard looks 30 seconds back instead of 8 | Submitted |
 | 1.4.6 | 2026-11-06 | Editing an entry and pressing Back returns to the same place: the match list keeps its scroll position, and the database view keeps its scroll, its expanded groups and an active search with the same filtered results. Login forms hosted in an iframe, such as email.163.com's dl.reg.163.com form, now fill both fields: the icon and page-load autofill match the frame's own URL, a hidden decoy password input no longer makes the real login field look like a sign-up form, and the popup list and badge include entries that match an embedded frame | Published |
 | 1.4.5 | 2026-11-05 | OTP scanning reads every QR code on the page, not just one: each otpauth code is decoded from its own element crop, and a page with several of them offers a picker (issuer and account) instead of silently using one; the history menu's Current version row shows the entry's creation time when it has no earlier versions; the copy-password icon is an upright key; entry action buttons are vertically centred in the taller match rows | Submitted |
