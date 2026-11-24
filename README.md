@@ -294,6 +294,19 @@ Some login pages show only the username and reveal the password after a **Next**
 
 ---
 
+## 🤖 External Access (local AI via MCP)
+
+Local AI tools — DeepSeek Harness, opencode, codex, Claude Code — can read from the vault through a small MCP bridge, configured once in **Settings → External Access**:
+
+- The bridge (`bridge/keepass-cat-mcp.mjs`, zero-dependency Node script) runs a loopback WebSocket server; the extension dials out to it (extensions cannot listen on sockets)
+- Pairing is a **one-time code** that expires in 15 minutes: the long-lived token is created on first contact and never appears in the chat you paste the guide into
+- Scopes are decided up front: group structure / entry metadata / **current OTP codes** / passwords + notes, each individually switchable, plus an optional group allow-list
+- **OTP tools only ever return the current code — the OTP secret is never exposed**
+- Tokens live at most 30 days, every client can be revoked individually, and a 500-entry audit log records every request
+- Read-only by design; write methods are reserved for a future version
+
+---
+
 ## ☁️ Storage Backends
 
 Keepass Cat opens KeePass databases from your **WebDAV** server or, in Chrome, **straight from disk** — and can create a new local database for you:
