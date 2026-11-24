@@ -145,10 +145,39 @@ function sendToExtension(object) {
   }
 }
 
-function callExtension(method, params) {
+/*
+ * The extension is a WebSocket *client*, and the MV3 service worker behind it is
+ * recycled whenever the browser decides to idle it. That drops the socket, and
+ * the extension only re-dials on its 30-second keepalive alarm - so a tool call
+ * arriving in that window would otherwise fail for no better reason than timing.
+ *
+ * A request therefore waits for the connection instead of assuming it: up to
+ * RETRY_ATTEMPTS polls, one second apart. Only the "not connected yet" case is
+ * retried; a request that was actually written and then timed out is NOT resent,
+ * because the extension may have executed it already.
+ */
+const RETRY_ATTEMPTS = 10;
+const RETRY_DELAY_MS = 1000;
+
+function waitForExtension(attempt) {
+  if (extensionSocket && extensionAuthed) return Promise.resolve();
+  if (attempt >= RETRY_ATTEMPTS) {
+    return Promise.reject(
+      new Error(
+        'the Keepass Cat extension is not connected (is the browser running, and external access enabled?)'
+      )
+    );
+  }
+  return new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS)).then(() =>
+    waitForExtension(attempt + 1)
+  );
+}
+
+async function callExtension(method, params) {
+  await waitForExtension(0);
   return new Promise((resolve, reject) => {
     if (!extensionSocket || !extensionAuthed) {
-      reject(new Error('the Keepass Cat extension is not connected (is the browser running, and external access enabled?)'));
+      reject(new Error('the Keepass Cat extension disconnected while sending the request'));
       return;
     }
     const id = nextRequestId++;
