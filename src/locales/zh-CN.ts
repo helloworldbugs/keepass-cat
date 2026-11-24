@@ -390,6 +390,7 @@ const zhCN: Record<string, string> = {
   'Export': '导出',
   'Clear': '清空',
   'No requests yet.': '还没有请求记录。',
+  'Showing the newest {0} records; export for the full log.': '仅显示最近 {0} 条，完整记录请导出。',
   'Time': '时间',
   'Client': '客户端',
   'Method': '方法',

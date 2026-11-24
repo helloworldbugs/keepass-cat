@@ -18,6 +18,7 @@ export default {
       config: null,
       clients: [],
       audit: [],
+      auditLimit: 500,
       groups: [],
       groupsLocked: false,
       groupsLoading: false,
@@ -63,6 +64,11 @@ export default {
       if (this.status.connected && this.status.authenticated) return 'online';
       if (this.status.connected) return 'pending';
       return 'offline';
+    },
+    // The table stays short no matter how busy the bridge is: the newest few
+    // rows, with the full history one Export away.
+    visibleAudit() {
+      return this.audit.slice(0, 20);
     },
   },
   mounted() {
@@ -114,6 +120,7 @@ export default {
       this.config = await this.extAccess.getConfig();
       this.clients = await this.extAccess.listClients();
       this.audit = await this.extAccess.getAudit();
+      this.auditLimit = this.extAccess.auditLimit();
       await this.loadGroups();
       this.ready = true;
     },
@@ -506,9 +513,13 @@ export default {
           <button class="btn btn-small" :disabled="!audit.length" @click="clearAudit">
             {{ $t('Clear') }}
           </button>
+          <span class="audit-count">{{ audit.length }} / {{ auditLimit }}</span>
         </div>
         <p v-if="!audit.length" class="totp-note">{{ $t('No requests yet.') }}</p>
-        <table v-else class="audit-table">
+        <p v-else-if="audit.length > visibleAudit.length" class="totp-note">
+          {{ $t('Showing the newest {0} records; export for the full log.', visibleAudit.length) }}
+        </p>
+        <table v-if="audit.length" class="audit-table">
           <thead>
             <tr>
               <th>{{ $t('Time') }}</th>
@@ -519,7 +530,7 @@ export default {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(row, i) in audit" :key="row.ts + '-' + i">
+            <tr v-for="(row, i) in visibleAudit" :key="row.ts + '-' + i">
               <td>{{ fmtTime(row.ts) }}</td>
               <td>{{ row.client }}</td>
               <td>{{ row.method }}</td>
@@ -707,8 +718,15 @@ export default {
   }
   .audit-actions {
     display: flex;
+    align-items: center;
     gap: 8px;
     margin-bottom: 8px;
+    .audit-count {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--keepass-cat-text-subtle);
+      font-variant-numeric: tabular-nums;
+    }
   }
   .audit-table {
     width: 100%;

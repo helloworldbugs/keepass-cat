@@ -429,6 +429,11 @@ function ExtAccess() {
     });
   };
 
+  /* The ring's capacity, so the page can show "records / limit" honestly. */
+  exports.auditLimit = function () {
+    return AUDIT_LIMIT;
+  };
+
   exports.clearAudit = function () {
     return storageSet({ extAccessAudit: [] });
   };
