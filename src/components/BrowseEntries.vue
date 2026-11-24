@@ -329,12 +329,21 @@ export default {
       });
       return this.groups.filter((group) => !(group.parentUuid && byUuid[group.parentUuid]));
     },
-    // Key of the group the recycle bin row hangs under. Null hides the row: the
-    // switch is off, the file has no bin, or it has no resolvable parent.
+    // Key of the group the recycle bin row hangs under. The bin's parent group is
+    // the database's root group, which only gets a row when it holds entries of its
+    // own - so when every entry lives in sub-groups, fall back to the first
+    // top-level group instead of hiding the bin from the view entirely. Null hides
+    // the row only when the switch is off or the file has no bin.
     binParentKey() {
       const bin = this.recycleBin;
-      if (!bin || !bin.enabled || !bin.exists || !bin.parentUuid) return null;
-      return bin.parentUuid;
+      if (!bin || !bin.enabled || !bin.exists) return null;
+      const keys = {};
+      this.groups.forEach((group) => {
+        keys[this.groupKey(group)] = true;
+      });
+      if (bin.parentUuid && keys[bin.parentUuid]) return bin.parentUuid;
+      const first = this.rootGroups[0];
+      return first ? this.groupKey(first) : null;
     },
     // Items inside the bin, for the row's count.
     binItemCount() {

@@ -9,7 +9,6 @@
 
 import { ProtectedMemory } from '$services/protectedMemory';
 import { Settings } from '$services/settings.js';
-import { Notifications } from '$services/notifications';
 import { i18n } from '@/services/i18n';
 import {
   openPopup,
@@ -22,7 +21,7 @@ import { setIgnoreExpired } from '@/lib/matchLevel.js';
 import { Otp } from '@/lib/otp.js';
 import { credentialFrameUrls } from '@/lib/pageUrls.js';
 
-function Background(protectedMemory, localMemory, settings, notifications) {
+function Background(protectedMemory, localMemory, settings) {
   console.log('Background worker registered.');
 
   // The matching rule reads its switch once at startup and follows later changes,
@@ -67,8 +66,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
           forgetStuff();
           break;
         default:
-          throw new Error('unrecognized action ' + obj.action);
-          break;
+          throw new Error('unrecognized action ' + msg.action);
       }
     });
 
@@ -824,8 +822,7 @@ function Background(protectedMemory, localMemory, settings, notifications) {
 }
 
 const settings = new Settings();
-const notifications = new Notifications(settings);
 const protectedMemory = new ProtectedMemory('session');
 const localMemory = new ProtectedMemory('local');
 
-Background(protectedMemory, localMemory, settings, notifications);
+Background(protectedMemory, localMemory, settings);

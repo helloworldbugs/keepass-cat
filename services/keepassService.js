@@ -16,7 +16,6 @@ import { i18n } from '@/services/i18n';
 import browser from 'webextension-polyfill';
 
 
-import { parseUrl } from '@/lib/utils.js';
 import { matchLevel } from '@/lib/matchLevel.js';
 
 /*
