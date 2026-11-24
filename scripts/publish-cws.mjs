@@ -53,15 +53,60 @@ const readBody = async (response, label) => {
     console.error(text);
     if (response.status === 400) {
       console.error(
-        '\nHint: a 400 on :publish usually means the store still needs something from the\n' +
-          'developer dashboard before it will accept this version — most often a\n' +
-          'justification for a newly added permission ("Privacy practices" tab), or an\n' +
-          'unresolved policy warning. The item stays a draft until that is fixed.',
+        '\nHint: a 400 on :publish means the store refused this version even though the\n' +
+          'upload itself succeeded — the item stays a draft. Compare it with the "Store\n' +
+          'item status" printed just before the publish call and with the developer\n' +
+          'dashboard: an unresolved policy warning, a missing justification for a newly\n' +
+          'added permission ("Privacy practices" tab), or a revision the store still\n' +
+          'considering all look like this. Submitting the same draft from the dashboard\n' +
+          'usually works, which is why the status matters more than the error text.',
       );
     }
     process.exit(1);
   }
   return text;
+};
+
+/*
+ * Print the item's own status before publishing.
+ *
+ * A bare 400 from :publish says nothing about why the store refused, and the
+ * dashboard and the API have been seen to disagree about what state the item is
+ * in. Recording it first means a failure leaves the evidence in the log instead of
+ * only a generic hint. Never fatal: the publish call decides the outcome.
+ */
+const logStoreStatus = async (accessToken, statusUrl) => {
+  console.log('Store item status before publishing:');
+  try {
+    const response = await fetch(statusUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const text = await response.text();
+    if (!response.ok) {
+      console.log(`  unavailable (HTTP ${response.status})`);
+      console.log(`  body: ${text.slice(0, 400)}`);
+      return;
+    }
+    const json = JSON.parse(text);
+    // The fields that explain a refused publish; the rest is bookkeeping.
+    const interesting = {
+      publishedItemRevisionStatus: json.publishedItemRevisionStatus,
+      submittedItemRevisionStatus: json.submittedItemRevisionStatus,
+      lastAsyncUploadState: json.lastAsyncUploadState,
+      warned: json.warned,
+      blocked: json.blocked,
+      takeDown: json.takeDown,
+    };
+    for (const [key, value] of Object.entries(interesting)) {
+      if (value !== undefined) console.log(`  ${key}: ${JSON.stringify(value)}`);
+    }
+    // Name the remaining fields rather than dumping them: the API grows fields over
+    // time, and knowing one exists is usually enough to look it up next time.
+    const rest = Object.keys(json).filter((key) => !(key in interesting));
+    if (rest.length) console.log(`  other fields: ${rest.join(', ')}`);
+  } catch (error) {
+    console.log(`  unavailable (${error.message})`);
+  }
 };
 
 async function main() {
@@ -154,7 +199,7 @@ async function main() {
     console.log(
       `[dry-run]   Authorization: Bearer <token>, Content-Type: application/zip, body: ${zipBytes.length} bytes (${zipPath})`,
     );
-    console.log(`[dry-run] GET  ${statusUrl}   (only if the upload does not report SUCCEEDED)`);
+    console.log(`[dry-run] GET  ${statusUrl}   (once if the upload is not SUCCEEDED, again before publishing)`);
     console.log(`[dry-run] POST ${publishUrl}`);
     console.log(
       '[dry-run]   Authorization: Bearer <token>, Content-Type: application/json, body: {"publishType":"DEFAULT_PUBLISH"}',
@@ -203,9 +248,11 @@ async function main() {
     }
   }
 
-  // ── 4. Publish the uploaded draft ──
+  // ── 4. Record the store's view, then publish the uploaded draft ──
   // The upload above only replaces the store item's *draft*; :publish is what
   // actually submits that draft for review / staged rollout.
+  await logStoreStatus(accessToken, statusUrl);
+
   const publishResponse = await fetch(publishUrl, {
     method: 'POST',
     headers: {
