@@ -281,6 +281,7 @@ export default {
         method: r.method,
         target: r.target,
         result: r.result,
+        count: r.count || 1,
       }));
       const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
@@ -523,7 +524,7 @@ export default {
               <td>{{ row.client }}</td>
               <td>{{ row.method }}</td>
               <td>{{ row.target }}</td>
-              <td>{{ row.result }}</td>
+              <td>{{ row.result }}<template v-if="(row.count || 1) > 1"> ×{{ row.count }}</template></td>
             </tr>
           </tbody>
         </table>

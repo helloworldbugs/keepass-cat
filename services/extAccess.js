@@ -375,6 +375,12 @@ function ExtAccess() {
 
   /* ------------------------------------------------------------------- audit */
 
+  /* Consecutive repeats of the same event (same client, method, target, result)
+   * inside this window collapse into one row with a counter: the MV3 service
+   * worker dies every ~30 idle seconds and redials, which would otherwise flood
+   * the log with kc.auth rows and bury the calls that actually read data. */
+  var AUDIT_COALESCE_MS = 10 * 60 * 1000;
+
   /*
    * Appends one audit record (newest first), keeping the ring at AUDIT_LIMIT.
    * Never throws: auditing must not break the request it describes.
@@ -383,13 +389,32 @@ function ExtAccess() {
     try {
       return storageGet(['extAccessAudit']).then(function (items) {
         var audit = Array.isArray(items.extAccessAudit) ? items.extAccessAudit : [];
-        audit.unshift({
-          ts: Date.now(),
-          client: String(record.client || ''),
-          method: String(record.method || ''),
-          target: String(record.target || ''),
-          result: String(record.result || ''),
-        });
+        var now = Date.now();
+        var client = String(record.client || '');
+        var method = String(record.method || '');
+        var target = String(record.target || '');
+        var result = String(record.result || '');
+        var last = audit[0];
+        if (
+          last &&
+          last.client === client &&
+          last.method === method &&
+          last.target === target &&
+          last.result === result &&
+          now - last.ts < AUDIT_COALESCE_MS
+        ) {
+          last.ts = now;
+          last.count = (last.count || 1) + 1;
+        } else {
+          audit.unshift({
+            ts: now,
+            client: client,
+            method: method,
+            target: target,
+            result: result,
+            count: 1,
+          });
+        }
         if (audit.length > AUDIT_LIMIT) audit.length = AUDIT_LIMIT;
         return storageSet({ extAccessAudit: audit });
       });
