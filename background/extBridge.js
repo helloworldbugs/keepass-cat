@@ -51,6 +51,16 @@ function startExtBridge(deps) {
     }
     socket = null;
     currentApi = null;
+    // The onclose handler was just detached, so the status has to be cleared
+    // here: otherwise the settings page keeps showing "connected" after a
+    // revoke, an expiry, or the feature being switched off.
+    deps.extAccess.patchStatus({
+      connected: false,
+      authenticated: false,
+      clientId: '',
+      clientName: '',
+      connectedAt: 0,
+    });
   }
 
   function connect() {
@@ -80,6 +90,15 @@ function startExtBridge(deps) {
         connecting = false;
         ensureAlarm(true);
         console.log('[ext-bridge] connected to the MCP bridge on port', config.port);
+        deps.extAccess.patchStatus({
+          connected: true,
+          authenticated: false,
+          clientId: '',
+          clientName: '',
+          connectedAt: Date.now(),
+          lastRequestAt: 0,
+          error: '',
+        });
       };
       ws.onmessage = function (event) {
         api
@@ -104,11 +123,46 @@ function startExtBridge(deps) {
         // onclose follows and does the cleanup.
       };
       ws.onclose = function () {
-        if (socket === ws) socket = null;
+        if (socket === ws) {
+          socket = null;
+          currentApi = null;
+        }
         connecting = false;
         // Nothing listening is the normal state (the AI is not running), so the
         // keepalive alarm simply tries again later.
+        deps.extAccess.patchStatus({
+          connected: false,
+          authenticated: false,
+          clientId: '',
+          clientName: '',
+          connectedAt: 0,
+        });
       };
+    });
+  }
+
+  /*
+   * Drops a live connection whose client expired while it was open.
+   *
+   * Expiry is already enforced per request (isClientActive), but nothing else
+   * would notice: no storage event fires when time passes, so without this the
+   * socket would stay connected - and the settings page would keep showing
+   * "connected" - until the next request happened to fail. The keepalive alarm
+   * runs every 30 seconds, which bounds the lag.
+   */
+  function dropIfExpired() {
+    if (!socket || !currentApi) return;
+    var clientId = currentApi.currentClientId();
+    if (!clientId) return;
+    deps.extAccess.isClientActive(clientId).then(function (active) {
+      if (active) return;
+      deps.extAccess.appendAudit({
+        client: '',
+        method: 'kc.session',
+        target: '',
+        result: 'expired',
+      });
+      closeSocket();
     });
   }
 
@@ -122,10 +176,13 @@ function startExtBridge(deps) {
     });
   }
 
-  // Re-dial while the feature is on. The alarm also wakes the worker, which is
-  // how a bridge started hours later still gets picked up.
+  // Re-dial while the feature is on, and reap an expired session. The alarm also
+  // wakes the worker, which is how a bridge started hours later still gets picked
+  // up.
   chrome.alarms.onAlarm.addListener(function (alarm) {
-    if (alarm.name === KEEPALIVE_ALARM) ensure();
+    if (alarm.name !== KEEPALIVE_ALARM) return;
+    ensure();
+    dropIfExpired();
   });
 
   // Config edits apply immediately: off tears down, on dials right away, a port

@@ -172,6 +172,7 @@ function createExtApi(deps) {
         }
         client = resolved;
         audit('kc.auth', '', 'ok');
+        announceSession();
         return makeResult(id, authResult(config));
       });
     }
@@ -183,6 +184,7 @@ function createExtApi(deps) {
         }
         client = exchanged.client;
         audit('kc.auth', '', 'paired');
+        announceSession();
         var result = authResult(config);
         result.sessionToken = exchanged.token;
         result.tokenExpiresAt = exchanged.client.expiresAt;
@@ -190,6 +192,16 @@ function createExtApi(deps) {
       });
     }
     return Promise.resolve(makeError(id, 'unauthorized', 'send token or bootstrap'));
+  }
+
+  /* Published so the settings page can show who is connected right now. */
+  function announceSession() {
+    extAccess.patchStatus({
+      authenticated: true,
+      clientId: client.id,
+      clientName: client.name,
+      error: '',
+    });
   }
 
   function authResult(config) {
@@ -396,6 +408,10 @@ function createExtApi(deps) {
       return extAccess.isClientActive(client.id).then(function (active) {
         if (!active) {
           audit(msg.method, '', 'revoked');
+          extAccess.patchStatus({
+            authenticated: false,
+            error: 'revoked or expired',
+          });
           return {
             response: makeError(id, 'unauthorized', 'this client was revoked or its token expired'),
             authed: false,
@@ -407,6 +423,7 @@ function createExtApi(deps) {
           return { response: makeError(id, 'rate_limited', 'too many requests, slow down'), authed: true, fatal: false };
         }
         extAccess.touchClient(client.id);
+        extAccess.patchStatus({ lastRequestAt: Date.now() });
         return dispatch(id, msg.method, msg.params, config).then(function (response) {
           return { response: response, authed: true, fatal: false };
         });

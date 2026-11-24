@@ -31,13 +31,33 @@ const DEFAULTS = {
   scopes: { groups: true, entries: true, otp: false, secrets: false },
   groupMode: 'all',
   groupIds: [],
-  tokenTtlDays: 30,
+  tokenTtlSeconds: 7 * 24 * 3600,
   rateLimitPerMin: 60,
 };
 
 const BOOTSTRAP_TTL_MS = 15 * 60 * 1000;
 const AUDIT_LIMIT = 500;
-const TTL_OPTIONS_DAYS = [7, 14, 30];
+
+/*
+ * Token lifetimes, in seconds. Hours are included because a short-lived token is
+ * the practical way to grant an AI a single session; there is no "forever"
+ * option by design.
+ */
+const TTL_OPTIONS_SECONDS = [
+  3600, // 1 hour
+  8 * 3600, // 8 hours
+  24 * 3600, // 1 day
+  3 * 24 * 3600, // 3 days
+  7 * 24 * 3600, // 7 days (default)
+  14 * 24 * 3600, // 14 days
+  30 * 24 * 3600, // 30 days
+];
+const DEFAULT_TTL_SECONDS = 7 * 24 * 3600;
+
+/* Live bridge status lives in session storage: it is per-run and must not be
+ * persisted across browser restarts, but it does need to reach the options page
+ * instantly. */
+const STATUS_KEY = 'extAccessStatus';
 
 function storageGet(keys) {
   return new Promise(function (resolve) {
@@ -50,6 +70,20 @@ function storageGet(keys) {
 function storageSet(obj) {
   return new Promise(function (resolve) {
     chrome.storage.local.set(obj, resolve);
+  });
+}
+
+function sessionGet(keys) {
+  return new Promise(function (resolve) {
+    chrome.storage.session.get(keys, function (items) {
+      resolve(items || {});
+    });
+  });
+}
+
+function sessionSet(obj) {
+  return new Promise(function (resolve) {
+    chrome.storage.session.set(obj, resolve);
   });
 }
 
@@ -86,7 +120,16 @@ function ExtAccess() {
       var stored = items.extAccess || {};
       var config = Object.assign({}, DEFAULTS, stored);
       config.scopes = Object.assign({}, DEFAULTS.scopes, stored.scopes || {});
-      if (TTL_OPTIONS_DAYS.indexOf(config.tokenTtlDays) < 0) config.tokenTtlDays = DEFAULTS.tokenTtlDays;
+      // Older builds stored whole days only; keep those databases working by
+      // translating the field instead of dropping a user's choice.
+      if (typeof stored.tokenTtlSeconds !== 'number') {
+        var days = typeof stored.tokenTtlDays === 'number' ? stored.tokenTtlDays : 0;
+        config.tokenTtlSeconds = days > 0 ? days * 24 * 3600 : DEFAULT_TTL_SECONDS;
+      }
+      if (TTL_OPTIONS_SECONDS.indexOf(config.tokenTtlSeconds) < 0) {
+        config.tokenTtlSeconds = DEFAULT_TTL_SECONDS;
+      }
+      delete config.tokenTtlDays;
       if (config.groupMode !== 'selected') config.groupMode = 'all';
       if (!Array.isArray(config.groupIds)) config.groupIds = [];
       return config;
@@ -98,6 +141,9 @@ function ExtAccess() {
     return exports.getConfig().then(function (config) {
       var next = Object.assign({}, config, patch);
       if (patch.scopes) next.scopes = Object.assign({}, config.scopes, patch.scopes);
+      if (TTL_OPTIONS_SECONDS.indexOf(next.tokenTtlSeconds) < 0) {
+        next.tokenTtlSeconds = DEFAULT_TTL_SECONDS;
+      }
       return storageSet({ extAccess: next }).then(function () {
         return next;
       });
@@ -105,7 +151,7 @@ function ExtAccess() {
   };
 
   exports.ttlOptions = function () {
-    return TTL_OPTIONS_DAYS.slice();
+    return TTL_OPTIONS_SECONDS.slice();
   };
 
   /* ----------------------------------------------------------------- clients */
@@ -127,12 +173,16 @@ function ExtAccess() {
    * anyway.
    */
   exports.createBootstrap = function (name) {
+    var clientName = String(name == null ? '' : name).trim();
+    // A blank name made every client indistinguishable in the list and in the
+    // audit log, so it is refused here as well as in the form.
+    if (!clientName) return Promise.reject(new Error('A client name is required'));
     var code = randomToken('KC1');
     return sha256Hex(code).then(function (codeHash) {
       return storageSet({
         extAccessBootstrap: {
           codeHash: codeHash,
-          name: String(name || '').trim() || 'AI client',
+          name: clientName,
           expiresAt: Date.now() + BOOTSTRAP_TTL_MS,
         },
       }).then(function () {
@@ -164,7 +214,7 @@ function ExtAccess() {
               name: bootstrap.name,
               tokenHash: tokenHash,
               createdAt: Date.now(),
-              expiresAt: Date.now() + config.tokenTtlDays * 24 * 3600 * 1000,
+              expiresAt: Date.now() + config.tokenTtlSeconds * 1000,
               lastUsedAt: 0,
               revokedAt: 0,
             };
@@ -244,6 +294,82 @@ function ExtAccess() {
         if (client.id === clientId && !client.revokedAt) client.revokedAt = Date.now();
       });
       return saveClients(clients);
+    });
+  };
+
+  /* A client is "inactive" once it can no longer authenticate: revoked or its
+   * token expired. Inactive records are only history and may be deleted. */
+  exports.isClientInactive = function (client) {
+    if (!client) return false;
+    if (client.revokedAt) return true;
+    return !!(client.expiresAt && client.expiresAt < Date.now());
+  };
+
+  /*
+   * Removes one client record. Only inactive records can go: deleting a live one
+   * would silently revoke it, and that has its own button.
+   */
+  exports.removeClient = function (clientId) {
+    return exports.listClients().then(function (clients) {
+      var next = clients.filter(function (client) {
+        if (client.id !== clientId) return true;
+        return !exports.isClientInactive(client);
+      });
+      return saveClients(next);
+    });
+  };
+
+  /* Drops every inactive record in one go. */
+  exports.purgeInactiveClients = function () {
+    return exports.listClients().then(function (clients) {
+      var next = clients.filter(function (client) {
+        return !exports.isClientInactive(client);
+      });
+      return saveClients(next).then(function () {
+        return clients.length - next.length;
+      });
+    });
+  };
+
+  /* ------------------------------------------------------------------ status */
+
+  /*
+   * The live bridge state, kept in session storage so the options page can
+   * follow it in real time (chrome.storage.onChanged) without polling.
+   */
+  exports.getStatus = function () {
+    return sessionGet([STATUS_KEY]).then(function (items) {
+      return (
+        items[STATUS_KEY] || {
+          connected: false,
+          authenticated: false,
+          clientId: '',
+          clientName: '',
+          connectedAt: 0,
+          lastRequestAt: 0,
+          error: '',
+        }
+      );
+    });
+  };
+
+  exports.patchStatus = function (patch) {
+    return exports.getStatus().then(function (status) {
+      var next = Object.assign({}, status, patch);
+      return sessionSet({ [STATUS_KEY]: next }).then(function () {
+        return next;
+      });
+    });
+  };
+
+  exports.resetStatus = function () {
+    return exports.patchStatus({
+      connected: false,
+      authenticated: false,
+      clientId: '',
+      clientName: '',
+      connectedAt: 0,
+      error: '',
     });
   };
 
