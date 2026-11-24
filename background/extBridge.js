@@ -31,6 +31,7 @@ const KEEPALIVE_PERIOD_MIN = 0.5;
 function startExtBridge(deps) {
   var socket = null;
   var connecting = false;
+  var currentApi = null;
 
   function ensureAlarm(on) {
     if (on) {
@@ -49,6 +50,7 @@ function startExtBridge(deps) {
       /* already gone */
     }
     socket = null;
+    currentApi = null;
   }
 
   function connect() {
@@ -72,6 +74,7 @@ function startExtBridge(deps) {
         decrypt: deps.decrypt,
         version: deps.version,
       });
+      currentApi = api;
       ws.onopen = function () {
         socket = ws;
         connecting = false;
@@ -128,9 +131,38 @@ function startExtBridge(deps) {
   // Config edits apply immediately: off tears down, on dials right away, a port
   // change reconnects.
   chrome.storage.onChanged.addListener(function (changes, area) {
-    if (area === 'local' && changes.extAccess) {
+    if (area !== 'local') return;
+    if (changes.extAccess) {
       closeSocket();
       ensure();
+      return;
+    }
+    // Revoking a client must close its live connection immediately. The protocol
+    // also refuses every request once the client is gone, so this only makes the
+    // AI notice a moment sooner.
+    if (changes.extAccessClients && socket && currentApi) {
+      var clientId = currentApi.currentClientId();
+      if (clientId) {
+        deps.extAccess.isClientActive(clientId).then(function (active) {
+          if (active) return;
+          // Recorded explicitly: the connection is dropped before the next request
+          // can be refused, so this is the only trace that the session ended on a
+          // revoke rather than on the browser closing.
+          deps.extAccess.listClients().then(function (clients) {
+            var stale = clients.filter(function (c) {
+              return c.id === clientId;
+            })[0];
+            deps.extAccess.appendAudit({
+              client: stale ? stale.name : clientId,
+              method: 'kc.session',
+              target: '',
+              result: 'revoked',
+            });
+          });
+          console.log('[ext-bridge] client revoked or expired; dropping the connection');
+          closeSocket();
+        });
+      }
     }
   });
 

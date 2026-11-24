@@ -391,18 +391,39 @@ function createExtApi(deps) {
         audit(msg.method, '', 'disabled');
         return { response: makeError(id, 'disabled', 'external access is switched off'), authed: true, fatal: true };
       }
-      if (!checkRateLimit(config)) {
-        audit(msg.method, '', 'rate_limited');
-        return { response: makeError(id, 'rate_limited', 'too many requests, slow down'), authed: true, fatal: false };
-      }
-      extAccess.touchClient(client.id);
-      return dispatch(id, msg.method, msg.params, config).then(function (response) {
-        return { response: response, authed: true, fatal: false };
+      // An open socket was authenticated once; revoking the client must not wait
+      // for it to drop. Every request re-checks that the client is still allowed.
+      return extAccess.isClientActive(client.id).then(function (active) {
+        if (!active) {
+          audit(msg.method, '', 'revoked');
+          return {
+            response: makeError(id, 'unauthorized', 'this client was revoked or its token expired'),
+            authed: false,
+            fatal: true,
+          };
+        }
+        if (!checkRateLimit(config)) {
+          audit(msg.method, '', 'rate_limited');
+          return { response: makeError(id, 'rate_limited', 'too many requests, slow down'), authed: true, fatal: false };
+        }
+        extAccess.touchClient(client.id);
+        return dispatch(id, msg.method, msg.params, config).then(function (response) {
+          return { response: response, authed: true, fatal: false };
+        });
       });
     });
   }
 
-  return { handle: handle };
+  /*
+   * Which client this connection belongs to, so the socket owner can re-check it
+   * when the client list changes (a revoke should drop an open connection at
+   * once, not at the next request).
+   */
+  function currentClientId() {
+    return client ? client.id : null;
+  }
+
+  return { handle: handle, currentClientId: currentClientId };
 }
 
 export { createExtApi, PROTOCOL_VERSION };

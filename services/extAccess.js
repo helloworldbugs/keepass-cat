@@ -216,6 +216,28 @@ function ExtAccess() {
     });
   };
 
+  /*
+   * Whether a client may still be used right now.
+   *
+   * Revoking has to take effect on *existing* connections too: an open
+   * WebSocket was authenticated once, and without this check the extension
+   * would keep serving it until the socket happened to drop. The background
+   * asks this on every request (and again when the client list changes) so a
+   * revoke closes the door immediately instead of eventually.
+   */
+  exports.isClientActive = function (clientId) {
+    if (!clientId) return Promise.resolve(false);
+    return exports.listClients().then(function (clients) {
+      for (var i = 0; i < clients.length; i++) {
+        if (clients[i].id !== clientId) continue;
+        if (clients[i].revokedAt) return false;
+        if (clients[i].expiresAt && clients[i].expiresAt < Date.now()) return false;
+        return true;
+      }
+      return false;
+    });
+  };
+
   exports.revokeClient = function (clientId) {
     return exports.listClients().then(function (clients) {
       clients.forEach(function (client) {
