@@ -207,6 +207,44 @@ function Background(protectedMemory, localMemory, settings) {
       showSystemNotification(message.text, message.expire);
     }
 
+    /*
+     * The group list for the External Access page. It is asked of the background
+     * rather than read through the popup's secure cache: that cache is only
+     * reachable over a port the requesting page has to open, which fails quietly
+     * when the page is not the active tab, and this answer has to be right the
+     * first time. The background holds the one authoritative copy of the
+     * unlocked entries, so "locked" here means the vault really is locked (or its
+     * cache lapsed) and not that a port was missed.
+     */
+    if (message.m == 'extAccessGroups') {
+      unlockedEntries()
+        .then(function (entries) {
+          if (!entries) {
+            sendResponse({ locked: true, groups: [] });
+            return;
+          }
+          var seen = {};
+          var groups = [];
+          entries.forEach(function (entry) {
+            if (!entry.groupUuid || seen[entry.groupUuid]) return;
+            seen[entry.groupUuid] = true;
+            groups.push({
+              uuid: entry.groupUuid,
+              name: entry.groupName || '',
+              path: entry.groupPath || entry.groupName || '',
+            });
+          });
+          groups.sort(function (a, b) {
+            return a.path.localeCompare(b.path);
+          });
+          sendResponse({ locked: false, groups: groups });
+        })
+        .catch(function () {
+          sendResponse({ locked: true, groups: [] });
+        });
+      return true; // async response
+    }
+
     if (message.m == 'requestPermission') {
       //better to do the request here on the background, because on some platforms
       //the popup may close prematurely when requesting access

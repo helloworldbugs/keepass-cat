@@ -20,6 +20,7 @@ export default {
       audit: [],
       groups: [],
       groupsLocked: false,
+      groupsLoading: false,
       guideName: '',
       guideText: '',
       copiedHint: false,
@@ -38,38 +39,26 @@ export default {
       await this.loadGroups();
       this.ready = true;
     },
-    // The group picker reads the unlocked cache, exactly like the browse view.
-    // With a locked vault there is nothing to list, and that is fine: the
-    // "all groups" mode still works.
+    // The group picker asks the background, which holds the authoritative
+    // unlocked cache. Reading it through this page's own secure-cache port used
+    // to fail silently (the port is only opened when the page is the active tab),
+    // which is why an unlocked vault still said "unlock first".
     async loadGroups() {
-      this.groupsLocked = false;
-      let entries = null;
+      this.groupsLoading = true;
       try {
-        entries = await this.secureCache.get('secureCache.entries');
+        const answer = await new Promise((resolve) => {
+          chrome.runtime.sendMessage({ m: 'extAccessGroups' }, (response) => {
+            if (chrome.runtime.lastError || !response) resolve({ locked: true, groups: [] });
+            else resolve(response);
+          });
+        });
+        this.groupsLocked = !!answer.locked;
+        this.groups = Array.isArray(answer.groups) ? answer.groups : [];
       } catch (e) {
-        entries = null;
-      }
-      if (typeof entries === 'string') {
-        try {
-          entries = JSON.parse(entries);
-        } catch (e) {
-          entries = null;
-        }
-      }
-      if (!Array.isArray(entries) || !entries.length) {
-        this.groups = [];
         this.groupsLocked = true;
-        return;
+        this.groups = [];
       }
-      const seen = {};
-      const groups = [];
-      entries.forEach((entry) => {
-        if (!entry.groupUuid || seen[entry.groupUuid]) return;
-        seen[entry.groupUuid] = true;
-        groups.push({ uuid: entry.groupUuid, path: entry.groupPath || entry.groupName || '' });
-      });
-      groups.sort((a, b) => a.path.localeCompare(b.path));
-      this.groups = groups;
+      this.groupsLoading = false;
     },
     async save(patch) {
       this.config = await this.extAccess.saveConfig(patch);
@@ -84,6 +73,9 @@ export default {
     },
     setGroupMode(mode) {
       this.save({ groupMode: mode });
+      // Switching to the picker re-reads the groups: the vault may have been
+      // unlocked (or its cache lapsed) since this page was opened.
+      if (mode === 'selected') this.loadGroups();
     },
     toggleGroup(uuid) {
       const ids = this.config.groupIds.slice();
@@ -257,9 +249,15 @@ export default {
           <span>{{ $t('Only the selected groups (sub-groups included)') }}</span>
         </label>
         <div v-if="config.groupMode === 'selected'" class="group-picker">
-          <p v-if="groupsLocked" class="totp-note">
-            {{ $t('Unlock the vault once to pick groups here.') }}
-          </p>
+          <div class="group-picker-head">
+            <span v-if="groupsLoading" class="totp-note">{{ $t('Reading groups…') }}</span>
+            <span v-else-if="groupsLocked" class="totp-note">
+              {{ $t('The vault is locked, or its unlock cache has lapsed. Open the extension, unlock the database, then read the groups again.') }}
+            </span>
+            <button class="btn btn-small" :disabled="groupsLoading" @click="loadGroups">
+              {{ $t('Read groups again') }}
+            </button>
+          </div>
           <label v-for="g in groups" :key="g.uuid" class="group-row">
             <input
               type="checkbox"
@@ -409,6 +407,16 @@ export default {
     margin-top: 8px;
     max-height: 220px;
     overflow-y: auto;
+  }
+  .group-picker-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 6px;
+    .totp-note {
+      margin: 0;
+    }
   }
   .group-row {
     display: flex;
