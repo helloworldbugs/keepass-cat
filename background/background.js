@@ -20,9 +20,12 @@ import { matchLevel } from '@/lib/matchLevel.js';
 import { setIgnoreExpired } from '@/lib/matchLevel.js';
 import { Otp } from '@/lib/otp.js';
 import { credentialFrameUrls } from '@/lib/pageUrls.js';
+import { ExtAccess } from '$services/extAccess.js';
+import { startExtBridge } from './extBridge.js';
 
 function Background(protectedMemory, localMemory, settings) {
   console.log('Background worker registered.');
+  var extAccess = new ExtAccess();
 
   // The matching rule reads its switch once at startup and follows later changes,
   // so the badge, the in-page icon, autofill and the shortcut all agree on whether
@@ -819,6 +822,16 @@ function Background(protectedMemory, localMemory, settings) {
     // not just its title, so composing the key here would drift.
     return settings.getCurrentMasterPasswordCacheKey().then(protectedMemory.clearData);
   }
+
+  // The local-AI bridge: the extension dials out to the MCP bridge's loopback
+  // WebSocket and serves the read-only protocol on it. Off unless the user
+  // switches it on in the External Access settings.
+  startExtBridge({
+    extAccess: extAccess,
+    getEntries: unlockedEntries,
+    decrypt: decryptProtectedField,
+    version: chrome.runtime.getManifest().version,
+  });
 }
 
 const settings = new Settings();
