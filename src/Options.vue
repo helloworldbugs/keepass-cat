@@ -28,6 +28,12 @@
           id="/advanced"
           :settings="services.settings"
         />
+        <external-access
+          v-if="show.externalAccess.visible"
+          id="/external-access"
+          :ext-access="services.extAccess"
+          :secure-cache="services.secureCacheMemory"
+        />
       </div>
     </div>
   </div>
@@ -50,7 +56,9 @@ import OptionsStartup from '@/components/OptionsStartup.vue';
 import ManageDatabases from '@/components/ManageDatabases.vue';
 import ManageKeyfiles from '@/components/ManageKeyfiles.vue';
 import AdvancedSettings from '@/components/AdvancedSettings.vue';
+import ExternalAccess from '@/components/ExternalAccess.vue';
 import SvgDefs from '@/components/SvgDefs.vue';
+import { ExtAccess } from '$services/extAccess.js';
 
 const protectedMemory = new ProtectedMemory();
 const secureCacheMemory = new SecureCacheMemory(protectedMemory);
@@ -76,6 +84,7 @@ export default {
     ManageDatabases,
     ManageKeyfiles,
     AdvancedSettings,
+    ExternalAccess,
     SvgDefs,
   },
   data() {
@@ -89,6 +98,7 @@ export default {
         webdavFileManager,
         localFileManager,
         passwordFileStoreRegistry,
+        extAccess: new ExtAccess(),
       },
       show: {
         startup: {
@@ -102,6 +112,9 @@ export default {
         },
         advanced: {
           visble: false,
+        },
+        externalAccess: {
+          visible: false,
         },
       },
     };
@@ -128,6 +141,11 @@ export default {
         route: '/advanced',
         name: 'Advanced',
         var: this.show.advanced,
+      },
+      {
+        route: '/external-access',
+        name: 'External Access',
+        var: this.show.externalAccess,
       },
     ]);
     this.routes = this.$router.routes; // HACK since Vue doesn't notice changes in
