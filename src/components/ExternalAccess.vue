@@ -24,14 +24,85 @@ export default {
       guideName: '',
       guideText: '',
       copiedHint: false,
+      nameError: '',
       busyId: '',
-      ttlOptions: [7, 14, 30],
+      ttlOptions: [3600, 28800, 86400, 259200, 604800, 1209600, 2592000],
+      status: {
+        connected: false,
+        authenticated: false,
+        clientId: '',
+        clientName: '',
+        connectedAt: 0,
+        lastRequestAt: 0,
+        error: '',
+      },
+      // Ticks once a second so the "connected for" counter keeps moving; the
+      // underlying status itself arrives pushed from storage.
+      now: Date.now(),
+      ticker: null,
+      statusListener: null,
     };
+  },
+  computed: {
+    statusText() {
+      if (!this.config || !this.config.enabled) return this.$t('External access is off');
+      if (!this.status.connected) return this.$t('Waiting for the MCP bridge');
+      if (!this.status.authenticated) return this.$t('Connected, waiting for authentication');
+      const name = this.status.clientName || this.$t('an unknown client');
+      return this.$t('Connected by {0}', name);
+    },
+    statusDetail() {
+      if (!this.status.connected || !this.status.authenticated) return '';
+      if (!this.status.connectedAt) return '';
+      return this.$t('for {0}', this.duration(this.now - this.status.connectedAt));
+    },
+    statusClass() {
+      if (!this.config || !this.config.enabled) return 'off';
+      if (this.status.connected && this.status.authenticated) return 'online';
+      if (this.status.connected) return 'pending';
+      return 'offline';
+    },
   },
   mounted() {
     this.reload();
+    this.loadStatus();
+    // Real-time: the background rewrites the status blob whenever the socket
+    // opens, closes or authenticates, and storage.onChanged delivers it here.
+    this.statusListener = (changes, area) => {
+      if (area === 'session' && changes.extAccessStatus) {
+        this.status = Object.assign({}, this.status, changes.extAccessStatus.newValue || {});
+      }
+      if (area === 'local' && changes.extAccessClients) {
+        this.clients = changes.extAccessClients.newValue || [];
+      }
+    };
+    chrome.storage.onChanged.addListener(this.statusListener);
+    this.ticker = setInterval(() => {
+      this.now = Date.now();
+    }, 1000);
+  },
+  beforeDestroy() {
+    if (this.statusListener) chrome.storage.onChanged.removeListener(this.statusListener);
+    if (this.ticker) clearInterval(this.ticker);
   },
   methods: {
+    async loadStatus() {
+      this.status = await this.extAccess.getStatus();
+    },
+    duration(ms) {
+      const total = Math.max(0, Math.floor(ms / 1000));
+      const h = Math.floor(total / 3600);
+      const m = Math.floor((total % 3600) / 60);
+      const s = total % 60;
+      if (h) return this.$t('{0}h {1}m', h, m);
+      if (m) return this.$t('{0}m {1}s', m, s);
+      return this.$t('{0}s', s);
+    },
+    ttlLabel(seconds) {
+      if (seconds < 86400) return this.$t('{0} hours', seconds / 3600);
+      const days = seconds / 86400;
+      return days === 1 ? this.$t('1 day') : this.$t('{0} days', days);
+    },
     async reload() {
       this.config = await this.extAccess.getConfig();
       this.clients = await this.extAccess.listClients();
@@ -85,7 +156,7 @@ export default {
       this.save({ groupIds: ids });
     },
     saveTtl() {
-      this.save({ tokenTtlDays: this.config.tokenTtlDays });
+      this.save({ tokenTtlSeconds: this.config.tokenTtlSeconds });
     },
     savePort() {
       let port = parseInt(this.config.port, 10);
@@ -109,7 +180,14 @@ export default {
       return on.join(', ');
     },
     async generateGuide() {
-      const name = (this.guideName || '').trim() || 'AI client';
+      const name = (this.guideName || '').trim();
+      // A client without a name would be indistinguishable in the list and in the
+      // audit log, so the form refuses to continue without one.
+      if (!name) {
+        this.nameError = this.$t('A client name is required');
+        return;
+      }
+      this.nameError = '';
       const { code } = await this.extAccess.createBootstrap(name);
       const bridgeUrl = 'https://raw.githubusercontent.com/helloworldbugs/keepass-cat/main/bridge/keepass-cat-mcp.mjs';
       const lines = [
@@ -161,6 +239,27 @@ export default {
       if (client.expiresAt && client.expiresAt < Date.now()) return this.$t('expired');
       return this.$t('active');
     },
+    isInactive(client) {
+      if (client.revokedAt) return true;
+      return !!(client.expiresAt && client.expiresAt < Date.now());
+    },
+    inactiveCount() {
+      return this.clients.filter((c) => this.isInactive(c)).length;
+    },
+    // Only inactive records can be removed; revoking is the way to retire a live
+    // one, and that keeps the audit trail honest.
+    async removeClient(client) {
+      this.busyId = client.id;
+      await this.extAccess.removeClient(client.id);
+      this.clients = await this.extAccess.listClients();
+      this.busyId = '';
+    },
+    async purgeInactive() {
+      this.busyId = 'purge';
+      await this.extAccess.purgeInactiveClients();
+      this.clients = await this.extAccess.listClients();
+      this.busyId = '';
+    },
     async exportAudit() {
       const rows = this.audit.map((r) => ({
         time: new Date(r.ts).toISOString(),
@@ -201,6 +300,12 @@ export default {
           <span class="switch-text">{{ $t('Enable external access') }}</span>
         </label>
       </div>
+      <div class="live-status" :class="statusClass">
+        <i class="fa fa-circle" />
+        <span class="status-main">{{ statusText }}</span>
+        <span v-if="statusDetail" class="status-detail">{{ statusDetail }}</span>
+      </div>
+      <p v-if="status.error" class="totp-note">{{ $t('Last session ended:') }} {{ status.error }}</p>
     </div>
 
     <template v-if="config.enabled">
@@ -275,9 +380,9 @@ export default {
       <div class="box-bar roomy lighter">
         <div class="field-row">
           <span class="field-label">{{ $t('Token lifetime') }}</span>
-          <select v-model.number="config.tokenTtlDays" @change="saveTtl">
-            <option v-for="d in ttlOptions" :key="d" :value="d">
-              {{ $t('{0} days', d) }}
+          <select v-model.number="config.tokenTtlSeconds" @change="saveTtl">
+            <option v-for="s in ttlOptions" :key="s" :value="s">
+              {{ ttlLabel(s) }}
             </option>
           </select>
         </div>
@@ -311,12 +416,15 @@ export default {
           <input
             v-model="guideName"
             type="text"
+            :class="{ invalid: nameError }"
             :placeholder="$t('Client name, e.g. Claude Code')"
+            @input="nameError = ''"
           >
-          <button class="btn" @click="generateGuide">
+          <button class="btn" :disabled="!guideName.trim()" @click="generateGuide">
             {{ copiedHint ? $t('Copied!') : $t('Generate guide and copy') }}
           </button>
         </div>
+        <p v-if="nameError" class="totp-note error-text">{{ nameError }}</p>
         <p class="totp-note">
           {{ $t('Paste the guide to the AI; it configures its own MCP server. The pairing code in it expires in 15 minutes and works once - the long-lived token is created on first contact and never appears in the chat.') }}
         </p>
@@ -327,7 +435,16 @@ export default {
         <h4>{{ $t('Paired clients') }}</h4>
       </div>
       <div class="box-bar roomy lighter" v-if="clients.length">
-        <div v-for="client in clients" :key="client.id" class="client-row" :class="{ inactive: client.revokedAt || (client.expiresAt && client.expiresAt < Date.now()) }">
+        <div class="clients-head">
+          <button
+            class="btn btn-small"
+            :disabled="!inactiveCount() || busyId === 'purge'"
+            @click="purgeInactive"
+          >
+            {{ $t('Remove inactive records') }}
+          </button>
+        </div>
+        <div v-for="client in clients" :key="client.id" class="client-row" :class="{ inactive: isInactive(client) }">
           <div class="client-main">
             <span class="client-name">{{ client.name }}</span>
             <span class="client-state">{{ clientState(client) }}</span>
@@ -335,12 +452,22 @@ export default {
           <div class="client-sub">
             {{ $t('paired') }} {{ fmtTime(client.createdAt) }} · {{ $t('expires') }} {{ fmtTime(client.expiresAt) }} · {{ $t('last used') }} {{ fmtTime(client.lastUsedAt) }}
           </div>
-          <div class="client-actions" v-if="!client.revokedAt">
-            <button class="btn btn-small" :disabled="busyId === client.id" @click="regenerate(client)">
-              {{ $t('Re-pair') }}
-            </button>
-            <button class="btn btn-small" :disabled="busyId === client.id" @click="revoke(client)">
-              {{ $t('Revoke') }}
+          <div class="client-actions">
+            <template v-if="!isInactive(client)">
+              <button class="btn btn-small" :disabled="busyId === client.id" @click="regenerate(client)">
+                {{ $t('Re-pair') }}
+              </button>
+              <button class="btn btn-small" :disabled="busyId === client.id" @click="revoke(client)">
+                {{ $t('Revoke') }}
+              </button>
+            </template>
+            <button
+              v-else
+              class="btn btn-small"
+              :disabled="busyId === client.id"
+              @click="removeClient(client)"
+            >
+              {{ $t('Delete record') }}
             </button>
           </div>
         </div>
@@ -486,6 +613,44 @@ export default {
     margin-top: 6px;
     display: flex;
     gap: 8px;
+  }
+  .clients-head {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 6px;
+  }
+  // Live bridge state: a dot plus one line, updated as the socket changes.
+  .live-status {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 13px;
+    .fa {
+      font-size: 9px;
+    }
+    &.online .fa {
+      color: #2e9e4f;
+    }
+    &.pending .fa {
+      color: #d09b1c;
+    }
+    &.offline .fa {
+      color: var(--keepass-cat-text-subtle);
+    }
+    .status-main {
+      font-weight: 600;
+    }
+    .status-detail {
+      color: var(--keepass-cat-text-subtle);
+      font-size: 12px;
+    }
+  }
+  .error-text {
+    color: var(--keepass-cat-delete-hover);
+  }
+  input.invalid {
+    border-color: var(--keepass-cat-delete-hover);
   }
   .audit-actions {
     display: flex;

@@ -408,6 +408,22 @@ const zhCN: Record<string, string> = {
   '3. Then call the keepass_status tool and tell me the result.': '3. 完成后调用 keepass_status 工具，把结果告诉我。',
   'This access is read-only; I granted these scopes:': '这个接口是只读的，我授权的权限范围是：',
   'When the vault is locked, tools answer "locked" - just tell me to unlock it.': '密码库锁定时工具会返回 locked，请直接告诉我去解锁。',
+  // Live status, name requirement, TTL options, record cleanup
+  'External access is off': '外部访问已关闭',
+  'Waiting for the MCP bridge': '等待 MCP 桥接连接',
+  'Connected, waiting for authentication': '已连接，等待认证',
+  'Connected by {0}': '已连接：{0}',
+  'an unknown client': '未知客户端',
+  'for {0}': '已持续 {0}',
+  'Last session ended:': '上次会话结束：',
+  'A client name is required': '请填写客户端名称',
+  '{0} hours': '{0} 小时',
+  '1 day': '1 天',
+  '{0}h {1}m': '{0} 小时 {1} 分',
+  '{0}m {1}s': '{0} 分 {1} 秒',
+  '{0}s': '{0} 秒',
+  'Remove inactive records': '清除已失效记录',
+  'Delete record': '删除记录',
 };
 
 export default zhCN;
