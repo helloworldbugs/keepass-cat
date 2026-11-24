@@ -350,7 +350,9 @@ const zhCN: Record<string, string> = {
   'Unnamed OTP': '未命名 OTP',
   // External access (local AI bridge)
   'External Access': '外部访问',
-  'Let local AI tools (DeepSeek Harness, opencode, codex, Claude Code) read from the vault through a local MCP bridge. Everything is decided on this page; there is no per-request approval.': '让本地 AI 工具（DeepSeek Harness、opencode、codex、Claude Code）通过本地 MCP 桥接读取密码库。所有权限都在本页一次配好，没有逐条请求的人工审批。',
+  'Let local AI tools (CodeX, Claude Code, DeepSeek Harness and more) read from the vault through a local MCP bridge.': '让本地 AI 工具（CodeX、Claude Code、DeepSeek Harness 等）通过本地 MCP 桥接读取密码库。',
+  'Guide copied. Paste it to the AI to finish pairing.': '接入指引已复制，粘贴给 AI 即可完成配对。',
+  'Copy failed - select the text below and copy it by hand.': '复制失败——请手动选中下方文本复制。',
   'Enable external access': '启用外部访问',
   'Scopes': '权限范围',
   'scope.groups': '分组结构',

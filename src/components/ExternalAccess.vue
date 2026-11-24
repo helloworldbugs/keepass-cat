@@ -25,6 +25,8 @@ export default {
       guideText: '',
       copiedHint: false,
       nameError: '',
+      toast: '',
+      toastTimer: null,
       busyId: '',
       ttlOptions: [3600, 28800, 86400, 259200, 604800, 1209600, 2592000],
       status: {
@@ -73,7 +75,11 @@ export default {
         this.status = Object.assign({}, this.status, changes.extAccessStatus.newValue || {});
       }
       if (area === 'local' && changes.extAccessClients) {
+        // A new client appears the moment pairing completes, without a reload.
         this.clients = changes.extAccessClients.newValue || [];
+      }
+      if (area === 'local' && changes.extAccessAudit) {
+        this.audit = changes.extAccessAudit.newValue || [];
       }
     };
     chrome.storage.onChanged.addListener(this.statusListener);
@@ -84,6 +90,7 @@ export default {
   beforeDestroy() {
     if (this.statusListener) chrome.storage.onChanged.removeListener(this.statusListener);
     if (this.ticker) clearInterval(this.ticker);
+    if (this.toastTimer) clearTimeout(this.toastTimer);
   },
   methods: {
     async loadStatus() {
@@ -211,9 +218,16 @@ export default {
         await navigator.clipboard.writeText(this.guideText);
         this.copiedHint = true;
         setTimeout(() => (this.copiedHint = false), 2000);
+        this.showToast(this.$t('Guide copied. Paste it to the AI to finish pairing.'));
       } catch (e) {
         // Clipboard unavailable: the text stays on screen for manual copying.
+        this.showToast(this.$t('Copy failed - select the text below and copy it by hand.'));
       }
+    },
+    showToast(text) {
+      this.toast = text;
+      if (this.toastTimer) clearTimeout(this.toastTimer);
+      this.toastTimer = setTimeout(() => (this.toast = ''), 2200);
     },
     async revoke(client) {
       this.busyId = client.id;
@@ -288,7 +302,7 @@ export default {
     <div class="box-bar roomy">
       <h4>{{ $t('External Access') }}</h4>
       <p>
-        {{ $t('Let local AI tools (DeepSeek Harness, opencode, codex, Claude Code) read from the vault through a local MCP bridge. Everything is decided on this page; there is no per-request approval.') }}
+        {{ $t('Let local AI tools (CodeX, Claude Code, DeepSeek Harness and more) read from the vault through a local MCP bridge.') }}
       </p>
     </div>
 
@@ -300,12 +314,19 @@ export default {
           <span class="switch-text">{{ $t('Enable external access') }}</span>
         </label>
       </div>
-      <div class="live-status" :class="statusClass">
+    </div>
+
+    <!-- Its own row, large enough to read at a glance: the point of the page is
+         knowing who is in the vault right now. -->
+    <div class="box-bar roomy status-bar" :class="statusClass">
+      <div class="live-status">
         <i class="fa fa-circle" />
-        <span class="status-main">{{ statusText }}</span>
-        <span v-if="statusDetail" class="status-detail">{{ statusDetail }}</span>
+        <div class="status-text">
+          <span class="status-main">{{ statusText }}</span>
+          <span v-if="statusDetail" class="status-detail">{{ statusDetail }}</span>
+          <div v-if="status.error" class="status-error">{{ $t('Last session ended:') }} {{ status.error }}</div>
+        </div>
       </div>
-      <p v-if="status.error" class="totp-note">{{ $t('Last session ended:') }} {{ status.error }}</p>
     </div>
 
     <template v-if="config.enabled">
@@ -508,6 +529,9 @@ export default {
         </table>
       </div>
     </template>
+    <transition name="toast">
+      <div v-if="toast" class="copy-toast bar-hint is-floating">{{ toast }}</div>
+    </transition>
   </div>
 </template>
 
@@ -619,31 +643,49 @@ export default {
     justify-content: flex-end;
     margin-bottom: 6px;
   }
-  // Live bridge state: a dot plus one line, updated as the socket changes.
-  .live-status {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    margin-top: 10px;
-    font-size: 13px;
-    .fa {
-      font-size: 9px;
+  // Live bridge state, on its own row and big enough to read at a glance:
+  // knowing who is in the vault right now is the point of the page.
+  .status-bar {
+    border-left: 4px solid $light-gray;
+    &.online {
+      border-left-color: #2e9e4f;
+      .fa {
+        color: #2e9e4f;
+      }
     }
-    &.online .fa {
-      color: #2e9e4f;
-    }
-    &.pending .fa {
-      color: #d09b1c;
+    &.pending {
+      border-left-color: #d09b1c;
+      .fa {
+        color: #d09b1c;
+      }
     }
     &.offline .fa {
       color: var(--keepass-cat-text-subtle);
     }
+  }
+  .live-status {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    .fa {
+      font-size: 14px;
+    }
     .status-main {
+      display: block;
+      font-size: 16px;
       font-weight: 600;
+      line-height: 1.3;
     }
     .status-detail {
+      display: block;
+      color: var(--keepass-cat-text-subtle);
+      font-size: 13px;
+      margin-top: 2px;
+    }
+    .status-error {
       color: var(--keepass-cat-text-subtle);
       font-size: 12px;
+      margin-top: 4px;
     }
   }
   .error-text {
@@ -651,6 +693,16 @@ export default {
   }
   input.invalid {
     border-color: var(--keepass-cat-delete-hover);
+  }
+  // Transient confirmation for the guide copy: the same floating strip the
+  // popup uses, so feedback does not depend on reading the button label.
+  .copy-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    z-index: 50;
+    border-radius: 4px;
   }
   .audit-actions {
     display: flex;
