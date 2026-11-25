@@ -152,12 +152,16 @@ function sendToExtension(object) {
  * arriving in that window would otherwise fail for no better reason than timing.
  *
  * A request therefore waits for the connection instead of assuming it: up to
- * RETRY_ATTEMPTS polls, one second apart. Only the "not connected yet" case is
- * retried; a request that was actually written and then timed out is NOT resent,
- * because the extension may have executed it already.
+ * RETRY_ATTEMPTS polls, RETRY_DELAY_MS apart (10 x 5s = 50s, comfortably longer
+ * than one keepalive period). Only the "not connected yet" case is retried; a
+ * request that was actually written and then timed out is NOT resent, because the
+ * extension may have executed it already.
+ *
+ * The caller's own tool-call timeout must exceed RETRY_ATTEMPTS * RETRY_DELAY_MS
+ * plus REQUEST_TIMEOUT_MS, or it would abort the call while this is still waiting.
  */
 const RETRY_ATTEMPTS = 10;
-const RETRY_DELAY_MS = 1000;
+const RETRY_DELAY_MS = 5000;
 
 function waitForExtension(attempt) {
   if (extensionSocket && extensionAuthed) return Promise.resolve();
