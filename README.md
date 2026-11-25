@@ -26,6 +26,7 @@ English | [中文](README_CN.md)
     - [🕐 Expiry and Expired Entries](#-expiry-and-expired-entries)
     - [📁 Group Management](#-group-management)
     - [🔐 OTP Two-Factor Authentication](#-otp-two-factor-authentication)
+    - [🤖 External Access (local AI via MCP)](#-external-access-local-ai-via-mcp)
   - [⌨️ Keyboard Shortcuts](#️-keyboard-shortcuts)
   - [🧠 4-Level URL Matching](#-4-level-url-matching)
     - [Matching Levels](#matching-levels)
@@ -69,6 +70,8 @@ English | [中文](README_CN.md)
 | 🔑 **Key File Manager** | Create or import key files in the extension and reuse them across databases |
 | 🧩 **Custom Fields** | Arbitrary per-entry name/value fields with an optional **Protect** flag, stored as KDBX protected strings |
 | 📂 **Group Management** | Create, rename, and delete groups; move entries between groups |
+| 🗑 **Recycle Bin** | Deletes go to the database's own recycle bin: restore to the original group, inspect deleted groups, delete permanently or empty it; can be switched off |
+| 🤖 **External Access** | Local AI tools (CodeX, Claude Code, DeepSeek Harness) read the unlocked vault through a local MCP bridge: one-time pairing codes, per-scope permissions, OTP codes without secrets, immediate revocation, live connection status and an audit log |
 | 🔐 **OTP 2FA** | One-click copy of OTP codes (with countdown), with edit support (`otpauth://`) |
 | 🔄 **WebDAV Sync** | WebDAV cloud sync (Jianguoyun / Nextcloud and other self-hosted services), auto-writes changes back |
 | 📄 **Local File** *(Chrome only)* | Open a `.kdbx` file from your computer and read/write it in place (File System Access API); no upload, and external changes are detected before saving |
@@ -296,14 +299,15 @@ Some login pages show only the username and reveal the password after a **Next**
 
 ## 🤖 External Access (local AI via MCP)
 
-Local AI tools — DeepSeek Harness, opencode, codex, Claude Code — can read from the vault through a small MCP bridge, configured once in **Settings → External Access**:
+Local AI tools — CodeX, Claude Code, DeepSeek Harness — can read from the vault through a small MCP bridge, configured once in **Settings → External Access** (off by default):
 
-- The bridge (`bridge/keepass-cat-mcp.mjs`, zero-dependency Node script) runs a loopback WebSocket server; the extension dials out to it (extensions cannot listen on sockets)
+- The bridge (`bridge/keepass-cat-mcp.mjs`, a zero-dependency Node script) runs a loopback WebSocket server; the extension dials out to it (extensions cannot listen on sockets), and the bridge waits briefly for a reconnect instead of failing a call while the MV3 worker recycles
 - Pairing is a **one-time code** that expires in 15 minutes: the long-lived token is created on first contact and never appears in the chat you paste the guide into
 - Scopes are decided up front: group structure / entry metadata / **current OTP codes** / passwords + notes, each individually switchable, plus an optional group allow-list
 - **OTP tools only ever return the current code — the OTP secret is never exposed**
-- Tokens live at most 30 days, every client can be revoked individually, and a 500-entry audit log records every request
-- Read-only by design; write methods are reserved for a future version
+- Token lifetime is 1 hour – 30 days (7 days by default); revoking a client kills its live connection immediately, and an expired token is dropped within 30 seconds
+- The page shows the live connection in real time, and a 500-entry audit ring records every request (repeats collapse into a counter; the table shows the newest 20, export for the rest)
+- Read-only by design with a configurable rate limit (60/min by default); write methods are reserved for a future version
 
 ---
 
