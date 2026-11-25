@@ -1,6 +1,6 @@
 # Chrome Web Store Listing — Keepass Cat
 
-> Last Updated: 2026-11-24
+> Last Updated: 2026-11-25
 > Single source of truth for the Chrome Web Store (and, where noted, Firefox AMO) listing.
 >
 > **Maintenance:** update this file whenever `scripts/manifest.ts` gains or loses a
@@ -172,6 +172,7 @@ https://github.com/helloworldbugs/keepass-cat
 
 | Version | Date | Changes | Status |
 |---------|------|---------|--------|
+| 1.5.0 | 2026-11-25 | External Access: local AI tools (CodeX, Claude Code, DeepSeek Harness) can read from the unlocked vault through a local MCP bridge, off by default and configured once in a new settings tab. Pairing uses a one-time 15-minute code so the long-lived token never appears in the chat; scopes (groups / entry metadata / current OTP codes / passwords+notes), an optional group allow-list, a 7/14/30-day token lifetime (1h-30d), per-client revoke that takes effect immediately, a 60/min rate limit and a 500-entry audit log bound every request. OTP only ever returns the current code, never the secret. The page shows the live connection in real time and the bridge waits briefly for the extension to reconnect instead of failing | Submitted |
 | 1.4.11 | 2026-11-24 | A page using a third-party widget frame such as Cloudflare Turnstile no longer matches that widget's own saved login: frames now count for matching, the popup list, the badge and the shortcut only when they actually hold a fillable username or password field, so the badge and the popup agree again. The recycle bin row now stays visible even when every entry lives in sub-groups, and an internal error path and two pieces of dead code are cleaned up | Submitted |
 | 1.4.10 | 2026-11-12 | Searching the database leaves the recycle bin out entirely: it is not searched, and its row is hidden while a term is in the box, so it can no longer show a count that has nothing to do with the query. When a search matches nothing, both the database view and the match list now end with a "No matching entries." strip, drawn with the same floating bar as the status toast so the popup does not grow | Published |
 | 1.4.9 | 2026-11-12 | Recycle bin polish: deleted entries keep the normal row (only restore and permanent delete replace the action buttons), a deleted group opens to show what it still holds and its entries can be restored one by one, a closed group stays closed after a delete instead of springing open, the bin's count updates as soon as a group lands in it, and every row lines up with its group name and keeps the hover slide. Searching now opens the parents of a match, a save reports for one second before returning, and a custom field that fails validation blocks the save with the reason instead of being silently dropped | Published |
