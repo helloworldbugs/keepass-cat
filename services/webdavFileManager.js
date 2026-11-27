@@ -283,14 +283,13 @@ function WebdavFileManager(settings) {
       return settings.getSetWebdavServerList().then((serverList) => {
         serverList = serverList.length ? serverList : [];
         let matches = serverList.filter((elem, i, a) => {
-          return (
-            elem.url == serverInfo.url &&
-            elem.username == serverInfo.username &&
-            elem.password == serverInfo.password
-          );
+          return elem.url == serverInfo.url && elem.username == serverInfo.username;
         });
         if (matches.length == 1) {
-          return matches[0].serverId;
+          // Same account: update the password in place so its serverId (and the
+          // database chosen from it) stays valid.
+          matches[0].password = serverInfo.password;
+          return settings.getSetWebdavServerList(serverList).then(() => matches[0]);
         } else {
           let newId = guid();
           serverInfo['serverId'] = newId;
@@ -345,6 +344,12 @@ function WebdavFileManager(settings) {
           delete dirMap[serverId];
           return settings.getSetWebdavDirectoryMap(dirMap);
         });
+      })
+      .then(() => settings.getCurrentDatabaseChoice())
+      .then((choice) => {
+        // Otherwise the selection points at a server that is gone: "Database no longer exists".
+        if (choice && choice.providerKey === 'webdav' && choice.passwordFile.serverId === serverId)
+          return settings.disableDatabaseProvider(exports);
       });
   }
 
