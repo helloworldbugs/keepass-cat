@@ -704,6 +704,9 @@ function Background(protectedMemory, localMemory, settings) {
           }
         }).catch(function() {});
       } else {
+        // Not "forever": no vault copy may stay in local storage (older builds wrote
+        // one on every edit, and the popup opened it without the master password).
+        localMemory.clearData('secureCache.entries').catch(function () {});
         // The vault is locked now: stamp the cross instead of leaving the last
         // match count (or a blank badge) behind on every tab.
         protectedMemory

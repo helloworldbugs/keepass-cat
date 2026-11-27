@@ -89,12 +89,25 @@ function SecureCacheMemory(protectedMemory) {
   };
 
   exports.save = function (key, value, storageType) {
+    // The vault copy in local storage survives a browser restart and the popup opens
+    // it without asking for the master password: only "remember forever" (-2) keeps one.
+    if (storageType === 'local' && key === 'secureCache.entries') {
+      return new Promise(function (resolve) {
+        chrome.storage.local.get('rememberPeriod', resolve);
+      }).then(function (items) {
+        if (items && items.rememberPeriod === -2) return post(key, value, storageType);
+      });
+    }
+    return post(key, value, storageType);
+  };
+
+  function post(key, value, storageType) {
     return getPort().then(function (p) {
       if (!p) return;
       var serializedValue = protectedMemory.serialize(value);
       p.postMessage({ action: 'save', key: key, value: serializedValue, storageType: storageType || 'session' });
     });
-  };
+  }
 
   exports.forgetStuff = function () {
     return getPort().then(function (p) {
